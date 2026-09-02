@@ -2,22 +2,19 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Company } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
 type SearchParams = { show?: string; sort?: string };
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "newest", label: "Newest first" },
-  { key: "oldest", label: "Oldest first" },
-  { key: "name_asc", label: "Name A → Z" },
-  { key: "name_desc", label: "Name Z → A" },
-];
+const SORT_KEYS: SortKey[] = ["newest", "oldest", "name_asc", "name_desc"];
 
 export default async function CompaniesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { t } = await getT();
+  const sortLabelFor = (k: SortKey) => t(`sort.${k}` as MessageKey);
   const includeDeleted = searchParams.show === "archived";
-  const sort: SortKey = (SORT_OPTIONS.find((o) => o.key === searchParams.sort)?.key ?? "newest") as SortKey;
+  const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "newest") as SortKey;
 
   let query = supabase
     .from("companies")
@@ -47,7 +44,7 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
     return s ? `/companies?${s}` : "/companies";
   }
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Newest first";
+  const sortLabel = sortLabelFor(sort);
 
   return (
     <div className="max-w-[1400px]">
@@ -75,7 +72,7 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
       <div className="flex items-center gap-2 mb-3 text-[12px]">
         <div className="inline-flex items-center gap-1.5 text-[var(--muted)]">
           <IconBuilding />
-          <span className="font-medium text-ink">All companies</span>
+          <span className="font-medium text-ink">{t("toolbar.all_companies")}</span>
           <span className="text-[var(--muted)]">·</span>
           <span>{rows.length}</span>
         </div>
@@ -84,14 +81,14 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
         <details className="relative">
           <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
-            <span>Sorted by <span className="text-ink font-medium">{sortLabel}</span></span>
+            <span>{t("toolbar.sorted_by_prefix")} <span className="text-ink font-medium">{sortLabel}</span></span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[220px] bg-white rounded-lg shadow-lg border border-[var(--border)] py-1">
-            {SORT_OPTIONS.map((opt) => (
-              <Link key={opt.key} href={hrefWith({ sort: opt.key })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === opt.key ? "text-brand-dark font-medium" : "text-ink"}`}>
-                {opt.label}
-                {sort === opt.key && <span className="text-brand">✓</span>}
+            {SORT_KEYS.map((k) => (
+              <Link key={k} href={hrefWith({ sort: k })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === k ? "text-brand-dark font-medium" : "text-ink"}`}>
+                {sortLabelFor(k)}
+                {sort === k && <span className="text-brand">✓</span>}
               </Link>
             ))}
           </div>
@@ -99,11 +96,11 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
 
         <div className="ml-auto flex items-center gap-3">
           <span className="text-[var(--muted)]">
-            <span className="text-ink font-medium num">{activeCount}</span> active
+            <span className="text-ink font-medium num">{activeCount}</span> {t("toolbar.active_word")}
             {includeDeleted && (
               <>
                 <span className="mx-1.5 opacity-40">·</span>
-                <span className="text-[var(--muted)] num">{archivedCount}</span> archived
+                <span className="text-[var(--muted)] num">{archivedCount}</span> {t("toolbar.archived_word")}
               </>
             )}
           </span>
@@ -122,15 +119,15 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
-          <HeadCell icon={<IconHash />} label="Code" href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
-          <HeadCell icon={<IconBuilding />} label="Name" href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconDoc />} label="NIB" />
-          <HeadCell icon={<IconCal />} label="Incorporated" />
+          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
+          <HeadCell icon={<IconBuilding />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
+          <HeadCell icon={<IconDoc />} label={t("field.nib")} />
+          <HeadCell icon={<IconCal />} label={t("col.incorporated")} />
         </div>
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
-            No companies yet. <Link href="/companies/new" className="text-brand hover:text-brand-dark font-medium">Add your first one →</Link>
+            {t("empty.no_companies")} <Link href="/companies/new" className="text-brand hover:text-brand-dark font-medium">{t("empty.add_first")}</Link>
           </div>
         ) : (
           rows.map((c) => (
@@ -147,7 +144,7 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
                 </span>
                 <span className="text-ink font-medium truncate group-hover/name:text-brand-dark">{c.name}</span>
                 {c.deleted_at && (
-                  <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">archived</span>
+                  <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">{t("badge.archived")}</span>
                 )}
               </Link>
               <div className="font-mono text-[11.5px] text-[var(--muted)] truncate">{c.nib ?? "—"}</div>
@@ -158,8 +155,8 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
       </div>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
-        {rows.length} {rows.length === 1 ? "company" : "companies"}
-        {rows.length === 200 && " · showing first 200"}
+        {t("list.count.companies", { n: rows.length })}
+        {rows.length === 200 && ` · ${t("common.showing_first", { n: 200 })}`}
       </div>
     </div>
   );

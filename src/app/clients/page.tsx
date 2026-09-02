@@ -2,22 +2,19 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Client } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
 type SearchParams = { show?: string; sort?: string; nationality?: string; channel?: string };
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "newest", label: "Newest first" },
-  { key: "oldest", label: "Oldest first" },
-  { key: "name_asc", label: "Name A → Z" },
-  { key: "name_desc", label: "Name Z → A" },
-];
+const SORT_KEYS: SortKey[] = ["newest", "oldest", "name_asc", "name_desc"];
 
 export default async function ClientsListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { t } = await getT();
   const includeDeleted = searchParams.show === "archived";
-  const sort: SortKey = (SORT_OPTIONS.find((o) => o.key === searchParams.sort)?.key ?? "newest") as SortKey;
+  const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "newest") as SortKey;
+  const sortLabelFor = (k: SortKey) => t(`sort.${k}` as MessageKey);
   const filterNationality = (searchParams.nationality ?? "").trim();
   const filterChannel = (searchParams.channel ?? "").trim();
 
@@ -68,7 +65,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
     return s ? `/clients?${s}` : "/clients";
   }
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Newest first";
+  const sortLabel = sortLabelFor(sort);
   const activeFilterCount = (filterNationality ? 1 : 0) + (filterChannel ? 1 : 0);
 
   return (
@@ -98,7 +95,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
       <div className="flex items-center gap-2 mb-3 text-[12px]">
         <div className="inline-flex items-center gap-1.5 text-[var(--muted)]">
           <IconClients />
-          <span className="font-medium text-ink">All clients</span>
+          <span className="font-medium text-ink">{t("toolbar.all_clients")}</span>
           <span className="text-[var(--muted)]">·</span>
           <span>{rows.length}</span>
         </div>
@@ -111,18 +108,18 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 6h18M6 12h12M10 18h4" />
             </svg>
-            <span>Sorted by <span className="text-ink font-medium">{sortLabel}</span></span>
+            <span>{t("toolbar.sorted_by_prefix")} <span className="text-ink font-medium">{sortLabel}</span></span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[180px] bg-white rounded-lg shadow-lg border border-[var(--border)] py-1">
-            {SORT_OPTIONS.map((opt) => (
+            {SORT_KEYS.map((k) => (
               <Link
-                key={opt.key}
-                href={hrefWith({ sort: opt.key })}
-                className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === opt.key ? "text-brand-dark font-medium" : "text-ink"}`}
+                key={k}
+                href={hrefWith({ sort: k })}
+                className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === k ? "text-brand-dark font-medium" : "text-ink"}`}
               >
-                {opt.label}
-                {sort === opt.key && <span className="text-brand text-[13px]">✓</span>}
+                {sortLabelFor(k)}
+                {sort === k && <span className="text-brand text-[13px]">✓</span>}
               </Link>
             ))}
           </div>
@@ -134,7 +131,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 3H2l8 9v7l4 2v-9l8-9z" />
             </svg>
-            <span>Filter</span>
+            <span>{t("toolbar.filter")}</span>
             {activeFilterCount > 0 && (
               <span className="ml-1 bg-brand text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">
                 {activeFilterCount}
@@ -144,13 +141,13 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[240px] bg-white rounded-lg shadow-lg border border-[var(--border)] p-3 space-y-3">
             <div>
-              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">Nationality</div>
+              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.nationality")}</div>
               <div className="max-h-[220px] overflow-y-auto -mx-1">
                 <Link
                   href={hrefWith({ nationality: undefined })}
                   className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!filterNationality ? "text-brand-dark font-medium" : "text-ink"}`}
                 >
-                  Any nationality
+                  {t("toolbar.any_nationality")}
                 </Link>
                 {nationalities.map((n) => (
                   <Link
@@ -164,21 +161,21 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
               </div>
             </div>
             <div className="border-t border-[var(--border)] pt-3">
-              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">Channel</div>
+              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.channel")}</div>
               <div className="-mx-1">
                 <Link
                   href={hrefWith({ channel: undefined })}
                   className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!filterChannel ? "text-brand-dark font-medium" : "text-ink"}`}
                 >
-                  Any channel
+                  {t("toolbar.any_channel")}
                 </Link>
                 {CHANNEL_OPTIONS.map((c) => (
                   <Link
                     key={c}
                     href={hrefWith({ channel: c })}
-                    className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] capitalize ${filterChannel === c ? "text-brand-dark font-medium" : "text-ink"}`}
+                    className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${filterChannel === c ? "text-brand-dark font-medium" : "text-ink"}`}
                   >
-                    {c.replace(/_/g, " ")}
+                    {t(`channel.${c}` as MessageKey)}
                   </Link>
                 ))}
               </div>
@@ -188,7 +185,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
                 href={hrefWith({ nationality: undefined, channel: undefined })}
                 className="block text-center text-[11.5px] text-[var(--muted)] hover:text-ink pt-1 border-t border-[var(--border)]"
               >
-                Clear filters
+                {t("toolbar.clear_filters")}
               </Link>
             )}
           </div>
@@ -203,8 +200,8 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
               </span>
             )}
             {filterChannel && (
-              <span className="inline-flex items-center gap-1 bg-brand-soft text-brand-dark px-2 py-0.5 rounded-full text-[11.5px] capitalize">
-                {filterChannel.replace(/_/g, " ")}
+              <span className="inline-flex items-center gap-1 bg-brand-soft text-brand-dark px-2 py-0.5 rounded-full text-[11.5px]">
+                {t(`channel.${filterChannel}` as MessageKey)}
                 <Link href={hrefWith({ channel: undefined })} className="opacity-70 hover:opacity-100">×</Link>
               </span>
             )}
@@ -213,11 +210,11 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
 
         <div className="ml-auto flex items-center gap-3">
           <span className="text-[var(--muted)]">
-            <span className="text-ink font-medium num">{activeCount}</span> active
+            <span className="text-ink font-medium num">{activeCount}</span> {t("toolbar.active_word")}
             {includeDeleted && (
               <>
                 <span className="mx-1.5 opacity-40">·</span>
-                <span className="text-[var(--muted)] num">{archivedCount}</span> archived
+                <span className="text-[var(--muted)] num">{archivedCount}</span> {t("toolbar.archived_word")}
               </>
             )}
           </span>
@@ -247,29 +244,29 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
-          <HeadCell icon={<IconHash />} label="Code" href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
-          <HeadCell icon={<IconUser />} label="Name" href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconGlobe />} label="Nationality" />
-          <HeadCell icon={<IconPassport />} label="Passport" />
-          <HeadCell icon={<IconPhone />} label="Phone" />
-          <HeadCell icon={<IconMail />} label="Email" />
-          <HeadCell icon={<IconChat />} label="Channel" />
+          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
+          <HeadCell icon={<IconUser />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
+          <HeadCell icon={<IconGlobe />} label={t("field.nationality")} />
+          <HeadCell icon={<IconPassport />} label={t("col.passport")} />
+          <HeadCell icon={<IconPhone />} label={t("field.phone")} />
+          <HeadCell icon={<IconMail />} label={t("field.email")} />
+          <HeadCell icon={<IconChat />} label={t("col.channel")} />
         </div>
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {activeFilterCount > 0 ? (
               <>
-                No clients match those filters.{" "}
+                {t("empty.no_clients_match")}{" "}
                 <Link href={hrefWith({ nationality: undefined, channel: undefined })} className="text-brand hover:text-brand-dark font-medium">
-                  Clear filters
+                  {t("empty.clear_link")}
                 </Link>
               </>
             ) : (
               <>
-                No clients yet.{" "}
+                {t("empty.no_clients")}{" "}
                 <Link href="/clients/new" className="text-brand hover:text-brand-dark font-medium">
-                  Add your first one →
+                  {t("empty.add_first")}
                 </Link>
               </>
             )}
@@ -299,7 +296,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
                 </span>
                 {c.deleted_at && (
                   <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">
-                    archived
+                    {t("badge.archived")}
                   </span>
                 )}
               </Link>
@@ -322,7 +319,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
                 {c.email ?? <span className="text-[var(--hint)]">—</span>}
               </div>
               <div>
-                <ChannelPill channel={c.preferred_channel} />
+                <ChannelPill channel={c.preferred_channel} label={c.preferred_channel ? t(`channel.${c.preferred_channel}` as MessageKey) : undefined} />
               </div>
             </div>
           ))
@@ -330,8 +327,8 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
       </div>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
-        {rows.length} {rows.length === 1 ? "client" : "clients"}
-        {rows.length === 200 && " · showing first 200"}
+        {t("list.count.clients", { n: rows.length })}
+        {rows.length === 200 && ` · ${t("common.showing_first", { n: 200 })}`}
       </div>
     </div>
   );
@@ -357,7 +354,7 @@ function HeadCell({ icon, label, href, sortHint }: { icon: React.ReactNode; labe
   return <div className="flex items-center gap-1.5 min-w-0">{inner}</div>;
 }
 
-function ChannelPill({ channel }: { channel?: string | null }) {
+function ChannelPill({ channel, label }: { channel?: string | null; label?: string }) {
   if (!channel) return <span className="text-[var(--hint)] text-[12px]">—</span>;
   const styles: Record<string, { bg: string; text: string; dot: string }> = {
     whatsapp:  { bg: "bg-[#DCFCE7]", text: "text-[#166534]", dot: "bg-[#22C55E]" },
@@ -367,9 +364,9 @@ function ChannelPill({ channel }: { channel?: string | null }) {
   };
   const s = styles[channel] ?? { bg: "bg-[var(--surface-2)]", text: "text-[var(--muted)]", dot: "bg-[var(--muted)]" };
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full capitalize ${s.bg} ${s.text}`}>
+    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {channel.replace(/_/g, " ")}
+      {label ?? channel.replace(/_/g, " ")}
     </span>
   );
 }
