@@ -191,7 +191,7 @@ export function CaseDetail({
               href={`https://wa.me/${client.phone.replace(/[^\d]/g, "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1EBE57] text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+              className="inline-flex items-center gap-1.5 bg-[#075E54] hover:bg-[#054841] text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg shadow-sm transition-colors"
               title={t("case.action.whatsapp_client")}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
