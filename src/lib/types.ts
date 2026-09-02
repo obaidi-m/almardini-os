@@ -41,7 +41,6 @@ export type Client = {
   full_name: string;
   nationality: string | null;
   passport_no: string | null;
-  passport_expires_at: string | null;
   date_of_birth: string | null;
   place_of_birth: string | null;
   phone: string | null;
@@ -122,8 +121,6 @@ export type ServiceType = {
   category_id: string;
   duration: string | null;
   description: string | null;
-  validity_amount: number | null;
-  validity_unit: "days" | "months" | "years" | null;
   recurring_amount: number | null;
   recurring_unit: "days" | "months" | "years" | null;
   has_deliverable: boolean;

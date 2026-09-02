@@ -45,19 +45,6 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
         <input name="duration" placeholder="2 years, or leave blank"
           className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand" />
       </Field>
-      <Field label="Validity (auto-sets renewal date)">
-        <div className="flex gap-2">
-          <input name="validity_amount" type="number" min="1" step="1" placeholder="e.g. 2"
-            className="w-24 px-3 py-2 border border-[var(--border)] rounded-md text-sm tabular-nums focus:outline-brand focus:border-brand" />
-          <select name="validity_unit" defaultValue=""
-            className="flex-1 px-3 py-2 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)] focus:outline-brand focus:border-brand">
-            <option value="">— none —</option>
-            <option value="days">days</option>
-            <option value="months">months</option>
-            <option value="years">years</option>
-          </select>
-        </div>
-      </Field>
       <Field label="Recurring (leave blank if one-off)">
         <div className="flex gap-2">
           <input name="recurring_amount" type="number" min="1" step="1" placeholder="e.g. 3"

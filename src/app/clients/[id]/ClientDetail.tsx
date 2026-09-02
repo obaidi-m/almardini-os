@@ -118,7 +118,6 @@ export function ClientDetail({
 
           <Card title={t("section.passport")}>
             <FieldRow label={t("field.passport_no")} value={client.passport_no ? <span className="font-mono text-[13px]">{client.passport_no}</span> : null} />
-            <FieldRow label={t("field.passport_expiry")} value={fmtDate(client.passport_expires_at)} />
           </Card>
 
           <Card title={t("section.contact")}>

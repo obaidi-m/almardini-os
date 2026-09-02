@@ -49,16 +49,14 @@ export async function createService(formData: FormData) {
   const duration = String(formData.get("duration") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;
   const has_deliverable = formData.getAll("has_deliverable").pop() === "true";
-  const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity");
   const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
-  const validity_amount = v.amount, validity_unit = v.unit;
   const recurring_amount = r.amount, recurring_unit = r.unit;
 
   if (!code || !name || !category_id) throw new Error("Code, name and category are required");
 
   const { data, error } = await supabase
     .from("service_types")
-    .insert({ code, name, category_id, duration, description, validity_amount, validity_unit, recurring_amount, recurring_unit, has_deliverable, created_by: actorId })
+    .insert({ code, name, category_id, duration, description, recurring_amount, recurring_unit, has_deliverable, created_by: actorId })
     .select("id, name, code")
     .single();
   if (error) throw new Error(error.message);
@@ -70,9 +68,7 @@ export async function createService(formData: FormData) {
 export async function updateService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
   const id = String(formData.get("id"));
-  const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity");
   const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
-  const validity_amount = v.amount, validity_unit = v.unit;
   const recurring_amount = r.amount, recurring_unit = r.unit;
   const patch = {
     code: String(formData.get("code") || "").trim().toUpperCase(),
@@ -80,8 +76,6 @@ export async function updateService(formData: FormData) {
     category_id: String(formData.get("category_id") || ""),
     duration: String(formData.get("duration") || "").trim() || null,
     description: String(formData.get("description") || "").trim() || null,
-    validity_amount,
-    validity_unit,
     recurring_amount,
     recurring_unit,
     has_deliverable: formData.getAll("has_deliverable").pop() === "true",

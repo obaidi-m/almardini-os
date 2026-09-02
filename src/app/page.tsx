@@ -34,7 +34,7 @@ type CaseCard = {
   service: { id: string; name: string } | null;
 };
 
-type Renewal = { kind: "passport" | "case_expiry"; label: string; expires_at: string; href: string };
+type Renewal = { kind: "case_expiry"; label: string; expires_at: string; href: string };
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -61,7 +61,6 @@ export default async function DashboardPage() {
     readyToDeliverRes,
     countsRes,
     recentCasesRes,
-    expiringPassportsRes,
     expiringCasesRes,
   ] = await Promise.all([
     supabase
@@ -108,15 +107,6 @@ export default async function DashboardPage() {
       .order("updated_at", { ascending: false })
       .limit(8),
     supabase
-      .from("clients")
-      .select("id, full_name, passport_expires_at")
-      .is("deleted_at", null)
-      .not("passport_expires_at", "is", null)
-      .gte("passport_expires_at", todayIso)
-      .lte("passport_expires_at", in90Iso)
-      .order("passport_expires_at", { ascending: true })
-      .limit(20),
-    supabase
       .from("cases")
       .select("id, code, title, expires_at, client:clients(id, full_name)")
       .is("deleted_at", null)
@@ -148,12 +138,6 @@ export default async function DashboardPage() {
   for (const r of (countsRes.data ?? []) as { status: CaseStatus }[]) counts[r.status] = (counts[r.status] ?? 0) + 1;
 
   const renewals: Renewal[] = [
-    ...((expiringPassportsRes.data ?? []) as { id: string; full_name: string; passport_expires_at: string }[]).map((r) => ({
-      kind: "passport" as const,
-      label: `${r.full_name} — passport`,
-      expires_at: r.passport_expires_at,
-      href: `/clients/${r.id}`,
-    })),
     ...((expiringCasesRes.data ?? []) as { id: string; code: string; title: string | null; expires_at: string; client: { full_name: string }[] | { full_name: string } | null }[]).map((r) => {
       const cli = unwrap(r.client);
       return {
@@ -340,12 +324,9 @@ function CaseRow({ c, showStatus, t }: { c: CaseCard; showStatus: boolean; t: Tr
   );
 }
 
-function RenewalBadge({ kind, t }: { kind: Renewal["kind"]; t: Tr }) {
-  const label = kind === "passport" ? t("renewal.badge.passport") : t("renewal.badge.case");
-  const color =
-    kind === "passport"
-      ? "bg-blue-100 text-blue-800"
-      : "bg-orange-100 text-orange-800";
+function RenewalBadge({ t }: { kind: Renewal["kind"]; t: Tr }) {
+  const label = t("renewal.badge.case");
+  const color = "bg-orange-100 text-orange-800";
   return (
     <span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded shrink-0 w-[64px] text-center ${color}`}>
       {label}

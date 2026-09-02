@@ -11,7 +11,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     supabase
       .from("clients")
       .select(
-        "id, code, full_name, nationality, passport_no, passport_expires_at, date_of_birth, place_of_birth, phone, email, preferred_channel, introduced_by_partner_id, drive_folder_url, notes, deleted_at, created_at, updated_at, introduced_by:partners!clients_introduced_by_fk(id, name, code)",
+        "id, code, full_name, nationality, passport_no, date_of_birth, place_of_birth, phone, email, preferred_channel, introduced_by_partner_id, drive_folder_url, notes, deleted_at, created_at, updated_at, introduced_by:partners!clients_introduced_by_fk(id, name, code)",
       )
       .eq("id", params.id)
       .maybeSingle(),

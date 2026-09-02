@@ -28,26 +28,24 @@ function addDuration(from: Date, amount: number, unit: DurationUnit): Date {
   return d;
 }
 
-/** When a case first hits Done, seed its expires_at from the service.
- *  Validity (KITAS expires in 2y) or Recurring (next tax filing in 1mo)
- *  both write into expires_at — same field, different semantic. Manual
- *  dates are never overwritten. */
+/** When a recurring case first hits Done, seed its expires_at from the
+ *  service's recurring cadence — that becomes the next filing due date.
+ *  Manual dates are never overwritten. */
 async function autoFillExpiresOnDone(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   case_id: string,
 ): Promise<string | null> {
   const { data: c } = await supabase
     .from("cases")
-    .select("expires_at, service:service_types(validity_amount, validity_unit, recurring_amount, recurring_unit)")
+    .select("expires_at, service:service_types(recurring_amount, recurring_unit)")
     .eq("id", case_id)
     .single();
   if (!c || c.expires_at) return null;
   const svc = Array.isArray(c.service) ? c.service[0] : c.service;
   if (!svc) return null;
 
-  // Prefer validity (a concrete permit-expiry) over recurring cadence.
-  const amt = svc.validity_amount ?? svc.recurring_amount;
-  const unit = (svc.validity_unit ?? svc.recurring_unit) as DurationUnit | null;
+  const amt = svc.recurring_amount;
+  const unit = svc.recurring_unit as DurationUnit | null;
   if (!amt || !unit) return null;
 
   const iso = addDuration(new Date(), amt, unit).toISOString().slice(0, 10);

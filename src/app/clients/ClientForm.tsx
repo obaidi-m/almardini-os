@@ -141,12 +141,6 @@ export function ClientForm({
 
       {mode === "edit" && (
         <>
-          <Section title={t("section.passport")}>
-            <Row label={t("field.passport_expiry")}>
-              <DateInput name="passport_expires_at" defaultValue={client?.passport_expires_at} />
-            </Row>
-          </Section>
-
           <Section title={t("section.contact")}>
             <Row label={t("field.phone")}>
               <input

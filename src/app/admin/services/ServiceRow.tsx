@@ -34,20 +34,6 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
               <input name="duration" defaultValue={service.duration ?? ""}
                 className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
             </Field>
-            <Field label="Validity (renewal auto-fill)">
-              <div className="flex gap-2">
-                <input name="validity_amount" type="number" min="1" step="1"
-                  defaultValue={service.validity_amount ?? ""} placeholder="—"
-                  className="w-20 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm tabular-nums" />
-                <select name="validity_unit" defaultValue={service.validity_unit ?? ""}
-                  className="flex-1 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
-                  <option value="">— none —</option>
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
-                </select>
-              </div>
-            </Field>
             <Field label="Recurring">
               <div className="flex gap-2">
                 <input name="recurring_amount" type="number" min="1" step="1"

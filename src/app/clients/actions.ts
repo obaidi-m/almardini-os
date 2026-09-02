@@ -27,7 +27,6 @@ type ClientPayload = {
   full_name: string;
   nationality: string | null;
   passport_no: string | null;
-  passport_expires_at: string | null;
   date_of_birth: string | null;
   place_of_birth: string | null;
   phone: string | null;
@@ -50,7 +49,6 @@ async function parseForm(fd: FormData): Promise<ClientPayload> {
     full_name,
     nationality: str(fd, "nationality"),
     passport_no: normalizePassport(str(fd, "passport_no")),
-    passport_expires_at: str(fd, "passport_expires_at"),
     date_of_birth: str(fd, "date_of_birth"),
     place_of_birth: str(fd, "place_of_birth"),
     phone: str(fd, "phone"),
