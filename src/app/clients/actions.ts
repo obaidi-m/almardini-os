@@ -2,11 +2,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n/server";
 
 async function requireUser() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!user) {
+    const { t } = await getT();
+    throw new Error(t("err.not_signed_in"));
+  }
   return { supabase, actorId: user.id };
 }
 
@@ -34,12 +38,13 @@ type ClientPayload = {
   notes: string | null;
 };
 
-function parseForm(fd: FormData): ClientPayload {
+async function parseForm(fd: FormData): Promise<ClientPayload> {
+  const { t } = await getT();
   const full_name = String(fd.get("full_name") ?? "").trim();
-  if (!full_name) throw new Error("Full name is required.");
+  if (!full_name) throw new Error(t("err.full_name_required"));
   const preferred = String(fd.get("preferred_channel") ?? "whatsapp");
   if (preferred !== "whatsapp" && preferred !== "email") {
-    throw new Error("Preferred channel must be whatsapp or email.");
+    throw new Error(t("err.channel_invalid"));
   }
   return {
     full_name,
@@ -57,9 +62,10 @@ function parseForm(fd: FormData): ClientPayload {
   };
 }
 
-function humanizeSupabaseError(msg: string): string {
+async function humanizeSupabaseError(msg: string): Promise<string> {
   if (msg.includes("clients_passport_unique")) {
-    return "A client with this passport number already exists.";
+    const { t } = await getT();
+    return t("err.passport_duplicate");
   }
   return msg;
 }
@@ -95,8 +101,11 @@ function parseCompanies(fd: FormData): CompanyLinkRow[] {
 
 export async function createClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
-  const payload = parseForm(fd);
-  if (!payload.passport_no) throw new Error("Passport number is required.");
+  const payload = await parseForm(fd);
+  if (!payload.passport_no) {
+    const { t } = await getT();
+    throw new Error(t("err.passport_required"));
+  }
   const companies = parseCompanies(fd);
 
   const { data: client, error } = await supabase
@@ -104,7 +113,7 @@ export async function createClientAction(fd: FormData) {
     .insert({ ...payload, created_by: actorId, updated_by: actorId })
     .select("id")
     .single();
-  if (error) throw new Error(humanizeSupabaseError(error.message));
+  if (error) throw new Error(await humanizeSupabaseError(error.message));
 
   const links: Array<{ client_id: string; company_id: string; role: string }> = [];
   try {
@@ -139,14 +148,14 @@ export async function createClientAction(fd: FormData) {
 export async function updateClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing client id.");
-  const payload = parseForm(fd);
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
+  const payload = await parseForm(fd);
 
   const { error } = await supabase
     .from("clients")
     .update({ ...payload, updated_by: actorId })
     .eq("id", id);
-  if (error) throw new Error(humanizeSupabaseError(error.message));
+  if (error) throw new Error(await humanizeSupabaseError(error.message));
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
@@ -155,7 +164,7 @@ export async function updateClientAction(fd: FormData) {
 export async function softDeleteClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing client id.");
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
 
   const { error } = await supabase
     .from("clients")
@@ -170,7 +179,7 @@ export async function softDeleteClientAction(fd: FormData) {
 export async function restoreClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing client id.");
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
 
   const { error } = await supabase
     .from("clients")

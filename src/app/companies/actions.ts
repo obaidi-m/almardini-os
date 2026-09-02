@@ -2,11 +2,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n/server";
 
 async function requireUser() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!user) {
+    const { t } = await getT();
+    throw new Error(t("err.not_signed_in"));
+  }
   return { supabase, actorId: user.id };
 }
 
@@ -24,9 +28,9 @@ type CompanyPayload = {
   notes: string | null;
 };
 
-function parseForm(fd: FormData): CompanyPayload {
+async function parseForm(fd: FormData): Promise<CompanyPayload> {
   const name = String(fd.get("name") ?? "").trim();
-  if (!name) throw new Error("Company name is required.");
+  if (!name) { const { t } = await getT(); throw new Error(t("err.company_name_required")); }
   return {
     name,
     nib: str(fd, "nib"),
@@ -73,16 +77,17 @@ function parsePeople(fd: FormData): PeopleRow[] {
   return out;
 }
 
-function humanizePeopleError(msg: string): string {
+async function humanizePeopleError(msg: string): Promise<string> {
   if (msg.includes("clients_passport_unique")) {
-    return "One of the new people has a passport number that already exists in the system.";
+    const { t } = await getT();
+    return t("err.person_passport_duplicate");
   }
   return msg;
 }
 
 export async function createCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
-  const payload = parseForm(fd);
+  const payload = await parseForm(fd);
   const people = parsePeople(fd);
 
   const { data: company, error: companyErr } = await supabase
@@ -115,7 +120,7 @@ export async function createCompanyAction(fd: FormData) {
           })
           .select("id")
           .single();
-        if (clientErr) throw new Error(humanizePeopleError(clientErr.message));
+        if (clientErr) throw new Error(await humanizePeopleError(clientErr.message));
         clientId = newClient.id;
       }
       links.push({ client_id: clientId, company_id: company.id, role: p.role });
@@ -137,8 +142,8 @@ export async function createCompanyAction(fd: FormData) {
 export async function updateCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing company id.");
-  const payload = parseForm(fd);
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
+  const payload = await parseForm(fd);
 
   const { error } = await supabase
     .from("companies")
@@ -153,7 +158,7 @@ export async function updateCompanyAction(fd: FormData) {
 export async function softDeleteCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing company id.");
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
 
   const { error } = await supabase
     .from("companies")
@@ -168,7 +173,7 @@ export async function softDeleteCompanyAction(fd: FormData) {
 export async function restoreCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");
-  if (!id) throw new Error("Missing company id.");
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
 
   const { error } = await supabase
     .from("companies")
