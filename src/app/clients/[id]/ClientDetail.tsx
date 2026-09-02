@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Client, Partner, CaseStatus, CasePriority } from "@/lib/types";
-import { CASE_STATUS_LABELS } from "@/lib/types";
 import { ClientForm } from "../ClientForm";
 import { updateClientAction, softDeleteClientAction, restoreClientAction } from "../actions";
 import { linkClientToCompanyAction, unlinkClientFromCompanyAction } from "@/app/companies/actions";
 import { Modal } from "@/components/ui/Modal";
+import { useT } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Role = { code: string; label_en: string; label_id: string | null; sort_order: number };
 type CaseSummary = {
@@ -38,6 +39,7 @@ export function ClientDetail({
   roles: Role[];
   cases: CaseSummary[];
 }) {
+  const { t } = useT();
   const roleLabel = (code: string) => roles.find((r) => r.code === code)?.label_en ?? code;
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -57,11 +59,11 @@ export function ClientDetail({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
               </svg>
-              Edit
+              {t("action.edit")}
             </button>
             <form
               action={(fd) => {
-                if (!confirm(`Archive ${client.full_name}?`)) return;
+                if (!confirm(t("detail.confirm_archive_client", { name: client.full_name }))) return;
                 start(async () => {
                   try { await softDeleteClientAction(fd); }
                   catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
@@ -74,7 +76,7 @@ export function ClientDetail({
                 disabled={pending}
                 className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
               >
-                Archive
+                {t("action.archive")}
               </button>
             </form>
           </>
@@ -93,7 +95,7 @@ export function ClientDetail({
               disabled={pending}
               className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg disabled:opacity-50"
             >
-              Restore
+              {t("action.restore")}
             </button>
           </form>
         )}
@@ -108,26 +110,26 @@ export function ClientDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* LEFT COLUMN */}
         <div className="space-y-5">
-          <Card title="Identity">
-            <FieldRow label="Nationality" value={client.nationality} />
-            <FieldRow label="Date of birth" value={fmtDate(client.date_of_birth)} />
-            <FieldRow label="Place of birth" value={client.place_of_birth} />
+          <Card title={t("section.identity")}>
+            <FieldRow label={t("field.nationality")} value={client.nationality} />
+            <FieldRow label={t("field.date_of_birth")} value={fmtDate(client.date_of_birth)} />
+            <FieldRow label={t("field.place_of_birth")} value={client.place_of_birth} />
           </Card>
 
-          <Card title="Passport">
-            <FieldRow label="Passport no." value={client.passport_no ? <span className="font-mono text-[13px]">{client.passport_no}</span> : null} />
-            <FieldRow label="Passport expiry" value={fmtDate(client.passport_expires_at)} />
+          <Card title={t("section.passport")}>
+            <FieldRow label={t("field.passport_no")} value={client.passport_no ? <span className="font-mono text-[13px]">{client.passport_no}</span> : null} />
+            <FieldRow label={t("field.passport_expiry")} value={fmtDate(client.passport_expires_at)} />
           </Card>
 
-          <Card title="Contact">
-            <FieldRow label="Phone" value={client.phone} />
-            <FieldRow label="Email" value={client.email} />
-            <FieldRow label="Preferred channel" value={<ChannelPill c={client.preferred_channel} />} />
+          <Card title={t("section.contact")}>
+            <FieldRow label={t("field.phone")} value={client.phone} />
+            <FieldRow label={t("field.email")} value={client.email} />
+            <FieldRow label={t("field.preferred_channel")} value={<ChannelPill c={client.preferred_channel} t={t} />} />
           </Card>
 
-          <Card title="Relationship">
+          <Card title={t("section.relationship")}>
             <FieldRow
-              label="Introduced by"
+              label={t("field.introduced_by")}
               value={
                 client.introduced_by ? (
                   <Link href={`/partners/${client.introduced_by.id}`} className="text-brand hover:underline">
@@ -137,15 +139,15 @@ export function ClientDetail({
                 ) : null
               }
             />
-            <FieldRow label="Created" value={fmtDate(client.created_at)} />
+            <FieldRow label={t("field.created")} value={fmtDate(client.created_at)} />
           </Card>
 
-          <Card title="Files">
-            <FieldRow label="OneDrive folder" value={<DriveLink url={client.drive_folder_url} />} />
+          <Card title={t("section.files")}>
+            <FieldRow label={t("field.onedrive_folder")} value={<DriveLink url={client.drive_folder_url} label={t("onedrive.open")} />} />
           </Card>
 
           {client.notes && (
-            <Card title="Notes">
+            <Card title={t("section.notes")}>
               <p className="text-[13.5px] whitespace-pre-wrap text-ink leading-relaxed py-1">
                 {client.notes}
               </p>
@@ -156,7 +158,7 @@ export function ClientDetail({
         {/* RIGHT COLUMN */}
         <div className="space-y-5">
           <Card
-            title="Linked companies"
+            title={t("section.linked_companies")}
             count={linkedCompanies.length}
             padded
           >
@@ -170,7 +172,7 @@ export function ClientDetail({
           </Card>
 
           <Card
-            title="Cases"
+            title={t("section.cases")}
             count={cases.length}
             padded
             action={
@@ -178,12 +180,12 @@ export function ClientDetail({
                 href={`/cases/new?client=${client.id}`}
                 className="text-[12px] font-medium text-brand hover:text-brand-dark"
               >
-                + New case
+                {t("detail.new_case")}
               </Link>
             }
           >
             {cases.length === 0 ? (
-              <p className="text-[12.5px] text-[var(--muted)]">No cases yet for this client.</p>
+              <p className="text-[12.5px] text-[var(--muted)]">{t("detail.no_client_cases")}</p>
             ) : (() => {
               // Active first (New → In progress → Done); Delivered hidden
               // behind a toggle so old month-by-month cases don't dominate.
@@ -208,10 +210,10 @@ export function ClientDetail({
                         </span>
                         <span className="min-w-0">
                           <span className="text-ink font-medium block truncate">
-                            {c.title || service?.name || "Untitled"}
+                            {c.title || service?.name || t("detail.untitled")}
                             {service?.recurring_amount && service?.recurring_unit && (
                               <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle" title={`Recurring every ${service.recurring_amount} ${service.recurring_unit}`}>
-                                recurring
+                                {t("badge.recurring")}
                               </span>
                             )}
                           </span>
@@ -220,7 +222,7 @@ export function ClientDetail({
                           )}
                         </span>
                         <span className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full ${STATUS_PILL[c.status]}`}>
-                          {CASE_STATUS_LABELS[c.status]}
+                          {t(`status.${c.status}` as MessageKey)}
                         </span>
                       </Link>
                     </li>
@@ -233,11 +235,11 @@ export function ClientDetail({
                   onClick={() => setShowDeliveredCases((v) => !v)}
                   className="mt-2 text-[11.5px] text-[var(--muted)] hover:text-ink"
                 >
-                  {showDeliveredCases ? "Hide" : "Show"} {deliveredCount} completed case{deliveredCount === 1 ? "" : "s"}
+                  {showDeliveredCases ? t("detail.hide_completed", { n: deliveredCount }) : t("detail.show_completed", { n: deliveredCount })}
                 </button>
               )}
               {activeCount === 0 && !showDeliveredCases && (
-                <p className="text-[12.5px] text-[var(--muted)] mt-1">No active cases.</p>
+                <p className="text-[12.5px] text-[var(--muted)] mt-1">{t("detail.no_active_cases")}</p>
               )}
               </>
               );
@@ -250,7 +252,7 @@ export function ClientDetail({
       <Modal
         open={editing}
         onClose={() => setEditing(false)}
-        title="Edit client"
+        title={t("detail.edit_client_title")}
         subtitle={client.code}
         size="xl"
       >
@@ -276,6 +278,7 @@ function CompaniesLinker({
   roles: Role[];
   roleLabel: (code: string) => string;
 }) {
+  const { t } = useT();
   const [adding, setAdding] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +291,7 @@ function CompaniesLinker({
             onClick={() => { setAdding(true); setError(null); }}
             className="text-[12px] font-medium text-brand hover:text-brand-dark"
           >
-            + Link a company
+            {t("detail.link_company")}
           </button>
         )}
       </div>
@@ -306,23 +309,23 @@ function CompaniesLinker({
         >
           <input type="hidden" name="client_id" value={clientId} />
           <div className="flex-1 min-w-0">
-            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">Company</label>
+            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("field.company")}</label>
             <select name="company_id" required className={selectInput}>
-              <option value="">Select a company…</option>
+              <option value="">{t("detail.select_company")}</option>
               {allCompanies.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">Role</label>
+            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("detail.role")}</label>
             <select name="role" defaultValue={roles[0]?.code ?? ""} className={selectInput}>
               {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
             </select>
           </div>
           <button type="submit" disabled={pending} className="px-3 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-lg disabled:opacity-50">
-            Link
+            {t("detail.link")}
           </button>
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="px-2.5 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink">
-            Cancel
+            {t("action.cancel")}
           </button>
         </form>
       )}
@@ -334,7 +337,7 @@ function CompaniesLinker({
       )}
 
       {linkedCompanies.length === 0 && !adding ? (
-        <p className="text-[12.5px] text-[var(--muted)]">Not linked to any company yet.</p>
+        <p className="text-[12.5px] text-[var(--muted)]">{t("detail.not_linked_company")}</p>
       ) : (
         <ul className="divide-y divide-[var(--border)] -mx-1">
           {linkedCompanies.map((l, i) => (
@@ -346,13 +349,13 @@ function CompaniesLinker({
                 {l.company ? (
                   <Link href={`/companies/${l.company.id}`} className="hover:text-brand">{l.company.name}</Link>
                 ) : (
-                  <span className="text-[var(--muted)] italic">Deleted company</span>
+                  <span className="text-[var(--muted)] italic">{t("detail.deleted_company")}</span>
                 )}
               </span>
               <span className="text-[11.5px] text-[var(--muted)] uppercase tracking-wider">{roleLabel(l.role)}</span>
               <form
                 action={(fd) => {
-                  if (!confirm("Unlink this company from the client?")) return;
+                  if (!confirm(t("detail.confirm_unlink_company"))) return;
                   start(async () => {
                     try { await unlinkClientFromCompanyAction(fd); }
                     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
@@ -363,7 +366,7 @@ function CompaniesLinker({
                 <input type="hidden" name="company_id" value={l.company?.id ?? ""} />
                 <input type="hidden" name="role" value={l.role} />
                 <button type="submit" className="text-[11.5px] text-[var(--muted)] hover:text-red-700">
-                  Unlink
+                  {t("detail.unlink")}
                 </button>
               </form>
             </li>
@@ -417,7 +420,9 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function ChannelPill({ c }: { c?: string | null }) {
+type Tr = (k: MessageKey, vars?: Record<string, string | number>) => string;
+
+function ChannelPill({ c, t }: { c?: string | null; t: Tr }) {
   if (!c) return <span className="text-[var(--hint)]">—</span>;
   const styles: Record<string, string> = {
     whatsapp:  "bg-[#DCFCE7] text-[#166534]",
@@ -427,13 +432,13 @@ function ChannelPill({ c }: { c?: string | null }) {
   };
   const cls = styles[c] ?? "bg-[var(--surface-2)] text-[var(--muted)]";
   return (
-    <span className={`inline-block text-[10.5px] font-medium px-2 py-0.5 rounded-full capitalize ${cls}`}>
-      {c.replace(/_/g, " ")}
+    <span className={`inline-block text-[10.5px] font-medium px-2 py-0.5 rounded-full ${cls}`}>
+      {t(`channel.${c}` as MessageKey)}
     </span>
   );
 }
 
-function DriveLink({ url }: { url: string | null }) {
+function DriveLink({ url, label }: { url: string | null; label: string }) {
   if (!url) return null;
   return (
     <a
@@ -445,7 +450,7 @@ function DriveLink({ url }: { url: string | null }) {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
       </svg>
-      Open in OneDrive
+      {label}
     </a>
   );
 }

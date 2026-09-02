@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Company, CaseStatus, CasePriority } from "@/lib/types";
-import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { CompanyForm } from "../CompanyForm";
 import {
   updateCompanyAction,
@@ -45,6 +46,7 @@ export function CompanyDetail({
   roles: Role[];
   cases: CompanyCase[];
 }) {
+  const { t } = useT();
   const roleLabel = (code: string) => roles.find((r) => r.code === code)?.label_en ?? code;
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -63,11 +65,11 @@ export function CompanyDetail({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
               </svg>
-              Edit
+              {t("action.edit")}
             </button>
             <form
               action={(fd) => {
-                if (!confirm(`Archive ${company.name}?`)) return;
+                if (!confirm(t("detail.confirm_archive_company", { name: company.name }))) return;
                 start(async () => {
                   try { await softDeleteCompanyAction(fd); }
                   catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
@@ -80,7 +82,7 @@ export function CompanyDetail({
                 disabled={pending}
                 className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
               >
-                Archive
+                {t("action.archive")}
               </button>
             </form>
           </>
@@ -99,7 +101,7 @@ export function CompanyDetail({
               disabled={pending}
               className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg disabled:opacity-50"
             >
-              Restore
+              {t("action.restore")}
             </button>
           </form>
         )}
@@ -114,20 +116,20 @@ export function CompanyDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* LEFT COLUMN */}
         <div className="space-y-5">
-          <Card title="Identity">
-            <FieldRow label="NIB" value={company.nib ? <span className="font-mono text-[13px]">{company.nib}</span> : null} />
-            <FieldRow label="Incorporation date" value={fmtDate(company.incorporation_date)} />
+          <Card title={t("section.identity")}>
+            <FieldRow label={t("field.nib")} value={company.nib ? <span className="font-mono text-[13px]">{company.nib}</span> : null} />
+            <FieldRow label={t("field.incorporation_date")} value={fmtDate(company.incorporation_date)} />
           </Card>
 
-          <Card title="Address">
+          <Card title={t("section.address")}>
             <div className="py-1 text-[13.5px] text-ink whitespace-pre-wrap">
               {company.address || <span className="text-[var(--hint)]">—</span>}
             </div>
           </Card>
 
-          <Card title="Files">
+          <Card title={t("section.files")}>
             <FieldRow
-              label="OneDrive folder"
+              label={t("field.onedrive_folder")}
               value={company.drive_folder_url ? (
                 <a
                   href={company.drive_folder_url}
@@ -138,14 +140,14 @@ export function CompanyDetail({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
                   </svg>
-                  Open in OneDrive
+                  {t("onedrive.open")}
                 </a>
               ) : null}
             />
           </Card>
 
           {company.notes && (
-            <Card title="Notes">
+            <Card title={t("section.notes")}>
               <p className="text-[13.5px] whitespace-pre-wrap text-ink leading-relaxed py-1">
                 {company.notes}
               </p>
@@ -155,7 +157,7 @@ export function CompanyDetail({
 
         {/* RIGHT COLUMN */}
         <div className="space-y-5">
-          <Card title="Linked clients" count={linkedClients.length} padded>
+          <Card title={t("section.linked_clients")} count={linkedClients.length} padded>
             <ClientsLinker
               companyId={company.id}
               linkedClients={linkedClients}
@@ -166,7 +168,7 @@ export function CompanyDetail({
           </Card>
 
           <Card
-            title="Cases"
+            title={t("section.cases")}
             count={cases.length}
             padded
             action={
@@ -174,11 +176,11 @@ export function CompanyDetail({
                 href={`/cases/new?company_id=${company.id}`}
                 className="text-[12px] font-medium text-brand hover:text-brand-dark"
               >
-                + New case
+                {t("detail.new_case")}
               </Link>
             }
           >
-            <CompanyCasesList cases={cases} />
+            <CompanyCasesList cases={cases} t={t} />
           </Card>
         </div>
       </div>
@@ -186,7 +188,7 @@ export function CompanyDetail({
       <Modal
         open={editing}
         onClose={() => setEditing(false)}
-        title="Edit company"
+        title={t("detail.edit_company_title")}
         subtitle={company.code}
         size="xl"
       >
@@ -217,13 +219,15 @@ function sortCases<T extends { status: CaseStatus; deadline: string | null; upda
   });
 }
 
-function CompanyCasesList({ cases }: { cases: CompanyCase[] }) {
+type Tr = (k: MessageKey, vars?: Record<string, string | number>) => string;
+
+function CompanyCasesList({ cases, t }: { cases: CompanyCase[]; t: Tr }) {
   const [showDelivered, setShowDelivered] = useState(false);
 
   if (cases.length === 0) {
     return (
       <p className="text-[12.5px] text-[var(--muted)]">
-        No cases attached to this company yet.
+        {t("detail.no_company_cases")}
       </p>
     );
   }
@@ -234,24 +238,24 @@ function CompanyCasesList({ cases }: { cases: CompanyCase[] }) {
 
   return (
     <>
-      <CaseRows rows={visible} />
+      <CaseRows rows={visible} t={t} />
       {delivered.length > 0 && (
         <button
           type="button"
           onClick={() => setShowDelivered((v) => !v)}
           className="mt-2 text-[11.5px] text-[var(--muted)] hover:text-ink"
         >
-          {showDelivered ? "Hide" : "Show"} {delivered.length} completed case{delivered.length === 1 ? "" : "s"}
+          {showDelivered ? t("detail.hide_completed", { n: delivered.length }) : t("detail.show_completed", { n: delivered.length })}
         </button>
       )}
       {active.length === 0 && !showDelivered && (
-        <p className="text-[12.5px] text-[var(--muted)] mt-1">No active cases.</p>
+        <p className="text-[12.5px] text-[var(--muted)] mt-1">{t("detail.no_active_cases")}</p>
       )}
     </>
   );
 }
 
-function CaseRows({ rows }: { rows: CompanyCase[] }) {
+function CaseRows({ rows, t }: { rows: CompanyCase[]; t: Tr }) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <ul className="divide-y divide-[var(--border)] -mx-1">
@@ -266,10 +270,10 @@ function CaseRows({ rows }: { rows: CompanyCase[] }) {
               </span>
               <div className="min-w-0">
                 <div className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark flex items-center gap-1.5">
-                  <span className="truncate">{c.title || c.service?.name || "Case"}</span>
+                  <span className="truncate">{c.title || c.service?.name || t("detail.case_word")}</span>
                   {c.service?.recurring_amount && c.service?.recurring_unit && (
                     <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded shrink-0" title={`Recurring every ${c.service.recurring_amount} ${c.service.recurring_unit}`}>
-                      recurring
+                      {t("badge.recurring")}
                     </span>
                   )}
                 </div>
@@ -277,16 +281,16 @@ function CaseRows({ rows }: { rows: CompanyCase[] }) {
                   {c.service?.name ?? "—"}
                   {c.client && <> · {c.client.full_name}</>}
                   {c.deadline && (
-                    <> · <span className={overdue ? "text-red-700 font-semibold" : ""}>due {fmtDate(c.deadline)}</span></>
+                    <> · <span className={overdue ? "text-red-700 font-semibold" : ""}>{t("detail.due_prefix")} {fmtDate(c.deadline)}</span></>
                   )}
                   {c.priority !== "normal" && (
-                    <> · <span className="uppercase tracking-wide text-[10px] font-semibold">{CASE_PRIORITY_LABELS[c.priority]}</span></>
+                    <> · <span className="uppercase tracking-wide text-[10px] font-semibold">{t(`priority.${c.priority}` as MessageKey)}</span></>
                   )}
                 </div>
               </div>
               <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full shrink-0 ${p.bg} ${p.text}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
-                {CASE_STATUS_LABELS[c.status]}
+                {t(`status.${c.status}` as MessageKey)}
               </span>
             </Link>
           </li>
@@ -306,6 +310,7 @@ function ClientsLinker({
   roles: Role[];
   roleLabel: (code: string) => string;
 }) {
+  const { t } = useT();
   const [adding, setAdding] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -318,7 +323,7 @@ function ClientsLinker({
             onClick={() => { setAdding(true); setError(null); }}
             className="text-[12px] font-medium text-brand hover:text-brand-dark"
           >
-            + Link a client
+            {t("detail.link_client")}
           </button>
         )}
       </div>
@@ -336,25 +341,25 @@ function ClientsLinker({
         >
           <input type="hidden" name="company_id" value={companyId} />
           <div className="flex-1 min-w-0">
-            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">Client</label>
+            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("field.client")}</label>
             <select name="client_id" required className={cellInputMuted}>
-              <option value="">Select a client…</option>
+              <option value="">{t("detail.select_client")}</option>
               {allClients.map((c) => (
                 <option key={c.id} value={c.id}>{c.full_name} ({c.code})</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">Role</label>
+            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("detail.role")}</label>
             <select name="role" defaultValue={roles[0]?.code ?? ""} className={cellInputMuted}>
               {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
             </select>
           </div>
           <button type="submit" disabled={pending} className="px-3 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-lg disabled:opacity-50">
-            Link
+            {t("detail.link")}
           </button>
           <button type="button" onClick={() => { setAdding(false); setError(null); }} className="px-2.5 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink">
-            Cancel
+            {t("action.cancel")}
           </button>
         </form>
       )}
@@ -366,7 +371,7 @@ function ClientsLinker({
       )}
 
       {linkedClients.length === 0 && !adding ? (
-        <p className="text-[12.5px] text-[var(--muted)]">No clients linked yet.</p>
+        <p className="text-[12.5px] text-[var(--muted)]">{t("detail.no_linked_clients")}</p>
       ) : (
         <ul className="divide-y divide-[var(--border)] -mx-1">
           {linkedClients.map((l, i) => (
@@ -378,13 +383,13 @@ function ClientsLinker({
                 {l.client ? (
                   <Link href={`/clients/${l.client.id}`} className="hover:text-brand">{l.client.full_name}</Link>
                 ) : (
-                  <span className="text-[var(--muted)] italic">Deleted client</span>
+                  <span className="text-[var(--muted)] italic">{t("common.deleted_client")}</span>
                 )}
               </span>
               <span className="text-[11.5px] text-[var(--muted)] uppercase tracking-wider">{roleLabel(l.role)}</span>
               <form
                 action={(fd) => {
-                  if (!confirm("Unlink this client from the company?")) return;
+                  if (!confirm(t("detail.confirm_unlink"))) return;
                   start(async () => {
                     try { await unlinkClientFromCompanyAction(fd); }
                     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
@@ -395,7 +400,7 @@ function ClientsLinker({
                 <input type="hidden" name="company_id" value={companyId} />
                 <input type="hidden" name="role" value={l.role} />
                 <button type="submit" className="text-[11.5px] text-[var(--muted)] hover:text-red-700">
-                  Unlink
+                  {t("detail.unlink")}
                 </button>
               </form>
             </li>

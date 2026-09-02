@@ -2,8 +2,11 @@
 import { useState, useTransition } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
-import { CASE_PRIORITY_LABELS } from "@/lib/types";
 import type { CasePriority } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
 
 type Mode = "create" | "edit";
 
@@ -46,6 +49,7 @@ export function CaseForm({
   onCancel?: () => void;
   submitLabel?: string;
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [serviceId, setServiceId] = useState<string>(defaults?.service_type_id ?? "");
@@ -76,19 +80,19 @@ export function CaseForm({
     >
       {mode === "edit" && defaults?.id && <input type="hidden" name="id" value={defaults.id} />}
 
-      <Section title="What & who">
-        <Row label="For a…" required>
+      <Section title={t("case.form.what_who")}>
+        <Row label={t("case.form.for_a")} required>
           <div className="inline-flex items-center gap-1.5">
             <ScopePill
               active={scope === "client"}
               onClick={() => setScope("client")}
-              label="Client"
+              label={t("case.form.scope_client")}
               dot="bg-[#22C55E]"
             />
             <ScopePill
               active={scope === "company"}
               onClick={() => setScope("company")}
-              label="Company"
+              label={t("case.form.scope_company")}
               dot="bg-[#8B5CF6]"
             />
           </div>
@@ -96,88 +100,88 @@ export function CaseForm({
 
         {scope === "client" ? (
           <>
-            <Row label="Client" required>
+            <Row label={t("case.field.client")} required>
               <Combobox
                 name="client_id"
                 options={toCombo(clients)}
                 defaultValue={defaults?.client_id ?? ""}
-                placeholder="Search client by name, code, passport…"
+                placeholder={t("case.form.search_client")}
                 required
               />
             </Row>
-            <Row label="Company">
+            <Row label={t("case.field.company")}>
               <Combobox
                 name="company_id"
                 options={toCombo(companies)}
                 defaultValue={defaults?.company_id ?? ""}
-                placeholder="Search company (optional)"
-                emptyLabel="— (personal case)"
+                placeholder={t("case.form.search_company_optional")}
+                emptyLabel={t("case.form.personal_case")}
                 allowEmpty
               />
             </Row>
           </>
         ) : (
-          <Row label="Company" required>
+          <Row label={t("case.field.company")} required>
             <Combobox
               name="company_id"
               options={toCombo(companies)}
               defaultValue={defaults?.company_id ?? ""}
-              placeholder="Search company by name, code, NIB…"
+              placeholder={t("case.form.search_company")}
               required
             />
           </Row>
         )}
 
-        <Row label="Service" required>
+        <Row label={t("case.field.service")} required>
           <Combobox
             name="service_type_id"
             options={toCombo(services)}
             defaultValue={defaults?.service_type_id ?? ""}
-            placeholder="Search service…"
+            placeholder={t("case.form.search_service")}
             required
             onChange={setServiceId}
           />
         </Row>
-        <Row label="Title / note">
+        <Row label={t("case.form.title_note")}>
           <input
             name="title"
             defaultValue={defaults?.title ?? ""}
-            placeholder="Optional one-line label (e.g. 2026 renewal)"
+            placeholder={t("case.form.title_placeholder")}
             className={cellInput}
           />
         </Row>
       </Section>
 
-      <Section title="Assignment">
-        <Row label="Assigned to">
+      <Section title={t("case.form.section.assignment")}>
+        <Row label={t("case.form.assigned_to")}>
           <Combobox
             name="assigned_to"
             options={toCombo(users)}
             defaultValue={defaults?.assigned_to ?? ""}
-            placeholder="Search staff…"
-            emptyLabel="— Unassigned"
+            placeholder={t("case.form.search_staff")}
+            emptyLabel={t("case.form.unassigned_dash")}
             allowEmpty
           />
         </Row>
-        <Row label="Priority">
+        <Row label={t("case.field.priority")}>
           <select name="priority" defaultValue={defaults?.priority ?? "normal"} className={cellInput}>
-            {(Object.entries(CASE_PRIORITY_LABELS) as [CasePriority, string][]).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>{t(`priority.${p}` as MessageKey)}</option>
             ))}
           </select>
         </Row>
-        <Row label="Deadline">
+        <Row label={t("case.field.deadline")}>
           <DateInput name="deadline" defaultValue={defaults?.deadline} />
         </Row>
       </Section>
 
-      <Section title="Files" last>
-        <Row label="OneDrive folder">
+      <Section title={t("case.form.section.files")} last>
+        <Row label={t("field.onedrive_folder")}>
           <input
             name="drive_folder_url"
             type="url"
             defaultValue={defaults?.drive_folder_url ?? ""}
-            placeholder="Paste OneDrive share link"
+            placeholder={t("form.placeholder.drive_url")}
             className={cellInput}
           />
         </Row>
@@ -185,7 +189,7 @@ export function CaseForm({
 
       {!hasDeliverable && serviceId && (
         <div className="text-[12px] text-[var(--muted)] mt-2">
-          Note: this service has no deliverable to hand to the client.
+          {t("case.form.no_deliverable")}
         </div>
       )}
 
@@ -198,11 +202,11 @@ export function CaseForm({
       <div className="flex items-center justify-end gap-2 pt-5">
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md hover:bg-[var(--surface-muted)]">
-            Cancel
+            {t("action.cancel")}
           </button>
         )}
         <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
-          {pending ? "Saving…" : submitLabel ?? (mode === "create" ? "Create case" : "Save changes")}
+          {pending ? t("form.saving") : submitLabel ?? (mode === "create" ? t("case.form.create") : t("action.save_changes"))}
         </button>
       </div>
     </form>
