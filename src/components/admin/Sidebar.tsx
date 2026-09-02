@@ -37,28 +37,6 @@ export function Sidebar({ userName, userEmail }: { userName: string; userEmail: 
 
       <nav className="flex flex-col gap-0.5">
         <div className="text-[10px] tracking-widest text-[var(--muted)] uppercase font-semibold px-2 pb-2">
-          Jump to
-        </div>
-        <Link href="/" className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-[var(--text)] hover:bg-[var(--surface-muted)]">
-          <span className="w-4 h-4 text-[var(--muted)]"><IconHome /></span>
-          Dashboard
-        </Link>
-        <Link href="/clients" className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-[var(--text)] hover:bg-[var(--surface-muted)]">
-          <span className="w-4 h-4 text-[var(--muted)]"><IconUsers /></span>
-          Clients
-        </Link>
-        <Link href="/companies" className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-[var(--text)] hover:bg-[var(--surface-muted)]">
-          <span className="w-4 h-4 text-[var(--muted)]"><IconBuilding /></span>
-          Companies
-        </Link>
-        <Link href="/cases" className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-[var(--text)] hover:bg-[var(--surface-muted)]">
-          <span className="w-4 h-4 text-[var(--muted)]"><IconCase /></span>
-          Cases
-        </Link>
-      </nav>
-
-      <nav className="flex flex-col gap-0.5">
-        <div className="text-[10px] tracking-widest text-[var(--muted)] uppercase font-semibold px-2 pb-2">
           Admin
         </div>
         {nav.map((item) => {
@@ -148,22 +126,6 @@ function IconBack() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14">
       <path d="M15 18l-6-6 6-6" />
-    </svg>
-  );
-}
-function IconBuilding() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="3" width="16" height="18" rx="1.5" />
-      <path d="M9 7h.01M15 7h.01M9 11h.01M15 11h.01M9 15h.01M15 15h.01M10 21v-4h4v4" />
-    </svg>
-  );
-}
-function IconCase() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
