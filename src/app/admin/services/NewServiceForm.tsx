@@ -71,16 +71,8 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
           </select>
         </div>
       </Field>
-      <Field label="Description (English, optional)">
+      <Field label="Description (optional)">
         <input name="description" placeholder="Short internal description"
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand" />
-      </Field>
-      <Field label="Name (Indonesian, optional)">
-        <input name="name_id" placeholder="Same as English if blank"
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand" />
-      </Field>
-      <Field label="Description (Indonesian, optional)">
-        <input name="description_id"
           className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand" />
       </Field>
       <div className="flex items-end">
@@ -90,16 +82,6 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
           Has deliverable
         </label>
       </div>
-      <Field label="Delivery template (English, optional)">
-        <textarea name="delivery_template_en" rows={2}
-          placeholder="Hi {{client_name}}, your {{service}} is ready."
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand resize-y" />
-      </Field>
-      <Field label="Delivery template (Indonesian, optional)">
-        <textarea name="delivery_template_id" rows={2}
-          placeholder="Halo {{client_name}}, {{service}} Anda sudah siap."
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm focus:outline-brand focus:border-brand resize-y" />
-      </Field>
 
       <div className="col-span-3 flex items-center justify-between mt-1">
         <div className="text-[12px] min-h-[18px]">

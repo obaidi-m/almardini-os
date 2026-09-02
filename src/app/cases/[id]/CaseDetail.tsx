@@ -47,7 +47,7 @@ export function CaseDetail({
   caseRow: CaseRecord;
   client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
   company: { id: string; code: string; name: string } | null;
-  service: { id: string; name: string; has_deliverable: boolean; delivery_template_en: string | null; delivery_template_id: string | null } | null;
+  service: { id: string; name: string; has_deliverable: boolean } | null;
   assignee: { id: string; full_name: string } | null;
   updates: UpdateRow[];
   canDeliver: boolean;
@@ -369,17 +369,14 @@ function DeliverModal({
 }: {
   caseId: string;
   client: { full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" };
-  service: { name: string; delivery_template_en: string | null; delivery_template_id: string | null };
+  service: { name: string };
   onClose: () => void;
   onDelivered: () => void;
 }) {
   const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const rawTemplate = service.delivery_template_en?.trim() || service.delivery_template_id?.trim() || t("deliver.template_fallback", { name: "{{client_name}}", service: "{{service}}" });
-  const template = rawTemplate
-    .replace(/\{\{\s*client_name\s*\}\}/gi, client.full_name)
-    .replace(/\{\{\s*service\s*\}\}/gi, service.name);
+  const template = t("deliver.template_fallback", { name: client.full_name, service: service.name });
   const [message, setMessage] = useState(template);
 
   const waHref = client.phone

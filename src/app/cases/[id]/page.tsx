@@ -51,7 +51,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         drive_folder_url, deleted_at, created_at, updated_at,
         client:clients(id, code, full_name, phone, email, preferred_channel),
         company:companies(id, code, name),
-        service:service_types(id, name, has_deliverable, delivery_template_en, delivery_template_id),
+        service:service_types(id, name, has_deliverable),
         assignee:users!cases_assigned_to_fkey(id, full_name)
       `)
       .eq("id", params.id)
@@ -84,7 +84,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const raw = caseRow as unknown as CaseRecord & {
     client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" }[] | { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
     company: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
-    service: { id: string; name: string; has_deliverable: boolean; delivery_template_en: string | null; delivery_template_id: string | null }[] | { id: string; name: string; has_deliverable: boolean; delivery_template_en: string | null; delivery_template_id: string | null } | null;
+    service: { id: string; name: string; has_deliverable: boolean }[] | { id: string; name: string; has_deliverable: boolean } | null;
     assignee: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
   };
   const unwrap = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);

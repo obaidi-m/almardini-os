@@ -119,18 +119,14 @@ export type ServiceType = {
   id: string;
   code: string;
   name: string;
-  name_id: string | null;
   category_id: string;
   duration: string | null;
   description: string | null;
-  description_id: string | null;
   validity_amount: number | null;
   validity_unit: "days" | "months" | "years" | null;
   recurring_amount: number | null;
   recurring_unit: "days" | "months" | "years" | null;
   has_deliverable: boolean;
-  delivery_template_en: string | null;
-  delivery_template_id: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

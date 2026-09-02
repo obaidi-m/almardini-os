@@ -72,13 +72,6 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
                 {pending ? "Saving…" : "Save"}
               </button>
             </div>
-            <div className="col-span-3">
-              <Field label="Name (Indonesian)">
-                <input name="name_id" defaultValue={service.name_id ?? ""}
-                  placeholder="Same as English if blank"
-                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-              </Field>
-            </div>
             <div className="col-span-3 flex items-end gap-4">
               <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
                 <input type="hidden" name="has_deliverable" value="false" />
@@ -89,32 +82,10 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
                 (uncheck for services with no hand-off to the client)
               </span>
             </div>
-            <div className="col-span-3">
-              <Field label="Description (English)">
+            <div className="col-span-6">
+              <Field label="Description (optional)">
                 <input name="description" defaultValue={service.description ?? ""}
                   className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-              </Field>
-            </div>
-            <div className="col-span-3">
-              <Field label="Description (Indonesian)">
-                <input name="description_id" defaultValue={service.description_id ?? ""}
-                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-              </Field>
-            </div>
-            <div className="col-span-3">
-              <Field label="Delivery template (English)">
-                <textarea name="delivery_template_en" defaultValue={service.delivery_template_en ?? ""}
-                  rows={3}
-                  placeholder="Hi {{client_name}}, your {{service}} is ready…"
-                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm resize-y" />
-              </Field>
-            </div>
-            <div className="col-span-3">
-              <Field label="Delivery template (Indonesian)">
-                <textarea name="delivery_template_id" defaultValue={service.delivery_template_id ?? ""}
-                  rows={3}
-                  placeholder="Halo {{client_name}}, {{service}} Anda sudah siap…"
-                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm resize-y" />
               </Field>
             </div>
           </form>
@@ -129,23 +100,12 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
       <td className="px-5 py-3">
         <div className="font-medium text-ink flex items-center gap-1.5">
           {service.name}
-          {service.name_id && (
-            <span className="text-[10px] font-medium text-[var(--muted)] border border-[var(--border)] px-1 py-0 rounded">ID</span>
-          )}
           {service.has_deliverable === false && (
             <span className="text-[10px] font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1 py-0 rounded" title="Marks services with no physical/digital hand-off to the client">
               no deliverable
             </span>
           )}
-          {service.delivery_template_en && (
-            <span className="text-[10px] font-medium text-brand-dark bg-brand-soft px-1 py-0 rounded" title="Delivery template set">
-              template
-            </span>
-          )}
         </div>
-        {service.name_id && (
-          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">🇮🇩 {service.name_id}</div>
-        )}
         {service.description && <div className="text-[12px] text-[var(--muted)] mt-0.5">{service.description}</div>}
       </td>
       <td className="px-5 py-3">

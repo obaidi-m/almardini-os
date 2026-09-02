@@ -48,11 +48,7 @@ export async function createService(formData: FormData) {
   const category_id = String(formData.get("category_id") || "");
   const duration = String(formData.get("duration") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;
-  const name_id = String(formData.get("name_id") || "").trim() || null;
-  const description_id = String(formData.get("description_id") || "").trim() || null;
   const has_deliverable = formData.getAll("has_deliverable").pop() === "true";
-  const delivery_template_en = String(formData.get("delivery_template_en") || "").trim() || null;
-  const delivery_template_id = String(formData.get("delivery_template_id") || "").trim() || null;
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity");
   const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
   const validity_amount = v.amount, validity_unit = v.unit;
@@ -62,7 +58,7 @@ export async function createService(formData: FormData) {
 
   const { data, error } = await supabase
     .from("service_types")
-    .insert({ code, name, name_id, category_id, duration, description, description_id, validity_amount, validity_unit, recurring_amount, recurring_unit, has_deliverable, delivery_template_en, delivery_template_id, created_by: actorId })
+    .insert({ code, name, category_id, duration, description, validity_amount, validity_unit, recurring_amount, recurring_unit, has_deliverable, created_by: actorId })
     .select("id, name, code")
     .single();
   if (error) throw new Error(error.message);
@@ -81,18 +77,14 @@ export async function updateService(formData: FormData) {
   const patch = {
     code: String(formData.get("code") || "").trim().toUpperCase(),
     name: String(formData.get("name") || "").trim(),
-    name_id: String(formData.get("name_id") || "").trim() || null,
     category_id: String(formData.get("category_id") || ""),
     duration: String(formData.get("duration") || "").trim() || null,
     description: String(formData.get("description") || "").trim() || null,
-    description_id: String(formData.get("description_id") || "").trim() || null,
     validity_amount,
     validity_unit,
     recurring_amount,
     recurring_unit,
     has_deliverable: formData.getAll("has_deliverable").pop() === "true",
-    delivery_template_en: String(formData.get("delivery_template_en") || "").trim() || null,
-    delivery_template_id: String(formData.get("delivery_template_id") || "").trim() || null,
   };
   const { error } = await supabase.from("service_types").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
