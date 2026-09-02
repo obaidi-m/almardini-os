@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { CaseStatus } from "@/lib/types";
-import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { CaseRecord, UpdateRow } from "./page";
 import { CaseForm } from "../CaseForm";
 import type { CaseFormDefaults } from "../CaseForm";
@@ -56,6 +57,7 @@ export function CaseDetail({
   userOptions: Option[];
   hasDeliverableByService: Record<string, boolean>;
 }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -108,9 +110,9 @@ export function CaseDetail({
       fd.set("status", next);
       try {
         await setCaseStatusAction(fd);
-        setToast(`Moved to ${CASE_STATUS_LABELS[next]}`);
+        setToast(t("case.detail.status.moved", { label: t(`status.${next}` as MessageKey) }));
       } catch (e) {
-        setToast(e instanceof Error ? e.message : "Failed to update status");
+        setToast(e instanceof Error ? e.message : t("case.detail.status.failed"));
       }
     });
   }
@@ -136,13 +138,13 @@ export function CaseDetail({
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isCurrent ? p.idleDot : "bg-current opacity-50"}`} />
-                  {CASE_STATUS_LABELS[s]}
+                  {t(`status.${s}` as MessageKey)}
                 </button>
               );
             })}
           </div>
           <p className="text-[11.5px] text-[var(--muted)] mt-2">
-            Tap any status to move the case there — nothing else required.
+            {t("case.detail.tap_hint")}
           </p>
         </div>
 
@@ -162,7 +164,7 @@ export function CaseDetail({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              Add a note
+              {t("case.detail.add_note")}
             </button>
           )}
         </div>
@@ -170,13 +172,13 @@ export function CaseDetail({
         {/* Timeline */}
         <div>
           <div className="text-[11px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-3">
-            Timeline ({updates.length})
+            {t("case.detail.timeline_n", { n: updates.length })}
           </div>
           {updates.length === 0 ? (
-            <p className="text-[13px] text-[var(--muted)]">Nothing recorded yet. Tap a status pill or add a note.</p>
+            <p className="text-[13px] text-[var(--muted)]">{t("case.detail.no_updates")}</p>
           ) : (
             <ul className="space-y-4">
-              {updates.map((u) => <TimelineItem key={u.id} update={u} />)}
+              {updates.map((u) => <TimelineItem key={u.id} update={u} t={t} />)}
             </ul>
           )}
         </div>
@@ -191,39 +193,39 @@ export function CaseDetail({
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
             </svg>
-            Edit
+            {t("action.edit")}
           </button>
-          <form action={softDeleteCaseAction} onSubmit={(e) => { if (!confirm("Archive this case?")) e.preventDefault(); }} className="inline">
+          <form action={softDeleteCaseAction} onSubmit={(e) => { if (!confirm(t("case.detail.confirm_archive"))) e.preventDefault(); }} className="inline">
             <input type="hidden" name="id" value={caseRow.id} />
             <button
               type="submit"
               className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
             >
-              Archive
+              {t("action.archive")}
             </button>
           </form>
         </div>
 
-        <Card title="Details">
-          <MetaRow label="Client" value={
+        <Card title={t("case.detail.details_card")}>
+          <MetaRow label={t("meta.client")} value={
             client ? <Link href={`/clients/${client.id}`} className="text-brand hover:text-brand-dark font-medium">{client.full_name}</Link> : null
           } />
-          <MetaRow label="Company" value={
+          <MetaRow label={t("meta.company")} value={
             company ? <Link href={`/companies/${company.id}`} className="text-brand hover:text-brand-dark font-medium">{company.name}</Link> : null
           } />
-          <MetaRow label="Service" value={service?.name} />
-          <MetaRow label="Assignee" value={assignee?.full_name} />
-          <MetaRow label="Priority" value={CASE_PRIORITY_LABELS[caseRow.priority]} />
-          <MetaRow label="Deadline" value={fmtDate(caseRow.deadline)} />
-          <MetaRow label="Expires" value={fmtDate(caseRow.expires_at)} />
-          <MetaRow label="OneDrive" value={caseRow.drive_folder_url ? (
+          <MetaRow label={t("meta.service")} value={service?.name} />
+          <MetaRow label={t("meta.assignee")} value={assignee?.full_name} />
+          <MetaRow label={t("meta.priority")} value={t(`priority.${caseRow.priority}` as MessageKey)} />
+          <MetaRow label={t("meta.deadline")} value={fmtDate(caseRow.deadline)} />
+          <MetaRow label={t("meta.expires")} value={fmtDate(caseRow.expires_at)} />
+          <MetaRow label={t("meta.onedrive")} value={caseRow.drive_folder_url ? (
             <a href={caseRow.drive_folder_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-brand hover:text-brand-dark font-medium">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /></svg>
-              Open folder
+              {t("case.detail.open_folder")}
             </a>
           ) : null} />
         </Card>
-        <div className="text-[11px] text-[var(--muted)] px-1">Created {fmtDate(caseRow.created_at)}</div>
+        <div className="text-[11px] text-[var(--muted)] px-1">{t("case.detail.created_at", { date: fmtDate(caseRow.created_at) ?? "" })}</div>
       </aside>
 
       {delivering && client && service && (
@@ -232,7 +234,7 @@ export function CaseDetail({
           client={client}
           service={service}
           onClose={() => setDelivering(false)}
-          onDelivered={() => { setDelivering(false); setToast("Marked as Delivered"); }}
+          onDelivered={() => { setDelivering(false); setToast(t("case.detail.deliver.marked")); }}
         />
       )}
 
@@ -240,7 +242,7 @@ export function CaseDetail({
         <ReopenModal
           caseId={caseRow.id}
           onClose={() => setReopening(false)}
-          onDone={() => { setReopening(false); setToast("Reopened to In progress"); }}
+          onDone={() => { setReopening(false); setToast(t("case.detail.reopen.done")); }}
         />
       )}
 
@@ -253,7 +255,7 @@ export function CaseDetail({
       <Modal
         open={editing}
         onClose={() => setEditing(false)}
-        title="Edit case"
+        title={t("case.detail.edit_title")}
         subtitle={caseRow.code}
         size="xl"
       >
@@ -280,6 +282,7 @@ function AddNoteForm({
   onDone: (toast: string | null) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -292,7 +295,7 @@ function AddNoteForm({
           try {
             await addCaseUpdateAction(fd);
             setText("");
-            onDone("Note added");
+            onDone(t("case.detail.note.added"));
           } catch (e) {
             setError(e instanceof Error ? e.message : "Failed");
             onDone(null);
@@ -309,15 +312,15 @@ function AddNoteForm({
         required
         rows={2}
         autoFocus
-        placeholder="What just happened? One sentence."
+        placeholder={t("case.detail.note.placeholder")}
         className="w-full px-2 py-1.5 text-[13.5px] bg-transparent border-0 focus:outline-none resize-none placeholder:text-[var(--muted)]"
       />
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
         <button type="button" onClick={onCancel} className="px-2.5 py-1 text-[12.5px] text-[var(--muted)] hover:text-ink">
-          Cancel
+          {t("action.cancel")}
         </button>
         <button type="submit" disabled={pending || !text.trim()} className="px-3 py-1.5 text-[12.5px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-40">
-          {pending ? "Posting…" : "Add note"}
+          {pending ? t("case.detail.note.posting") : t("case.detail.note.add")}
         </button>
       </div>
       {error && <div className="mt-2 text-[12px] text-red-700">{error}</div>}
@@ -325,7 +328,9 @@ function AddNoteForm({
   );
 }
 
-function TimelineItem({ update }: { update: UpdateRow }) {
+type Tr = (k: MessageKey, vars?: Record<string, string | number>) => string;
+
+function TimelineItem({ update, t }: { update: UpdateRow; t: Tr }) {
   const isStatusOnly = !update.text && update.status_before && update.status_after;
   return (
     <li className="flex gap-3">
@@ -336,25 +341,25 @@ function TimelineItem({ update }: { update: UpdateRow }) {
         )}
         {update.status_before && update.status_after && (
           <div className={`${update.text ? "mt-1" : ""} flex items-center gap-1.5 text-[11.5px]`}>
-            <StatusChip s={update.status_before} />
+            <StatusChip s={update.status_before} t={t} />
             <span className="text-[var(--muted)]">→</span>
-            <StatusChip s={update.status_after} />
+            <StatusChip s={update.status_after} t={t} />
           </div>
         )}
         <div className="mt-1 text-[11.5px] text-[var(--muted)]">
-          {update.author?.full_name ?? "Unknown"} · {fmtDateTime(update.created_at)}
+          {update.author?.full_name ?? t("case.detail.unknown_author")} · {fmtDateTime(update.created_at)}
         </div>
       </div>
     </li>
   );
 }
 
-function StatusChip({ s }: { s: CaseStatus }) {
+function StatusChip({ s, t }: { s: CaseStatus; t: Tr }) {
   const p = STATUS_PILL[s];
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${p.activeBg} ${p.activeText}`}>
       <span className={`w-1 h-1 rounded-full ${p.idleDot}`} />
-      {CASE_STATUS_LABELS[s]}
+      {t(`status.${s}` as MessageKey)}
     </span>
   );
 }
@@ -368,9 +373,10 @@ function DeliverModal({
   onClose: () => void;
   onDelivered: () => void;
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const rawTemplate = service.delivery_template_en?.trim() || service.delivery_template_id?.trim() || `Hi {{client_name}}, your {{service}} is ready.`;
+  const rawTemplate = service.delivery_template_en?.trim() || service.delivery_template_id?.trim() || t("deliver.template_fallback", { name: "{{client_name}}", service: "{{service}}" });
   const template = rawTemplate
     .replace(/\{\{\s*client_name\s*\}\}/gi, client.full_name)
     .replace(/\{\{\s*service\s*\}\}/gi, service.name);
@@ -380,21 +386,23 @@ function DeliverModal({
     ? `https://wa.me/${client.phone.replace(/[^\d]/g, "")}?text=${encodeURIComponent(message)}`
     : null;
   const mailtoHref = client.email
-    ? `mailto:${client.email}?subject=${encodeURIComponent(`Your ${service.name} is ready`)}&body=${encodeURIComponent(message)}`
+    ? `mailto:${client.email}?subject=${encodeURIComponent(t("deliver.subject_ready", { service: service.name }))}&body=${encodeURIComponent(message)}`
     : null;
+
+  const channelLabel = client.preferred_channel === "whatsapp" ? t("channel.whatsapp") : t("channel.email");
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-1">Deliver to</div>
+        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-1">{t("deliver.deliver_to")}</div>
         <div className="text-[18px] font-semibold text-ink">{client.full_name}</div>
         <div className="text-[12.5px] text-[var(--muted)] mb-4">
-          Preferred: <span className="capitalize">{client.preferred_channel}</span>
+          {t("deliver.preferred")} <span>{channelLabel}</span>
           {client.phone && <span> · {client.phone}</span>}
           {client.email && <span> · {client.email}</span>}
         </div>
 
-        <label className="text-[11px] uppercase tracking-wide font-medium text-[var(--muted)]">Message</label>
+        <label className="text-[11px] uppercase tracking-wide font-medium text-[var(--muted)]">{t("deliver.message")}</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -405,11 +413,11 @@ function DeliverModal({
         <div className="flex flex-wrap gap-2 mt-4">
           <a href={waHref ?? undefined} target="_blank" rel="noopener noreferrer"
             className={`px-3 py-1.5 text-[13px] font-medium rounded-md ${waHref ? "bg-green-600 text-white hover:opacity-90" : "bg-neutral-100 text-neutral-400 pointer-events-none"}`}>
-            Open WhatsApp
+            {t("deliver.wa")}
           </a>
           <a href={mailtoHref ?? undefined}
             className={`px-3 py-1.5 text-[13px] font-medium rounded-md ${mailtoHref ? "bg-blue-600 text-white hover:opacity-90" : "bg-neutral-100 text-neutral-400 pointer-events-none"}`}>
-            Open Email
+            {t("deliver.email")}
           </a>
         </div>
 
@@ -417,7 +425,7 @@ function DeliverModal({
 
         <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-[var(--border)]">
           <button onClick={onClose} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink">
-            Cancel
+            {t("action.cancel")}
           </button>
           <form
             action={(fd) => {
@@ -430,7 +438,7 @@ function DeliverModal({
           >
             <input type="hidden" name="case_id" value={caseId} />
             <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-semibold bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
-              {pending ? "Marking…" : "Mark as Delivered"}
+              {pending ? t("deliver.marking") : t("deliver.mark_delivered")}
             </button>
           </form>
         </div>
@@ -440,15 +448,16 @@ function DeliverModal({
 }
 
 function ReopenModal({ caseId, onClose, onDone }: { caseId: string; onClose: () => void; onDone: () => void }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="text-[16px] font-semibold text-ink mb-1">Reopen this case?</div>
+        <div className="text-[16px] font-semibold text-ink mb-1">{t("reopen.title")}</div>
         <p className="text-[12.5px] text-[var(--muted)] mb-4">
-          The case moves back to In progress. A reason will be logged on the timeline.
+          {t("reopen.blurb")}
         </p>
 
         <form
@@ -461,21 +470,21 @@ function ReopenModal({ caseId, onClose, onDone }: { caseId: string; onClose: () 
           }}
         >
           <input type="hidden" name="case_id" value={caseId} />
-          <label className="text-[11px] uppercase tracking-wide font-medium text-[var(--muted)]">Reason *</label>
+          <label className="text-[11px] uppercase tracking-wide font-medium text-[var(--muted)]">{t("reopen.reason")}</label>
           <textarea
             name="reason"
             required
             rows={3}
-            placeholder="e.g. Client raised a follow-up question we hadn't addressed."
+            placeholder={t("reopen.reason_placeholder")}
             className="w-full mt-1 px-3 py-2 text-[13.5px] border border-[var(--border)] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
           />
           {error && <div className="mt-2 text-[12.5px] text-red-700">{error}</div>}
           <div className="flex items-center justify-end gap-2 mt-4">
             <button type="button" onClick={onClose} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink">
-              Cancel
+              {t("action.cancel")}
             </button>
             <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-semibold bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
-              {pending ? "Reopening…" : "Reopen case"}
+              {pending ? t("reopen.reopening") : t("reopen.reopen_case")}
             </button>
           </div>
         </form>
