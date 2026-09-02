@@ -241,6 +241,7 @@ const en = {
   "empty.no_clients_match": "No clients match those filters.",
   "empty.no_companies_match": "No companies match those filters.",
   "empty.no_cases_match": "No cases match those filters.",
+  "empty.no_partners_match": "No partners match those filters.",
   "empty.clear_link": "Clear filters",
 
   // Filter section labels
@@ -402,6 +403,8 @@ const en = {
   "partner.new.title": "New partner",
   "partner.new.subtitle": "A PRT-xxxx code will be assigned automatically.",
   "partner.form.create": "Create partner",
+  "toolbar.any_type": "Any type",
+  "filter.section.type": "Type",
 
   // Partners
   "partner.type.referrer": "Referrer",
@@ -421,9 +424,16 @@ const en = {
 
   // Search
   "search.title": "Search",
-  "search.placeholder": "Search anything — clients, companies, cases, notes…",
+  "search.placeholder_full": "Search clients, companies, cases, partners, or update notes",
   "search.no_results": "No results.",
-  "search.type_to_search": "Type to search across clients, companies, cases, and notes.",
+  "search.no_results_for": "No results for {q}.",
+  "search.type_to_search": "Type anything above to search across the whole system.",
+  "search.group.clients": "Clients ({n})",
+  "search.group.companies": "Companies ({n})",
+  "search.group.cases": "Cases ({n})",
+  "search.group.partners": "Partners ({n})",
+  "search.group.notes": "Notes on cases ({n})",
+  "search.untitled_case": "Untitled case",
 
   // Login
   "login.title": "Sign in",
@@ -664,6 +674,7 @@ const id: Messages = {
   "empty.no_clients_match": "Tidak ada klien yang cocok dengan filter.",
   "empty.no_companies_match": "Tidak ada perusahaan yang cocok dengan filter.",
   "empty.no_cases_match": "Tidak ada kasus yang cocok dengan filter.",
+  "empty.no_partners_match": "Tidak ada mitra yang cocok dengan filter.",
   "empty.clear_link": "Hapus filter",
 
   "filter.section.nationality": "Kewarganegaraan",
@@ -815,6 +826,8 @@ const id: Messages = {
   "partner.new.title": "Mitra baru",
   "partner.new.subtitle": "Kode PRT-xxxx akan diberikan otomatis.",
   "partner.form.create": "Buat mitra",
+  "toolbar.any_type": "Semua tipe",
+  "filter.section.type": "Tipe",
 
   "partner.type.referrer": "Pemberi referensi",
   "partner.type.agent": "Agen",
@@ -831,9 +844,16 @@ const id: Messages = {
   "renewals.filter.cases": "Kasus ({n})",
 
   "search.title": "Pencarian",
-  "search.placeholder": "Cari apa saja — klien, perusahaan, kasus, catatan…",
+  "search.placeholder_full": "Cari klien, perusahaan, kasus, mitra, atau catatan",
   "search.no_results": "Tidak ada hasil.",
-  "search.type_to_search": "Ketik untuk mencari klien, perusahaan, kasus, dan catatan.",
+  "search.no_results_for": "Tidak ada hasil untuk {q}.",
+  "search.type_to_search": "Ketik di atas untuk mencari di seluruh sistem.",
+  "search.group.clients": "Klien ({n})",
+  "search.group.companies": "Perusahaan ({n})",
+  "search.group.cases": "Kasus ({n})",
+  "search.group.partners": "Mitra ({n})",
+  "search.group.notes": "Catatan pada kasus ({n})",
+  "search.untitled_case": "Kasus tanpa judul",
 
   "login.title": "Masuk",
   "login.subtitle": "Akses sistem operasi Almardini.",

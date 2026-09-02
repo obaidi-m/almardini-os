@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buildIlikeOr, escapeIlike } from "@/lib/search";
-import { CASE_STATUS_LABELS } from "@/lib/types";
 import type { CaseStatus } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -14,6 +15,7 @@ const STATUS_COLORS: Record<CaseStatus, string> = {
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = (searchParams.q ?? "").trim();
   const supabase = createClient();
+  const { t } = await getT();
 
   const hasQuery = q.length >= 1;
   const textLike = `%${escapeIlike(q)}%`;
@@ -73,7 +75,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
   return (
     <div>
-      <h1 className="text-[26px] font-semibold text-ink tracking-tight mb-4">Search</h1>
+      <h1 className="text-[26px] font-semibold text-ink tracking-tight mb-4">{t("search.title")}</h1>
 
       <form className="mb-6" action="/search">
         <div className="relative">
@@ -84,26 +86,26 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             name="q"
             defaultValue={q}
             autoFocus
-            placeholder="Search clients, companies, cases, partners, or update notes"
+            placeholder={t("search.placeholder_full")}
             className="w-full pl-10 pr-3 py-2.5 text-[14px] bg-white border border-[var(--border)] rounded-md focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
           />
         </div>
       </form>
 
       {!hasQuery && (
-        <p className="text-[13px] text-[var(--muted)]">Type anything above to search across the whole system.</p>
+        <p className="text-[13px] text-[var(--muted)]">{t("search.type_to_search")}</p>
       )}
 
       {hasQuery && total === 0 && (
         <p className="text-[13px] text-[var(--muted)]">
-          No results for <span className="font-medium text-ink">&quot;{q}&quot;</span>.
+          {t("search.no_results_for", { q: `"${q}"` })}
         </p>
       )}
 
       {hasQuery && total > 0 && (
         <div className="space-y-8">
           {clients.length > 0 && (
-            <Group title={`Clients (${clients.length})`}>
+            <Group title={t("search.group.clients", { n: clients.length })}>
               {clients.map((c) => (
                 <Row key={c.id} href={`/clients/${c.id}`} code={c.code}
                   title={c.full_name}
@@ -112,7 +114,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             </Group>
           )}
           {companies.length > 0 && (
-            <Group title={`Companies (${companies.length})`}>
+            <Group title={t("search.group.companies", { n: companies.length })}>
               {companies.map((co) => (
                 <Row key={co.id} href={`/companies/${co.id}`} code={co.code}
                   title={co.name}
@@ -121,21 +123,21 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             </Group>
           )}
           {cases.length > 0 && (
-            <Group title={`Cases (${cases.length})`}>
+            <Group title={t("search.group.cases", { n: cases.length })}>
               {cases.map((cs) => (
                 <Row
                   key={cs.id}
                   href={`/cases/${cs.id}`}
                   code={cs.code}
-                  title={cs.title || cs.service?.name || "Untitled case"}
+                  title={cs.title || cs.service?.name || t("search.untitled_case")}
                   hint={cs.client?.full_name ?? undefined}
-                  badge={<span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[cs.status]}`}>{CASE_STATUS_LABELS[cs.status]}</span>}
+                  badge={<span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[cs.status]}`}>{t(`status.${cs.status}` as MessageKey)}</span>}
                 />
               ))}
             </Group>
           )}
           {partners.length > 0 && (
-            <Group title={`Partners (${partners.length})`}>
+            <Group title={t("search.group.partners", { n: partners.length })}>
               {partners.map((p) => (
                 <Row key={p.id} href={`/partners/${p.id}`} code={p.code}
                   title={p.name}
@@ -144,7 +146,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             </Group>
           )}
           {updates.length > 0 && (
-            <Group title={`Notes on cases (${updates.length})`}>
+            <Group title={t("search.group.notes", { n: updates.length })}>
               {updates.map((u) => (
                 <Link
                   key={u.id}

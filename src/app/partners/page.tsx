@@ -2,16 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Partner } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
 type TypeFilter = "" | "referrer" | "agent" | "both";
 type SearchParams = { show?: string; sort?: string; type?: string };
-
-const TYPE_LABEL: Record<Partner["type"], string> = {
-  referrer: "Referrer",
-  agent: "Agent",
-  both: "Both",
-};
 
 const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: string }> = {
   referrer: { bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", dot: "bg-[#3B82F6]" },
@@ -19,18 +14,15 @@ const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: strin
   both:     { bg: "bg-[#FBEFD4]", text: "text-[#8A6919]", dot: "bg-[#E8B14A]" },
 };
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "newest", label: "Newest first" },
-  { key: "oldest", label: "Oldest first" },
-  { key: "name_asc", label: "Name A → Z" },
-  { key: "name_desc", label: "Name Z → A" },
-];
+const SORT_KEYS: SortKey[] = ["newest", "oldest", "name_asc", "name_desc"];
 
 export default async function PartnersListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { t } = await getT();
+  const sortLabelFor = (k: SortKey) => t(`sort.${k}` as MessageKey);
+  const typeLabelFor = (v: Partner["type"]) => t(`partner.type.${v}` as MessageKey);
   const includeDeleted = searchParams.show === "archived";
-  const sort: SortKey = (SORT_OPTIONS.find((o) => o.key === searchParams.sort)?.key ?? "newest") as SortKey;
+  const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "newest") as SortKey;
   const typeFilter = (["referrer", "agent", "both"].includes(searchParams.type ?? "") ? searchParams.type : "") as TypeFilter;
 
   let query = supabase
@@ -62,7 +54,7 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
     return s ? `/partners?${s}` : "/partners";
   }
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Newest first";
+  const sortLabel = sortLabelFor(sort);
   const activeFilterCount = typeFilter ? 1 : 0;
 
   return (
@@ -88,7 +80,7 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
       <div className="flex items-center gap-2 mb-3 text-[12px]">
         <div className="inline-flex items-center gap-1.5 text-[var(--muted)]">
           <IconHandshake />
-          <span className="font-medium text-ink">All partners</span>
+          <span className="font-medium text-ink">{t("toolbar.all_partners")}</span>
           <span className="text-[var(--muted)]">·</span>
           <span>{rows.length}</span>
         </div>
@@ -97,14 +89,14 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
         <details className="relative">
           <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
-            <span>Sorted by <span className="text-ink font-medium">{sortLabel}</span></span>
+            <span>{t("toolbar.sorted_by_prefix")} <span className="text-ink font-medium">{sortLabel}</span></span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[180px] bg-white rounded-lg shadow-lg border border-[var(--border)] py-1">
-            {SORT_OPTIONS.map((opt) => (
-              <Link key={opt.key} href={hrefWith({ sort: opt.key })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === opt.key ? "text-brand-dark font-medium" : "text-ink"}`}>
-                {opt.label}
-                {sort === opt.key && <span className="text-brand">✓</span>}
+            {SORT_KEYS.map((k) => (
+              <Link key={k} href={hrefWith({ sort: k })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === k ? "text-brand-dark font-medium" : "text-ink"}`}>
+                {sortLabelFor(k)}
+                {sort === k && <span className="text-brand">✓</span>}
               </Link>
             ))}
           </div>
@@ -113,19 +105,19 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
         <details className="relative">
           <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 3H2l8 9v7l4 2v-9l8-9z"/></svg>
-            <span>Filter</span>
+            <span>{t("toolbar.filter")}</span>
             {activeFilterCount > 0 && <span className="ml-1 bg-brand text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">{activeFilterCount}</span>}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[180px] bg-white rounded-lg shadow-lg border border-[var(--border)] p-3">
-            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">Type</div>
+            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.type")}</div>
             <div className="-mx-1">
               <Link href={hrefWith({ type: undefined })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!typeFilter ? "text-brand-dark font-medium" : "text-ink"}`}>
-                Any type
+                {t("toolbar.any_type")}
               </Link>
               {(["referrer", "agent", "both"] as const).map((tk) => (
                 <Link key={tk} href={hrefWith({ type: tk })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${typeFilter === tk ? "text-brand-dark font-medium" : "text-ink"}`}>
-                  {TYPE_LABEL[tk]}
+                  {typeLabelFor(tk)}
                 </Link>
               ))}
             </div>
@@ -135,7 +127,7 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
         {typeFilter && (
           <div className="flex items-center gap-1.5 pl-1">
             <span className="inline-flex items-center gap-1 bg-brand-soft text-brand-dark px-2 py-0.5 rounded-full text-[11.5px]">
-              {TYPE_LABEL[typeFilter as Partner["type"]]}
+              {typeLabelFor(typeFilter as Partner["type"])}
               <Link href={hrefWith({ type: undefined })} className="opacity-70 hover:opacity-100">×</Link>
             </span>
           </div>
@@ -143,11 +135,11 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
 
         <div className="ml-auto flex items-center gap-3">
           <span className="text-[var(--muted)]">
-            <span className="text-ink font-medium num">{activeCount}</span> active
+            <span className="text-ink font-medium num">{activeCount}</span> {t("toolbar.active_word")}
             {includeDeleted && (
               <>
                 <span className="mx-1.5 opacity-40">·</span>
-                <span className="text-[var(--muted)] num">{archivedCount}</span> archived
+                <span className="text-[var(--muted)] num">{archivedCount}</span> {t("toolbar.archived_word")}
               </>
             )}
           </span>
@@ -166,20 +158,20 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
-          <HeadCell icon={<IconHash />} label="Code" href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
-          <HeadCell icon={<IconHandshake />} label="Name" href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconTag />} label="Type" />
-          <HeadCell icon={<IconUser />} label="Contact person" />
-          <HeadCell icon={<IconPhone />} label="Phone" />
-          <HeadCell icon={<IconMail />} label="Email" />
+          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
+          <HeadCell icon={<IconHandshake />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
+          <HeadCell icon={<IconTag />} label={t("filter.section.type")} />
+          <HeadCell icon={<IconUser />} label={t("field.contact_person")} />
+          <HeadCell icon={<IconPhone />} label={t("field.phone")} />
+          <HeadCell icon={<IconMail />} label={t("field.email")} />
         </div>
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {typeFilter ? (
-              <>No partners match those filters. <Link href={hrefWith({ type: undefined })} className="text-brand hover:text-brand-dark font-medium">Clear filters</Link></>
+              <>{t("empty.no_partners_match")} <Link href={hrefWith({ type: undefined })} className="text-brand hover:text-brand-dark font-medium">{t("toolbar.clear_filters")}</Link></>
             ) : (
-              <>No partners yet. <Link href="/partners/new" className="text-brand hover:text-brand-dark font-medium">Add your first one →</Link></>
+              <>{t("empty.no_partners")} <Link href="/partners/new" className="text-brand hover:text-brand-dark font-medium">{t("empty.add_first")}</Link></>
             )}
           </div>
         ) : (
@@ -199,13 +191,13 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
                   </span>
                   <span className="text-ink font-medium truncate group-hover/name:text-brand-dark">{p.name}</span>
                   {p.deleted_at && (
-                    <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">archived</span>
+                    <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">{t("badge.archived")}</span>
                   )}
                 </Link>
                 <div>
                   <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${ts.bg} ${ts.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${ts.dot}`} />
-                    {TYPE_LABEL[p.type]}
+                    {typeLabelFor(p.type)}
                   </span>
                 </div>
                 <div className="text-[12.5px] text-ink truncate">{p.contact_person ?? <span className="text-[var(--hint)]">—</span>}</div>
@@ -218,8 +210,8 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
       </div>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
-        {rows.length} {rows.length === 1 ? "partner" : "partners"}
-        {rows.length === 200 && " · showing first 200"}
+        {t("list.count.partners", { n: rows.length })}
+        {rows.length === 200 && ` · ${t("common.showing_first", { n: 200 })}`}
       </div>
     </div>
   );
