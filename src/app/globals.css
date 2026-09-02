@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Amiri:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Ground + surfaces — warm cream, easy on the eyes for long sessions */
+  --bg:            #F5F1E8;   /* page background — warm cream (from Almardini's other system) */
+  --surface:       #FFFFFF;   /* cards, sidebar */
+  --surface-muted: #FFFFFF;   /* sidebar sits flat with the shell */
+  --surface-deep:  #EEE9DB;   /* row hover, chip backgrounds */
+  --surface-2:     #F9F5EB;   /* subtle inset (filters, search) */
+
+  --border:        #E4DFD0;
+  --border-strong: #CFC8B4;
+
+  --text:          #1A1D22;   /* warm near-black */
+  --muted:         #6E6B62;
+  --hint:          #96928A;
+
+  /* Brand (from logo) */
+  --brand:         #148A7C;
+  --brand-dark:    #0E6E62;
+  --brand-soft:    #E4F2EF;
+  --brand-softer:  #F1F8F6;
+
+  /* Gold accent (from logo) — reserved for attention/urgent */
+  --gold:          #E8B14A;
+  --gold-soft:     #FBEFD4;
+
+  /* Shadow — warm-tinted so cards lift off cream without cool cast */
+  --shadow-sm: 0 1px 2px rgba(60,45,20,0.05);
+  --shadow-md: 0 1px 3px rgba(60,45,20,0.06), 0 8px 24px -6px rgba(60,45,20,0.10);
+  --shadow-lg: 0 2px 4px rgba(60,45,20,0.06), 0 16px 36px -8px rgba(60,45,20,0.14);
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Instrument Sans", "DM Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.num, .font-serif {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+}
+
+* { box-sizing: border-box; }
