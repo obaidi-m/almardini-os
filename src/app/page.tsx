@@ -34,7 +34,7 @@ type CaseCard = {
   service: { id: string; name: string } | null;
 };
 
-type Renewal = { kind: "passport" | "case_expiry" | "license"; label: string; expires_at: string; href: string };
+type Renewal = { kind: "passport" | "case_expiry"; label: string; expires_at: string; href: string };
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -63,7 +63,6 @@ export default async function DashboardPage() {
     recentCasesRes,
     expiringPassportsRes,
     expiringCasesRes,
-    expiringLicensesRes,
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -126,15 +125,6 @@ export default async function DashboardPage() {
       .lte("expires_at", in90Iso)
       .order("expires_at", { ascending: true })
       .limit(20),
-    supabase
-      .from("companies")
-      .select("id, name, license_expires_at")
-      .is("deleted_at", null)
-      .not("license_expires_at", "is", null)
-      .gte("license_expires_at", todayIso)
-      .lte("license_expires_at", in90Iso)
-      .order("license_expires_at", { ascending: true })
-      .limit(20),
   ]);
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -173,12 +163,6 @@ export default async function DashboardPage() {
         href: `/cases/${r.id}`,
       };
     }),
-    ...((expiringLicensesRes.data ?? []) as { id: string; name: string; license_expires_at: string }[]).map((r) => ({
-      kind: "license" as const,
-      label: `${r.name} — license`,
-      expires_at: r.license_expires_at,
-      href: `/companies/${r.id}`,
-    })),
   ].sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
   const firstName = (me?.full_name || "there").split(" ")[0];
@@ -355,12 +339,10 @@ function CaseRow({ c, showStatus }: { c: CaseCard; showStatus: boolean }) {
 }
 
 function RenewalBadge({ kind }: { kind: Renewal["kind"] }) {
-  const label = kind === "passport" ? "Passport" : kind === "license" ? "License" : "Case";
+  const label = kind === "passport" ? "Passport" : "Case";
   const color =
     kind === "passport"
       ? "bg-blue-100 text-blue-800"
-      : kind === "license"
-      ? "bg-purple-100 text-purple-800"
       : "bg-orange-100 text-orange-800";
   return (
     <span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded shrink-0 w-[64px] text-center ${color}`}>

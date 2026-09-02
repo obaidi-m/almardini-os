@@ -63,7 +63,6 @@ export type Company = {
   nib: string | null;
   incorporation_date: string | null;
   address: string | null;
-  license_expires_at: string | null;
   drive_folder_url: string | null;
   notes: string | null;
   deleted_at: string | null;

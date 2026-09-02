@@ -15,7 +15,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }] = await Promise.all([
     supabase
       .from("companies")
-      .select("id, code, name, nib, incorporation_date, address, license_expires_at, drive_folder_url, notes, deleted_at, created_at, updated_at")
+      .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, deleted_at, created_at, updated_at")
       .eq("id", params.id)
       .maybeSingle(),
     supabase
@@ -78,14 +78,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     service: unwrap(row.service),
   }));
 
-  // License-expiry visual cue for the header
-  const today = new Date().toISOString().slice(0, 10);
-  const soonIso = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
-  const licState =
-    !c.license_expires_at ? null :
-    c.license_expires_at < today ? "expired" :
-    c.license_expires_at <= soonIso ? "soon" : "ok";
-
   return (
     <div className="max-w-[1200px]">
       <Link href="/companies" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--muted)] hover:text-ink mb-3">
@@ -102,16 +94,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         {c.deleted_at && (
           <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded">
             archived
-          </span>
-        )}
-        {licState === "expired" && (
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded">
-            license expired
-          </span>
-        )}
-        {licState === "soon" && (
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8A6919] bg-[var(--gold-soft)] px-1.5 py-0.5 rounded">
-            license due soon
           </span>
         )}
       </div>

@@ -125,10 +125,6 @@ export function CompanyDetail({
             </div>
           </Card>
 
-          <Card title="Renewals">
-            <FieldRow label="License expiry" value={<LicenseCell v={company.license_expires_at} />} />
-          </Card>
-
           <Card title="Files">
             <FieldRow
               label="OneDrive folder"
@@ -448,16 +444,6 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
       </div>
     </div>
   );
-}
-
-function LicenseCell({ v }: { v: string | null | undefined }) {
-  if (!v) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  const soon = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
-  const expired = v < today;
-  const soonish = !expired && v <= soon;
-  const cls = expired ? "text-red-700 font-medium" : soonish ? "text-[#8A6919] font-medium" : "text-ink";
-  return <span className={cls}>{fmtDate(v)}</span>;
 }
 
 function fmtDate(v: string | null | undefined): string {

@@ -20,7 +20,6 @@ type CompanyPayload = {
   nib: string | null;
   incorporation_date: string | null;
   address: string | null;
-  license_expires_at: string | null;
   drive_folder_url: string | null;
   notes: string | null;
 };
@@ -33,25 +32,106 @@ function parseForm(fd: FormData): CompanyPayload {
     nib: str(fd, "nib"),
     incorporation_date: str(fd, "incorporation_date"),
     address: str(fd, "address"),
-    license_expires_at: str(fd, "license_expires_at"),
     drive_folder_url: str(fd, "drive_folder_url"),
     notes: str(fd, "notes"),
   };
 }
 
+function normalizePassport(v: string | null): string | null {
+  return v ? v.replace(/\s+/g, "").toUpperCase() : null;
+}
+
+type PeopleRow =
+  | { kind: "existing"; client_id: string; role: string }
+  | { kind: "new"; full_name: string; passport_no: string; nationality: string | null; role: string };
+
+function parsePeople(fd: FormData): PeopleRow[] {
+  const raw = String(fd.get("people_json") ?? "").trim();
+  if (!raw) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { throw new Error("Could not read the people list."); }
+  if (!Array.isArray(parsed)) return [];
+  const out: PeopleRow[] = [];
+  for (const [i, r] of parsed.entries()) {
+    if (!r || typeof r !== "object") continue;
+    const row = r as Record<string, unknown>;
+    const role = String(row.role ?? "").trim();
+    if (!role) throw new Error(`Person #${i + 1}: role is required.`);
+    if (row.kind === "existing") {
+      const client_id = String(row.client_id ?? "").trim();
+      if (!client_id) throw new Error(`Person #${i + 1}: pick a client.`);
+      out.push({ kind: "existing", client_id, role });
+    } else {
+      const full_name = String(row.full_name ?? "").trim();
+      const passport_no = normalizePassport(String(row.passport_no ?? "").trim() || null) ?? "";
+      if (!full_name) throw new Error(`Person #${i + 1}: full name is required.`);
+      if (!passport_no) throw new Error(`Person #${i + 1}: passport number is required.`);
+      const nationality = String(row.nationality ?? "").trim() || null;
+      out.push({ kind: "new", full_name, passport_no, nationality, role });
+    }
+  }
+  return out;
+}
+
+function humanizePeopleError(msg: string): string {
+  if (msg.includes("clients_passport_unique")) {
+    return "One of the new people has a passport number that already exists in the system.";
+  }
+  return msg;
+}
+
 export async function createCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const payload = parseForm(fd);
+  const people = parsePeople(fd);
 
-  const { data, error } = await supabase
+  const { data: company, error: companyErr } = await supabase
     .from("companies")
     .insert({ ...payload, created_by: actorId, updated_by: actorId })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (companyErr) throw new Error(companyErr.message);
+
+  // Create any new clients, then link everyone to the company with their role.
+  // If any step fails, delete the company we just created so we don't leave orphans.
+  const links: Array<{ client_id: string; company_id: string; role: string }> = [];
+
+  try {
+    for (const p of people) {
+      let clientId: string;
+      if (p.kind === "existing") {
+        clientId = p.client_id;
+      } else {
+        const { data: newClient, error: clientErr } = await supabase
+          .from("clients")
+          .insert({
+            full_name: p.full_name,
+            passport_no: p.passport_no,
+            nationality: p.nationality,
+            preferred_channel: "whatsapp",
+            introduced_by_partner_id: null,
+            created_by: actorId,
+            updated_by: actorId,
+          })
+          .select("id")
+          .single();
+        if (clientErr) throw new Error(humanizePeopleError(clientErr.message));
+        clientId = newClient.id;
+      }
+      links.push({ client_id: clientId, company_id: company.id, role: p.role });
+    }
+
+    if (links.length > 0) {
+      const { error: linkErr } = await supabase.from("client_companies").insert(links);
+      if (linkErr) throw new Error(linkErr.message);
+    }
+  } catch (e) {
+    await supabase.from("companies").delete().eq("id", company.id);
+    throw e;
+  }
 
   revalidatePath("/companies");
-  redirect(`/companies/${data.id}`);
+  redirect(`/companies/${company.id}`);
 }
 
 export async function updateCompanyAction(fd: FormData) {
