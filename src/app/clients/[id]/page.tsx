@@ -7,7 +7,7 @@ import { ClientDetail } from "./ClientDetail";
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: client, error }, { data: partners }, { data: passportHistory }, { data: companyLinks }, { data: allCompanies }, { data: rolesList }, { data: caseRows }] = await Promise.all([
+  const [{ data: client, error }, { data: partners }, { data: companyLinks }, { data: allCompanies }, { data: rolesList }, { data: caseRows }] = await Promise.all([
     supabase
       .from("clients")
       .select(
@@ -16,11 +16,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       .eq("id", params.id)
       .maybeSingle(),
     supabase.from("partners").select("id, name, code").is("deleted_at", null).order("name"),
-    supabase
-      .from("client_passports")
-      .select("id, passport_no, passport_expires_at, archived_at, note")
-      .eq("client_id", params.id)
-      .order("archived_at", { ascending: false }),
     supabase
       .from("client_companies")
       .select("role, company:companies(id, code, name)")
@@ -102,7 +97,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       <ClientDetail
         client={normalized}
         partners={(partners as Pick<Partner, "id" | "name" | "code">[]) ?? []}
-        passportHistory={(passportHistory as Array<{ id: string; passport_no: string; passport_expires_at: string | null; archived_at: string; note: string | null }>) ?? []}
         linkedCompanies={linkedCompanies}
         allCompanies={companies}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}

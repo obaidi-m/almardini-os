@@ -25,16 +25,14 @@ const STATUS_PILL: Record<CaseStatus, string> = {
   delivered:   "bg-[var(--surface-2)] text-[var(--muted)]",
 };
 
-type PassportRow = { id: string; passport_no: string; passport_expires_at: string | null; archived_at: string; note: string | null };
 type LinkedCompany = { role: string; company: { id: string; code: string; name: string } | null };
 type CompanyOption = { id: string; code: string; name: string };
 
 export function ClientDetail({
-  client, partners, passportHistory, linkedCompanies, allCompanies, roles, cases,
+  client, partners, linkedCompanies, allCompanies, roles, cases,
 }: {
   client: Client;
   partners: Pick<Partner, "id" | "name" | "code">[];
-  passportHistory: PassportRow[];
   linkedCompanies: LinkedCompany[];
   allCompanies: CompanyOption[];
   roles: Role[];
@@ -246,25 +244,6 @@ export function ClientDetail({
             })()}
           </Card>
 
-          <Card title="Passport history" count={passportHistory.length} padded>
-            {passportHistory.length === 0 ? (
-              <p className="text-[12.5px] text-[var(--muted)]">
-                No previous passports. When the passport number changes, the old one is archived here.
-              </p>
-            ) : (
-              <ul className="divide-y divide-[var(--border)] -mx-1">
-                {passportHistory.map((p) => (
-                  <li key={p.id} className="px-1 py-2.5 grid grid-cols-[140px_1fr] gap-3 text-[13px]">
-                    <div className="font-mono text-[12.5px] text-ink">{p.passport_no}</div>
-                    <div className="text-[12px] text-[var(--muted)]">
-                      Expired {fmtDate(p.passport_expires_at) ?? "—"} · Archived {fmtDate(p.archived_at)}
-                      {p.note && <div className="italic mt-0.5">{p.note}</div>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
         </div>
       </div>
 
