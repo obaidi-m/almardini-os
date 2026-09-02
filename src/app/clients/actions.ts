@@ -64,19 +64,76 @@ function humanizeSupabaseError(msg: string): string {
   return msg;
 }
 
+type CompanyLinkRow =
+  | { kind: "existing"; company_id: string; role: string }
+  | { kind: "new"; name: string; role: string };
+
+function parseCompanies(fd: FormData): CompanyLinkRow[] {
+  const raw = String(fd.get("companies_json") ?? "").trim();
+  if (!raw) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { throw new Error("Could not read the companies list."); }
+  if (!Array.isArray(parsed)) return [];
+  const out: CompanyLinkRow[] = [];
+  for (const [i, r] of parsed.entries()) {
+    if (!r || typeof r !== "object") continue;
+    const row = r as Record<string, unknown>;
+    const role = String(row.role ?? "").trim();
+    if (!role) throw new Error(`Company #${i + 1}: role is required.`);
+    if (row.kind === "existing") {
+      const company_id = String(row.company_id ?? "").trim();
+      if (!company_id) throw new Error(`Company #${i + 1}: pick a company.`);
+      out.push({ kind: "existing", company_id, role });
+    } else {
+      const name = String(row.name ?? "").trim();
+      if (!name) throw new Error(`Company #${i + 1}: company name is required.`);
+      out.push({ kind: "new", name, role });
+    }
+  }
+  return out;
+}
+
 export async function createClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const payload = parseForm(fd);
+  if (!payload.passport_no) throw new Error("Passport number is required.");
+  const companies = parseCompanies(fd);
 
-  const { data, error } = await supabase
+  const { data: client, error } = await supabase
     .from("clients")
     .insert({ ...payload, created_by: actorId, updated_by: actorId })
     .select("id")
     .single();
   if (error) throw new Error(humanizeSupabaseError(error.message));
 
+  const links: Array<{ client_id: string; company_id: string; role: string }> = [];
+  try {
+    for (const co of companies) {
+      let companyId: string;
+      if (co.kind === "existing") {
+        companyId = co.company_id;
+      } else {
+        const { data: newCompany, error: coErr } = await supabase
+          .from("companies")
+          .insert({ name: co.name, created_by: actorId, updated_by: actorId })
+          .select("id")
+          .single();
+        if (coErr) throw new Error(coErr.message);
+        companyId = newCompany.id;
+      }
+      links.push({ client_id: client.id, company_id: companyId, role: co.role });
+    }
+    if (links.length > 0) {
+      const { error: linkErr } = await supabase.from("client_companies").insert(links);
+      if (linkErr) throw new Error(linkErr.message);
+    }
+  } catch (e) {
+    await supabase.from("clients").delete().eq("id", client.id);
+    throw e;
+  }
+
   revalidatePath("/clients");
-  redirect(`/clients/${data.id}`);
+  redirect(`/clients/${client.id}`);
 }
 
 export async function updateClientAction(fd: FormData) {

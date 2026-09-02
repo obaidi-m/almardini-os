@@ -1,17 +1,32 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { Client, Partner } from "@/lib/types";
 import { NATIONALITIES } from "@/lib/nationalities";
 import { DateInput } from "@/components/ui/DateInput";
 
 type Mode = "create" | "edit";
 
-/**
- * Notion / Attio-style form:
- * - Two-column key/value layout
- * - Borderless inputs; border appears on hover, thickens on focus
- * - Muted uppercase labels, quiet dividers, no coloured backgrounds
- */
+export type CompanyRoleOption = { code: string; label_en: string };
+export type ExistingCompanyOption = { id: string; code: string; name: string };
+
+type CompanyRow = {
+  uid: string;
+  kind: "new" | "existing";
+  role: string;
+  company_id: string;
+  name: string;
+};
+
+function newRow(defaultRole: string): CompanyRow {
+  return {
+    uid: Math.random().toString(36).slice(2),
+    kind: "new",
+    role: defaultRole,
+    company_id: "",
+    name: "",
+  };
+}
+
 export function ClientForm({
   mode,
   client,
@@ -19,6 +34,8 @@ export function ClientForm({
   action,
   onCancel,
   submitLabel,
+  roles = [],
+  existingCompanies = [],
 }: {
   mode: Mode;
   client?: Partial<Client>;
@@ -26,9 +43,28 @@ export function ClientForm({
   action: (fd: FormData) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
+  roles?: CompanyRoleOption[];
+  existingCompanies?: ExistingCompanyOption[];
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const defaultRole = roles[0]?.code ?? "";
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+
+  const companiesJson = useMemo(() => {
+    const clean = companies
+      .map((c) => {
+        if (!c.role) return null;
+        if (c.kind === "existing") {
+          if (!c.company_id) return null;
+          return { kind: "existing", company_id: c.company_id, role: c.role };
+        }
+        if (!c.name.trim()) return null;
+        return { kind: "new", name: c.name.trim(), role: c.role };
+      })
+      .filter(Boolean);
+    return JSON.stringify(clean);
+  }, [companies]);
 
   return (
     <form
@@ -44,6 +80,7 @@ export function ClientForm({
       }}
     >
       {mode === "edit" && client?.id && <input type="hidden" name="id" value={client.id} />}
+      {mode === "create" && <input type="hidden" name="companies_json" value={companiesJson} />}
 
       <datalist id="nationalities-list">
         {NATIONALITIES.map((n) => <option key={n} value={n} />)}
@@ -61,6 +98,16 @@ export function ClientForm({
           />
         </Row>
 
+        <Row label="Passport no." required={mode === "create"}>
+          <input
+            name="passport_no"
+            defaultValue={client?.passport_no ?? ""}
+            required={mode === "create"}
+            placeholder="e.g. A1234567"
+            className={cellInput + " font-mono uppercase"}
+          />
+        </Row>
+
         <Row label="Nationality">
           <input
             name="nationality"
@@ -72,93 +119,104 @@ export function ClientForm({
           />
         </Row>
 
-        <Row label="Date of birth">
-          <DateInput name="date_of_birth" defaultValue={client?.date_of_birth} />
-        </Row>
+        {mode === "edit" && (
+          <>
+            <Row label="Date of birth">
+              <DateInput name="date_of_birth" defaultValue={client?.date_of_birth} />
+            </Row>
 
-        <Row label="Place of birth">
-          <input
-            name="place_of_birth"
-            defaultValue={client?.place_of_birth ?? ""}
-            placeholder="City, Country — e.g. London, UK"
-            className={cellInput}
-          />
-        </Row>
+            <Row label="Place of birth">
+              <input
+                name="place_of_birth"
+                defaultValue={client?.place_of_birth ?? ""}
+                placeholder="City, Country — e.g. London, UK"
+                className={cellInput}
+              />
+            </Row>
+          </>
+        )}
       </Section>
 
-      <Section title="Passport">
-        <Row label="Passport no.">
-          <input
-            name="passport_no"
-            defaultValue={client?.passport_no ?? ""}
-            placeholder="e.g. A1234567"
-            className={cellInput + " font-mono uppercase"}
-          />
-        </Row>
+      {mode === "edit" && (
+        <>
+          <Section title="Passport">
+            <Row label="Passport expiry">
+              <DateInput name="passport_expires_at" defaultValue={client?.passport_expires_at} />
+            </Row>
+          </Section>
 
-        <Row label="Passport expiry">
-          <DateInput name="passport_expires_at" defaultValue={client?.passport_expires_at} />
-        </Row>
-      </Section>
+          <Section title="Contact">
+            <Row label="Phone">
+              <input
+                name="phone"
+                defaultValue={client?.phone ?? ""}
+                placeholder="+62 812 3456 7890"
+                className={cellInput}
+              />
+            </Row>
 
-      <Section title="Contact">
-        <Row label="Phone">
-          <input
-            name="phone"
-            defaultValue={client?.phone ?? ""}
-            placeholder="+62 812 3456 7890"
-            className={cellInput}
-          />
-        </Row>
+            <Row label="Email">
+              <input
+                name="email"
+                type="email"
+                defaultValue={client?.email ?? ""}
+                placeholder="name@example.com"
+                className={cellInput}
+              />
+            </Row>
 
-        <Row label="Email">
-          <input
-            name="email"
-            type="email"
-            defaultValue={client?.email ?? ""}
-            placeholder="name@example.com"
-            className={cellInput}
-          />
-        </Row>
+            <Row label="Preferred channel">
+              <select
+                name="preferred_channel"
+                defaultValue={client?.preferred_channel ?? "whatsapp"}
+                className={cellInput + " bg-transparent"}
+              >
+                <option value="whatsapp">WhatsApp</option>
+                <option value="email">Email</option>
+              </select>
+            </Row>
+          </Section>
 
-        <Row label="Preferred channel">
-          <select
-            name="preferred_channel"
-            defaultValue={client?.preferred_channel ?? "whatsapp"}
-            className={cellInput + " bg-transparent"}
-          >
-            <option value="whatsapp">WhatsApp</option>
-            <option value="email">Email</option>
-          </select>
-        </Row>
-      </Section>
+          <Section title="Files">
+            <Row label="OneDrive folder">
+              <input
+                name="drive_folder_url"
+                type="url"
+                defaultValue={client?.drive_folder_url ?? ""}
+                placeholder="Paste OneDrive share link"
+                className={cellInput}
+              />
+            </Row>
+          </Section>
 
-      <Section title="Files">
-        <Row label="OneDrive folder">
-          <input
-            name="drive_folder_url"
-            type="url"
-            defaultValue={client?.drive_folder_url ?? ""}
-            placeholder="Paste OneDrive share link"
-            className={cellInput}
-          />
-        </Row>
-      </Section>
+          <Section title="Relationship">
+            <Row label="Introduced by">
+              <select
+                name="introduced_by_partner_id"
+                defaultValue={client?.introduced_by_partner_id ?? ""}
+                className={cellInput + " bg-transparent"}
+              >
+                <option value="">—</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                ))}
+              </select>
+            </Row>
+          </Section>
+        </>
+      )}
 
-      <Section title="Relationship" last>
-        <Row label="Introduced by">
-          <select
-            name="introduced_by_partner_id"
-            defaultValue={client?.introduced_by_partner_id ?? ""}
-            className={cellInput + " bg-transparent"}
-          >
-            <option value="">—</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-            ))}
-          </select>
-        </Row>
+      {mode === "create" && (
+        <CompaniesSection
+          companies={companies}
+          setCompanies={setCompanies}
+          roles={roles}
+          existingCompanies={existingCompanies}
+          defaultRole={defaultRole}
+        />
+      )}
 
+      <Section title="Notes" last>
         <Row label="Notes" align="start">
           <textarea
             name="notes"
@@ -198,7 +256,114 @@ export function ClientForm({
   );
 }
 
-/** Section wrapper: quiet uppercase heading + divided rows. */
+function CompaniesSection({
+  companies, setCompanies, roles, existingCompanies, defaultRole,
+}: {
+  companies: CompanyRow[];
+  setCompanies: (fn: (prev: CompanyRow[]) => CompanyRow[]) => void;
+  roles: CompanyRoleOption[];
+  existingCompanies: ExistingCompanyOption[];
+  defaultRole: string;
+}) {
+  const update = (uid: string, patch: Partial<CompanyRow>) =>
+    setCompanies((prev) => prev.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
+  const remove = (uid: string) => setCompanies((prev) => prev.filter((c) => c.uid !== uid));
+  const add = () => setCompanies((prev) => [...prev, newRow(defaultRole)]);
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold">
+          Companies this person is at
+        </div>
+        <button type="button" onClick={add} className="text-[12px] font-medium text-brand hover:text-brand-dark">
+          + Add company
+        </button>
+      </div>
+      <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
+        {companies.length === 0 && (
+          <div className="py-3 text-[12.5px] text-[var(--muted)]">
+            None. Add later from the client page if not applicable now.
+          </div>
+        )}
+        {companies.map((c, idx) => (
+          <div key={c.uid} className="py-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-semibold">
+                Company {idx + 1}
+              </div>
+              <div className="flex items-center gap-2 text-[11.5px]">
+                <label className="inline-flex items-center gap-1 text-[var(--muted)]">
+                  <input
+                    type="radio"
+                    name={`kind-${c.uid}`}
+                    checked={c.kind === "new"}
+                    onChange={() => update(c.uid, { kind: "new" })}
+                  />
+                  New
+                </label>
+                <label className="inline-flex items-center gap-1 text-[var(--muted)]">
+                  <input
+                    type="radio"
+                    name={`kind-${c.uid}`}
+                    checked={c.kind === "existing"}
+                    onChange={() => update(c.uid, { kind: "existing" })}
+                  />
+                  Existing
+                </label>
+                <button
+                  type="button"
+                  onClick={() => remove(c.uid)}
+                  className="text-[var(--muted)] hover:text-red-700 ml-1"
+                  aria-label="Remove"
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {c.kind === "existing" ? (
+              <div className="grid grid-cols-[1fr_180px] gap-2">
+                <select
+                  value={c.company_id}
+                  onChange={(e) => update(c.uid, { company_id: e.target.value })}
+                  className={cellInput}
+                >
+                  <option value="">Pick an existing company…</option>
+                  {existingCompanies.map((co) => (
+                    <option key={co.id} value={co.id}>{co.name} ({co.code})</option>
+                  ))}
+                </select>
+                <RoleSelect value={c.role} onChange={(v) => update(c.uid, { role: v })} roles={roles} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-[1fr_180px] gap-2">
+                <input
+                  placeholder="Company name*"
+                  value={c.name}
+                  onChange={(e) => update(c.uid, { name: e.target.value })}
+                  className={cellInput}
+                />
+                <RoleSelect value={c.role} onChange={(v) => update(c.uid, { role: v })} roles={roles} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoleSelect({ value, onChange, roles }: { value: string; onChange: (v: string) => void; roles: CompanyRoleOption[] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} required className={cellInput}>
+      {roles.length === 0 && <option value="">No roles configured</option>}
+      {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
+    </select>
+  );
+}
+
 function Section({
   title,
   last,
@@ -220,7 +385,6 @@ function Section({
   );
 }
 
-/** A single label/value row, key on the left, editable value on the right. */
 function Row({
   label,
   required,
