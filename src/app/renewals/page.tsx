@@ -11,9 +11,14 @@ type Row = {
   href: string;
 };
 
-const KIND_STYLE: Record<Kind, { bg: string; text: string; dot: string; label: string }> = {
-  passport:    { bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", dot: "bg-[#3B82F6]", label: "Passport" },
-  case_expiry: { bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", dot: "bg-[#F97316]", label: "Case" },
+const KIND_STYLE: Record<Kind, { bg: string; text: string; dot: string }> = {
+  passport:    { bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", dot: "bg-[#3B82F6]" },
+  case_expiry: { bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", dot: "bg-[#F97316]" },
+};
+
+const KIND_LABEL_KEY: Record<Kind, "renewal.badge.passport" | "renewal.badge.case"> = {
+  passport: "renewal.badge.passport",
+  case_expiry: "renewal.badge.case",
 };
 
 export default async function RenewalsPage({ searchParams }: { searchParams: { kind?: string } }) {
@@ -68,27 +73,29 @@ export default async function RenewalsPage({ searchParams }: { searchParams: { k
 
       {/* Kind filter row */}
       <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-        <KindPill href="/renewals" active={!kindFilter} label={`All (${rows.length})`} />
-        <KindPill href="/renewals?kind=passport" active={kindFilter === "passport"} label={`Passports (${passportsCount})`} dot={KIND_STYLE.passport.dot} />
-        <KindPill href="/renewals?kind=case_expiry" active={kindFilter === "case_expiry"} label={`Cases (${casesCount})`} dot={KIND_STYLE.case_expiry.dot} />
+        <KindPill href="/renewals" active={!kindFilter} label={t("renewals.filter.all", { n: rows.length })} />
+        <KindPill href="/renewals?kind=passport" active={kindFilter === "passport"} label={t("renewals.filter.passports", { n: passportsCount })} dot={KIND_STYLE.passport.dot} />
+        <KindPill href="/renewals?kind=case_expiry" active={kindFilter === "case_expiry"} label={t("renewals.filter.cases", { n: casesCount })} dot={KIND_STYLE.case_expiry.dot} />
       </div>
 
-      <Bucket title="Overdue" count={overdue.length} rows={overdue} tone="red" />
-      <Bucket title="Next 30 days" count={in30.length} rows={in30} tone="gold" />
-      <Bucket title="30 – 60 days" count={in60.length} rows={in60} tone="neutral" />
-      <Bucket title="60 – 90 days" count={in90.length} rows={in90} tone="neutral" />
-      <Bucket title="Later (90 – 180 days)" count={later.length} rows={later} tone="muted" />
+      <Bucket title={t("renewals.bucket.overdue")} count={overdue.length} rows={overdue} tone="red" t={t} />
+      <Bucket title={t("renewals.bucket.30")} count={in30.length} rows={in30} tone="gold" t={t} />
+      <Bucket title={t("renewals.bucket.30_60")} count={in60.length} rows={in60} tone="neutral" t={t} />
+      <Bucket title={t("renewals.bucket.60_90")} count={in90.length} rows={in90} tone="neutral" t={t} />
+      <Bucket title={t("renewals.bucket.later")} count={later.length} rows={later} tone="muted" t={t} />
 
       {rows.length === 0 && (
         <div className="py-16 text-center text-[13px] text-[var(--muted)]">
-          Nothing expiring in the next 180 days. 🌞
+          {t("renewals.empty")}
         </div>
       )}
     </div>
   );
 }
 
-function Bucket({ title, count, rows, tone }: { title: string; count: number; rows: Row[]; tone: "red" | "gold" | "neutral" | "muted" }) {
+type Tr = (k: import("@/lib/i18n/messages").MessageKey, vars?: Record<string, string | number>) => string;
+
+function Bucket({ title, count, rows, tone, t }: { title: string; count: number; rows: Row[]; tone: "red" | "gold" | "neutral" | "muted"; t: Tr }) {
   if (rows.length === 0) return null;
 
   const toneClass =
@@ -120,7 +127,7 @@ function Bucket({ title, count, rows, tone }: { title: string; count: number; ro
             >
               <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full justify-self-start ${ks.bg} ${ks.text}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${ks.dot}`} />
-                {ks.label}
+                {t(KIND_LABEL_KEY[r.kind])}
               </span>
               <div className="min-w-0">
                 <div className="text-ink font-medium truncate group-hover:text-brand-dark">{r.title}</div>

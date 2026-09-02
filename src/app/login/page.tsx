@@ -2,8 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useT } from "@/lib/i18n/client";
 
 export default function LoginPage() {
+  const { t } = useT();
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -54,13 +56,13 @@ export default function LoginPage() {
 
       <div className="flex items-center justify-center p-10 bg-[var(--bg)]">
         <form onSubmit={handleSubmit} className="w-full max-w-sm">
-          <h1 className="font-serif text-3xl text-ink mb-1">Sign in</h1>
+          <h1 className="font-serif text-3xl text-ink mb-1">{t("login.title")}</h1>
           <p className="text-muted-foreground text-[var(--muted)] mb-8">
-            Use your Almardini team account.
+            {t("login.subtitle")}
           </p>
 
           <label className="block text-xs font-medium text-[var(--muted)] mb-1.5 uppercase tracking-wide">
-            Email
+            {t("login.email")}
           </label>
           <input
             type="email"
@@ -72,7 +74,7 @@ export default function LoginPage() {
           />
 
           <label className="block text-xs font-medium text-[var(--muted)] mb-1.5 uppercase tracking-wide">
-            Password
+            {t("login.password")}
           </label>
           <input
             type="password"
@@ -94,7 +96,7 @@ export default function LoginPage() {
             className="w-full py-3 bg-ink text-[var(--bg)] rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50"
             style={{ background: "#141618", color: "#FAF7F1" }}
           >
-            {loading ? "Signing in…" : "Continue"}
+            {loading ? t("login.signing_in") : t("login.submit")}
           </button>
         </form>
       </div>

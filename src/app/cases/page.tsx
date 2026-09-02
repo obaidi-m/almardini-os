@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
 type SearchParams = { status?: string; mine?: string; sort?: string; priority?: string };
@@ -39,21 +39,17 @@ const PRIORITY_STYLE: Record<CasePriority, string> = {
 
 const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "recent",       label: "Recently updated" },
-  { key: "deadline_asc", label: "Deadline (soonest first)" },
-  { key: "priority",     label: "Priority (highest first)" },
-  { key: "code_asc",     label: "Code A → Z" },
-];
+const SORT_KEYS: SortKey[] = ["recent", "deadline_asc", "priority", "code_asc"];
 
 export default async function CasesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { t } = await getT();
+  const sortLabelFor = (k: SortKey) => t(`sort.${k}` as MessageKey);
   const status = searchParams.status && STATUS_FILTERS.includes(searchParams.status as CaseStatus)
     ? (searchParams.status as CaseStatus)
     : null;
   const mineOnly = searchParams.mine === "1";
-  const sort: SortKey = (SORT_OPTIONS.find((o) => o.key === searchParams.sort)?.key ?? "recent") as SortKey;
+  const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "recent") as SortKey;
   const priorityFilter = (PRIORITIES.includes(searchParams.priority as CasePriority) ? (searchParams.priority as CasePriority) : "") as CasePriority | "";
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -90,7 +86,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
     return s ? `/cases?${s}` : "/cases";
   }
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Recently updated";
+  const sortLabel = sortLabelFor(sort);
   const activeFilterCount = (status ? 1 : 0) + (mineOnly ? 1 : 0) + (priorityFilter ? 1 : 0);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -116,13 +112,13 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
       {/* Status filter row */}
       <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-        <StatusPill label="All" href={hrefWith({ status: undefined })} active={!status} />
+        <StatusPill label={t("cases.filter.all")} href={hrefWith({ status: undefined })} active={!status} />
         {STATUS_FILTERS.map((s) => {
           const p = STATUS_PILL[s];
           return (
             <StatusPill
               key={s}
-              label={CASE_STATUS_LABELS[s]}
+              label={t(`status.${s}` as MessageKey)}
               href={hrefWith({ status: s })}
               active={status === s}
               dot={p.dot}
@@ -137,7 +133,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
           }`}
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-          {mineOnly ? "My cases only" : "My cases"}
+          {mineOnly ? t("cases.filter.my_cases_only") : t("cases.filter.my_cases")}
         </Link>
       </div>
 
@@ -146,8 +142,8 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
         <div className="inline-flex items-center gap-1.5 text-[var(--muted)]">
           <IconFolder />
           <span className="font-medium text-ink">
-            {status ? CASE_STATUS_LABELS[status] : "All cases"}
-            {mineOnly ? " · mine" : ""}
+            {status ? t(`status.${status}` as MessageKey) : t("toolbar.all_cases")}
+            {mineOnly ? ` · ${t("toolbar.mine")}` : ""}
           </span>
           <span className="text-[var(--muted)]">·</span>
           <span>{rows.length}</span>
@@ -157,14 +153,14 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
         <details className="relative">
           <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
-            <span>Sorted by <span className="text-ink font-medium">{sortLabel}</span></span>
+            <span>{t("toolbar.sorted_by_prefix")} <span className="text-ink font-medium">{sortLabel}</span></span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[220px] bg-white rounded-lg shadow-lg border border-[var(--border)] py-1">
-            {SORT_OPTIONS.map((opt) => (
-              <Link key={opt.key} href={hrefWith({ sort: opt.key })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === opt.key ? "text-brand-dark font-medium" : "text-ink"}`}>
-                {opt.label}
-                {sort === opt.key && <span className="text-brand">✓</span>}
+            {SORT_KEYS.map((k) => (
+              <Link key={k} href={hrefWith({ sort: k })} className={`flex items-center justify-between gap-2 px-3 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] ${sort === k ? "text-brand-dark font-medium" : "text-ink"}`}>
+                {sortLabelFor(k)}
+                {sort === k && <span className="text-brand">✓</span>}
               </Link>
             ))}
           </div>
@@ -173,25 +169,25 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
         <details className="relative">
           <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 3H2l8 9v7l4 2v-9l8-9z"/></svg>
-            <span>Filter</span>
+            <span>{t("toolbar.filter")}</span>
             {priorityFilter && <span className="ml-1 bg-brand text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">1</span>}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div className="absolute z-20 mt-1 left-0 min-w-[200px] bg-white rounded-lg shadow-lg border border-[var(--border)] p-3">
-            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">Priority</div>
+            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.priority")}</div>
             <div className="-mx-1">
               <Link href={hrefWith({ priority: undefined })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!priorityFilter ? "text-brand-dark font-medium" : "text-ink"}`}>
-                Any priority
+                {t("toolbar.any_priority")}
               </Link>
               {PRIORITIES.map((p) => (
-                <Link key={p} href={hrefWith({ priority: p })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] capitalize ${priorityFilter === p ? "text-brand-dark font-medium" : "text-ink"}`}>
-                  {CASE_PRIORITY_LABELS[p]}
+                <Link key={p} href={hrefWith({ priority: p })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${priorityFilter === p ? "text-brand-dark font-medium" : "text-ink"}`}>
+                  {t(`priority.${p}` as MessageKey)}
                 </Link>
               ))}
             </div>
             {priorityFilter && (
               <Link href={hrefWith({ priority: undefined })} className="block text-center text-[11.5px] text-[var(--muted)] hover:text-ink pt-2 mt-2 border-t border-[var(--border)]">
-                Clear filters
+                {t("toolbar.clear_filters")}
               </Link>
             )}
           </div>
@@ -199,12 +195,12 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
         {activeFilterCount > 0 && (
           <Link href="/cases" className="text-[11.5px] text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50">
-            Reset all
+            {t("toolbar.reset_all")}
           </Link>
         )}
 
         <div className="ml-auto text-[var(--muted)]">
-          <span className="text-ink font-medium num">{rows.length}</span> {rows.length === 1 ? "case" : "cases"}
+          {t("list.count.cases", { n: rows.length })}
         </div>
       </div>
 
@@ -217,21 +213,21 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
-          <HeadCell icon={<IconHash />} label="Code" href={hrefWith({ sort: "code_asc" })} sortHint={sort === "code_asc" ? "↑" : undefined} />
-          <HeadCell icon={<IconUser />} label="Client / title" />
-          <HeadCell icon={<IconDoc />} label="Service" />
-          <HeadCell icon={<IconDot />} label="Status" />
-          <HeadCell icon={<IconUser />} label="Assignee" />
-          <HeadCell icon={<IconFlag />} label="Priority" href={hrefWith({ sort: "priority" })} sortHint={sort === "priority" ? "↓" : undefined} />
-          <HeadCell icon={<IconClock />} label="Deadline" href={hrefWith({ sort: "deadline_asc" })} sortHint={sort === "deadline_asc" ? "↑" : undefined} />
+          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: "code_asc" })} sortHint={sort === "code_asc" ? "↑" : undefined} />
+          <HeadCell icon={<IconUser />} label={t("cases.col.client_title")} />
+          <HeadCell icon={<IconDoc />} label={t("cases.col.service")} />
+          <HeadCell icon={<IconDot />} label={t("cases.col.status")} />
+          <HeadCell icon={<IconUser />} label={t("cases.col.assignee")} />
+          <HeadCell icon={<IconFlag />} label={t("cases.col.priority")} href={hrefWith({ sort: "priority" })} sortHint={sort === "priority" ? "↓" : undefined} />
+          <HeadCell icon={<IconClock />} label={t("cases.col.deadline")} href={hrefWith({ sort: "deadline_asc" })} sortHint={sort === "deadline_asc" ? "↑" : undefined} />
         </div>
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {status || mineOnly || priorityFilter ? (
-              <>No cases match those filters. <Link href="/cases" className="text-brand hover:text-brand-dark font-medium">Reset →</Link></>
+              <>{t("cases.empty.no_match")} <Link href="/cases" className="text-brand hover:text-brand-dark font-medium">{t("cases.empty.reset")}</Link></>
             ) : (
-              <>No cases yet. <Link href="/cases/new" className="text-brand hover:text-brand-dark font-medium">Create your first one →</Link></>
+              <>{t("empty.no_cases")} <Link href="/cases/new" className="text-brand hover:text-brand-dark font-medium">{t("cases.empty.create_first")}</Link></>
             )}
           </div>
         ) : (
@@ -254,7 +250,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
                   <div className="text-ink font-medium truncate group-hover/name:text-brand-dark">
                     {client?.full_name ?? (company ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Company</span>
+                        <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("cases.row.company_prefix")}</span>
                         {company.name}
                       </span>
                     ) : <span className="italic text-[var(--muted)]">—</span>)}
@@ -267,7 +263,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
                 <div>
                   <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${sp.bg} ${sp.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${sp.dot}`} />
-                    {CASE_STATUS_LABELS[c.status]}
+                    {t(`status.${c.status}` as MessageKey)}
                   </span>
                 </div>
                 <div className="min-w-0 flex items-center gap-1.5 text-[12.5px] text-ink truncate">
@@ -279,10 +275,10 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
                       <span className="truncate">{assignee.full_name}</span>
                     </>
                   ) : (
-                    <span className="text-[var(--hint)]">Unassigned</span>
+                    <span className="text-[var(--hint)]">{t("cases.row.unassigned")}</span>
                   )}
                 </div>
-                <div className={`text-[11.5px] capitalize ${PRIORITY_STYLE[c.priority]}`}>{CASE_PRIORITY_LABELS[c.priority]}</div>
+                <div className={`text-[11.5px] ${PRIORITY_STYLE[c.priority]}`}>{t(`priority.${c.priority}` as MessageKey)}</div>
                 <div className={`text-[11.5px] font-mono ${overdue ? "text-red-700 font-semibold" : "text-[var(--muted)]"}`}>
                   {fmtDate(c.deadline)}
                 </div>
@@ -293,8 +289,8 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
       </div>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
-        {rows.length} {rows.length === 1 ? "case" : "cases"}
-        {rows.length === 200 && " · showing first 200"}
+        {t("list.count.cases", { n: rows.length })}
+        {rows.length === 200 && ` · ${t("common.showing_first", { n: 200 })}`}
       </div>
     </div>
   );
