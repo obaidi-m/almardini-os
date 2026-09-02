@@ -36,6 +36,14 @@ type CaseCard = {
 
 type Renewal = { kind: "case_expiry"; label: string; expires_at: string; href: string };
 
+type AttentionRow = {
+  id: string;
+  code: string;
+  title: string;
+  href: string;
+  meta: string;
+};
+
 export default async function DashboardPage() {
   const supabase = createClient();
   const { t } = await getT();
@@ -50,10 +58,12 @@ export default async function DashboardPage() {
   const roleCode = (me?.role as { code?: string } | null)?.code;
   const isOwnerLike = roleCode === "owner" || roleCode === "ops_lead";
 
-  // Windows for renewals
+  // Windows
   const today = new Date();
+  const in30 = new Date(); in30.setDate(in30.getDate() + 30);
   const in90 = new Date(); in90.setDate(in90.getDate() + 90);
   const todayIso = today.toISOString().slice(0, 10);
+  const in30Iso = in30.toISOString().slice(0, 10);
   const in90Iso = in90.toISOString().slice(0, 10);
 
   const [
@@ -62,6 +72,8 @@ export default async function DashboardPage() {
     countsRes,
     recentCasesRes,
     expiringCasesRes,
+    attentionCasesRes,
+    latestUpdatesRes,
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -115,6 +127,23 @@ export default async function DashboardPage() {
       .lte("expires_at", in90Iso)
       .order("expires_at", { ascending: true })
       .limit(20),
+    // For the attention panel: all active cases (owner-like only)
+    isOwnerLike
+      ? supabase
+          .from("cases")
+          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount)")
+          .is("deleted_at", null)
+          .in("status", OPEN_STATUSES)
+          .limit(500)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    // Latest update per case for stuck computation
+    isOwnerLike
+      ? supabase
+          .from("case_updates")
+          .select("case_id, created_at")
+          .order("created_at", { ascending: false })
+          .limit(2000)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -149,6 +178,84 @@ export default async function DashboardPage() {
     }),
   ].sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
+  // Compute attention buckets for Admin + Owner
+  type AttentionCase = {
+    id: string; code: string; title: string | null; status: CaseStatus;
+    deadline: string | null; expires_at: string | null; created_at: string;
+    client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
+    service: { id: string; name: string; recurring_amount: number | null } | { id: string; name: string; recurring_amount: number | null }[] | null;
+  };
+  const activeCases = ((attentionCasesRes.data ?? []) as AttentionCase[]).map((c) => ({
+    ...c,
+    client: unwrap(c.client),
+    service: unwrap(c.service),
+  }));
+
+  const lastActivity = new Map<string, string>();
+  for (const u of (latestUpdatesRes.data ?? []) as { case_id: string; created_at: string }[]) {
+    if (!lastActivity.has(u.case_id)) lastActivity.set(u.case_id, u.created_at);
+  }
+
+  const daysBetween = (fromIso: string): number => {
+    const diff = today.getTime() - new Date(fromIso).getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  };
+  const stuckDays = (c: typeof activeCases[number]): number => {
+    const last = lastActivity.get(c.id) ?? c.created_at;
+    return daysBetween(last);
+  };
+
+  const overdueCases = activeCases
+    .filter((c) => c.deadline && c.deadline < todayIso && c.status !== "done")
+    .sort((a, b) => (a.deadline ?? "").localeCompare(b.deadline ?? ""));
+
+  const readyCases = activeCases
+    .filter((c) => c.status === "done")
+    .sort((a, b) => stuckDays(b) - stuckDays(a));
+
+  const recurringDue = activeCases
+    .filter((c) => c.expires_at && c.expires_at >= todayIso && c.expires_at <= in30Iso)
+    .sort((a, b) => (a.expires_at ?? "").localeCompare(b.expires_at ?? ""));
+
+  const stuck7 = activeCases.filter((c) => stuckDays(c) > 7).sort((a, b) => stuckDays(b) - stuckDays(a));
+  const stuck3 = activeCases.filter((c) => { const d = stuckDays(c); return d > 3 && d <= 7; }).sort((a, b) => stuckDays(b) - stuckDays(a));
+  const stuck1 = activeCases.filter((c) => { const d = stuckDays(c); return d >= 1 && d <= 3; }).sort((a, b) => stuckDays(b) - stuckDays(a));
+
+  const toRowOverdue = (c: typeof activeCases[number]): AttentionRow => ({
+    id: c.id, code: c.code,
+    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    href: `/cases/${c.id}`,
+    meta: t("attention.was_due", { d: c.deadline ? t("attention.days", { n: -daysBetween(c.deadline) }) : "—" }),
+  });
+  const toRowReady = (c: typeof activeCases[number]): AttentionRow => ({
+    id: c.id, code: c.code,
+    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    href: `/cases/${c.id}`,
+    meta: t("attention.days", { n: stuckDays(c) }),
+  });
+  const toRowRecurring = (c: typeof activeCases[number]): AttentionRow => ({
+    id: c.id, code: c.code,
+    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    href: `/cases/${c.id}`,
+    meta: c.expires_at ? fmtShortDate(c.expires_at) : "—",
+  });
+  const toRowStuck = (c: typeof activeCases[number]): AttentionRow => ({
+    id: c.id, code: c.code,
+    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""} · ${t(`status.${c.status}` as MessageKey)}`,
+    href: `/cases/${c.id}`,
+    meta: t("attention.no_update", { d: t("attention.days", { n: stuckDays(c) }) }),
+  });
+
+  const attention = {
+    overdue: overdueCases.map(toRowOverdue),
+    ready: readyCases.map(toRowReady),
+    recurring: recurringDue.map(toRowRecurring),
+    stuck7: stuck7.map(toRowStuck),
+    stuck3: stuck3.map(toRowStuck),
+    stuck1: stuck1.map(toRowStuck),
+  };
+  const attentionEmpty = attention.overdue.length + attention.ready.length + attention.recurring.length + attention.stuck7.length + attention.stuck3.length + attention.stuck1.length === 0;
+
   const firstName = (me?.full_name || "there").split(" ")[0];
 
   return (
@@ -181,73 +288,78 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8">
-            {/* Left column */}
-            <div className="space-y-8">
-              <Panel
-                title={`${t("section.my_cases")} (${myCases.length})`}
-                action={<Link href="/cases?mine=1" className="text-[12px] text-brand hover:underline">{t("action.open")}</Link>}
-              >
-                {myCases.length === 0 ? (
-                  <Empty>{t("dash.nothing_assigned")}</Empty>
-                ) : (
-                  <CasesGrouped cases={myCases} t={t} />
-                )}
-              </Panel>
-
-              {isOwnerLike && (
+          {isOwnerLike ? (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8">
+              <div>
+                <AttentionPanel attention={attention} empty={attentionEmpty} t={t} />
+              </div>
+              <div>
+                <Panel title={t("section.quick_actions")}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <QuickAction href="/clients/new" label={t("action.new_client")} />
+                    <QuickAction href="/cases/new" label={t("action.new_case")} />
+                    <QuickAction href="/companies/new" label={t("action.new_company")} />
+                    <QuickAction href="/partners/new" label={t("action.new_partner")} />
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8">
+              {/* Left column */}
+              <div className="space-y-8">
                 <Panel
-                  title={`${t("section.ready_to_deliver")} (${readyToDeliver.length})`}
-                  action={<Link href="/cases?status=done" className="text-[12px] text-brand hover:underline">{t("action.open")}</Link>}
+                  title={`${t("section.my_cases")} (${myCases.length})`}
+                  action={<Link href="/cases?mine=1" className="text-[12px] text-brand hover:underline">{t("action.open")}</Link>}
                 >
-                  {readyToDeliver.length === 0 ? (
-                    <Empty>{t("dash.nothing_to_deliver")}</Empty>
+                  {myCases.length === 0 ? (
+                    <Empty>{t("dash.nothing_assigned")}</Empty>
                   ) : (
-                    <CasesFlat cases={readyToDeliver} showStatus={false} t={t} />
+                    <CasesGrouped cases={myCases} t={t} />
                   )}
                 </Panel>
-              )}
 
-              <Panel
-                title={t("section.recent_activity")}
-                action={<Link href="/cases" className="text-[12px] text-brand hover:underline">{t("nav.cases")}</Link>}
-              >
-                {recentCases.length === 0 ? <Empty>{t("dash.no_cases_yet")}</Empty> : <CasesFlat cases={recentCases} showStatus t={t} />}
-              </Panel>
+                <Panel
+                  title={t("section.recent_activity")}
+                  action={<Link href="/cases" className="text-[12px] text-brand hover:underline">{t("nav.cases")}</Link>}
+                >
+                  {recentCases.length === 0 ? <Empty>{t("dash.no_cases_yet")}</Empty> : <CasesFlat cases={recentCases} showStatus t={t} />}
+                </Panel>
+              </div>
+
+              {/* Right column */}
+              <div className="space-y-8">
+                <Panel
+                  title={t("dash.renewals_90", { n: renewals.length })}
+                >
+                  {renewals.length === 0 ? (
+                    <Empty>{t("dash.no_expiring")}</Empty>
+                  ) : (
+                    <ul className="divide-y divide-[var(--border)]">
+                      {renewals.map((r, i) => (
+                        <li key={i} className="py-2 flex items-center gap-3">
+                          <RenewalBadge kind={r.kind} t={t} />
+                          <Link href={r.href} className="flex-1 min-w-0 text-[13px] text-ink hover:text-brand truncate">
+                            {r.label}
+                          </Link>
+                          <span className="text-[12px] text-[var(--muted)] shrink-0">{fmtDate(r.expires_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Panel>
+
+                <Panel title={t("section.quick_actions")}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <QuickAction href="/clients/new" label={t("action.new_client")} />
+                    <QuickAction href="/cases/new" label={t("action.new_case")} />
+                    <QuickAction href="/companies/new" label={t("action.new_company")} />
+                    <QuickAction href="/partners/new" label={t("action.new_partner")} />
+                  </div>
+                </Panel>
+              </div>
             </div>
-
-            {/* Right column */}
-            <div className="space-y-8">
-              <Panel
-                title={t("dash.renewals_90", { n: renewals.length })}
-              >
-                {renewals.length === 0 ? (
-                  <Empty>{t("dash.no_expiring")}</Empty>
-                ) : (
-                  <ul className="divide-y divide-[var(--border)]">
-                    {renewals.map((r, i) => (
-                      <li key={i} className="py-2 flex items-center gap-3">
-                        <RenewalBadge kind={r.kind} t={t} />
-                        <Link href={r.href} className="flex-1 min-w-0 text-[13px] text-ink hover:text-brand truncate">
-                          {r.label}
-                        </Link>
-                        <span className="text-[12px] text-[var(--muted)] shrink-0">{fmtDate(r.expires_at)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Panel>
-
-              <Panel title={t("section.quick_actions")}>
-                <div className="grid grid-cols-2 gap-2">
-                  <QuickAction href="/clients/new" label={t("action.new_client")} />
-                  <QuickAction href="/cases/new" label={t("action.new_case")} />
-                  <QuickAction href="/companies/new" label={t("action.new_company")} />
-                  <QuickAction href="/partners/new" label={t("action.new_partner")} />
-                </div>
-              </Panel>
-            </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
@@ -332,6 +444,134 @@ function RenewalBadge({ t }: { kind: Renewal["kind"]; t: Tr }) {
       {label}
     </span>
   );
+}
+
+function AttentionPanel({
+  attention, empty, t,
+}: {
+  attention: {
+    overdue: AttentionRow[];
+    ready: AttentionRow[];
+    recurring: AttentionRow[];
+    stuck7: AttentionRow[];
+    stuck3: AttentionRow[];
+    stuck1: AttentionRow[];
+  };
+  empty: boolean;
+  t: Tr;
+}) {
+  return (
+    <section className="mb-8">
+      <div className="text-[11px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-3">
+        {t("attention.title")}
+      </div>
+      <div className="bg-white border border-[var(--border)] rounded-lg divide-y divide-[var(--border)]">
+        {empty && (
+          <div className="p-6 text-center text-[13px] text-[var(--muted)]">
+            {t("attention.all_clear")}
+          </div>
+        )}
+
+        <AttentionSection
+          title={t("attention.overdue", { n: attention.overdue.length })}
+          rows={attention.overdue}
+          tone="red"
+          hideIfEmpty
+        />
+        <AttentionSection
+          title={t("attention.ready", { n: attention.ready.length })}
+          rows={attention.ready}
+          tone="green"
+          hideIfEmpty
+        />
+        <AttentionSection
+          title={t("attention.recurring", { n: attention.recurring.length })}
+          rows={attention.recurring}
+          tone="orange"
+          hideIfEmpty
+        />
+        <AttentionSection
+          title={t("attention.stuck_7", { n: attention.stuck7.length })}
+          rows={attention.stuck7}
+          tone="red"
+          hideIfEmpty
+        />
+        <AttentionSection
+          title={t("attention.stuck_3", { n: attention.stuck3.length })}
+          rows={attention.stuck3}
+          tone="amber"
+          hideIfEmpty
+        />
+        {attention.stuck1.length > 0 && (
+          <details className="group">
+            <summary className="p-3 cursor-pointer list-none flex items-center gap-2 text-[12.5px] font-semibold text-[#8A6919] hover:bg-[var(--surface-muted)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E8B14A]" />
+              {t("attention.stuck_show", { n: attention.stuck1.length })}
+              <span className="ml-auto text-[11px] text-[var(--muted)] group-open:hidden">▸</span>
+              <span className="ml-auto text-[11px] text-[var(--muted)] hidden group-open:inline">▾</span>
+            </summary>
+            <ul className="divide-y divide-[var(--border)]">
+              {attention.stuck1.map((r) => <AttentionRowLine key={r.id} row={r} />)}
+            </ul>
+          </details>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AttentionSection({
+  title, rows, tone, hideIfEmpty,
+}: {
+  title: string;
+  rows: AttentionRow[];
+  tone: "red" | "green" | "orange" | "amber";
+  hideIfEmpty?: boolean;
+}) {
+  if (hideIfEmpty && rows.length === 0) return null;
+
+  const dotColor = tone === "red" ? "bg-red-500"
+    : tone === "green" ? "bg-green-500"
+    : tone === "orange" ? "bg-orange-500"
+    : "bg-[#E8B14A]";
+  const textColor = tone === "red" ? "text-red-700"
+    : tone === "green" ? "text-green-800"
+    : tone === "orange" ? "text-orange-800"
+    : "text-[#8A6919]";
+
+  return (
+    <div>
+      <div className={`px-4 py-2.5 flex items-center gap-2 text-[12.5px] font-semibold ${textColor} bg-[var(--surface-muted)]`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+        {title}
+      </div>
+      <ul className="divide-y divide-[var(--border)]">
+        {rows.map((r) => <AttentionRowLine key={r.id} row={r} />)}
+      </ul>
+    </div>
+  );
+}
+
+function AttentionRowLine({ row }: { row: AttentionRow }) {
+  return (
+    <li>
+      <Link
+        href={row.href}
+        className="grid grid-cols-[80px_1fr_auto] gap-3 items-center px-4 py-2 text-[13px] hover:bg-white/50 transition-colors group"
+      >
+        <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded justify-self-start">{row.code}</span>
+        <span className="text-ink truncate group-hover:text-brand-dark">{row.title}</span>
+        <span className="text-[11.5px] text-[var(--muted)] shrink-0">{row.meta}</span>
+      </Link>
+    </li>
+  );
+}
+
+function fmtShortDate(v: string): string {
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return v;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${Number(m[3])} ${months[Number(m[2]) - 1]}`;
 }
 
 function QuickAction({ href, label }: { href: string; label: string }) {
