@@ -4,8 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { TopBanner } from "@/components/admin/TopBanner";
 import { OpsSidebar } from "@/components/app/OpsSidebar";
 import { getT } from "@/lib/i18n/server";
-import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
 import type { CaseStatus, CasePriority } from "@/lib/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                 href={`/cases?status=${s}`}
                 className="border border-[var(--border)] rounded-lg p-4 bg-white hover:border-brand transition-colors"
               >
-                <div className="text-[11px] uppercase tracking-wide text-[var(--muted)] font-semibold">{CASE_STATUS_LABELS[s]}</div>
+                <div className="text-[11px] uppercase tracking-wide text-[var(--muted)] font-semibold">{t(`status.${s}`)}</div>
                 <div className="text-[28px] font-semibold text-ink mt-1 leading-none">{counts[s]}</div>
               </Link>
             ))}
@@ -205,9 +205,9 @@ export default async function DashboardPage() {
                 action={<Link href="/cases?mine=1" className="text-[12px] text-brand hover:underline">{t("action.open")}</Link>}
               >
                 {myCases.length === 0 ? (
-                  <Empty>Nothing assigned to you. Enjoy the calm.</Empty>
+                  <Empty>{t("dash.nothing_assigned")}</Empty>
                 ) : (
-                  <CasesGrouped cases={myCases} />
+                  <CasesGrouped cases={myCases} t={t} />
                 )}
               </Panel>
 
@@ -217,9 +217,9 @@ export default async function DashboardPage() {
                   action={<Link href="/cases?status=done" className="text-[12px] text-brand hover:underline">{t("action.open")}</Link>}
                 >
                   {readyToDeliver.length === 0 ? (
-                    <Empty>Nothing waiting to go out.</Empty>
+                    <Empty>{t("dash.nothing_to_deliver")}</Empty>
                   ) : (
-                    <CasesFlat cases={readyToDeliver} showStatus={false} />
+                    <CasesFlat cases={readyToDeliver} showStatus={false} t={t} />
                   )}
                 </Panel>
               )}
@@ -228,22 +228,22 @@ export default async function DashboardPage() {
                 title={t("section.recent_activity")}
                 action={<Link href="/cases" className="text-[12px] text-brand hover:underline">{t("nav.cases")}</Link>}
               >
-                {recentCases.length === 0 ? <Empty>No cases yet.</Empty> : <CasesFlat cases={recentCases} showStatus />}
+                {recentCases.length === 0 ? <Empty>{t("dash.no_cases_yet")}</Empty> : <CasesFlat cases={recentCases} showStatus t={t} />}
               </Panel>
             </div>
 
             {/* Right column */}
             <div className="space-y-8">
               <Panel
-                title={`Renewals in the next 90 days (${renewals.length})`}
+                title={t("dash.renewals_90", { n: renewals.length })}
               >
                 {renewals.length === 0 ? (
-                  <Empty>Nothing expiring soon.</Empty>
+                  <Empty>{t("dash.no_expiring")}</Empty>
                 ) : (
                   <ul className="divide-y divide-[var(--border)]">
                     {renewals.map((r, i) => (
                       <li key={i} className="py-2 flex items-center gap-3">
-                        <RenewalBadge kind={r.kind} />
+                        <RenewalBadge kind={r.kind} t={t} />
                         <Link href={r.href} className="flex-1 min-w-0 text-[13px] text-ink hover:text-brand truncate">
                           {r.label}
                         </Link>
@@ -256,10 +256,10 @@ export default async function DashboardPage() {
 
               <Panel title={t("section.quick_actions")}>
                 <div className="grid grid-cols-2 gap-2">
-                  <QuickAction href="/clients/new" label="New client" />
-                  <QuickAction href="/cases/new" label="New case" />
-                  <QuickAction href="/companies/new" label="New company" />
-                  <QuickAction href="/partners/new" label="New partner" />
+                  <QuickAction href="/clients/new" label={t("action.new_client")} />
+                  <QuickAction href="/cases/new" label={t("action.new_case")} />
+                  <QuickAction href="/companies/new" label={t("action.new_company")} />
+                  <QuickAction href="/partners/new" label={t("action.new_partner")} />
                 </div>
               </Panel>
             </div>
@@ -284,7 +284,9 @@ function Panel({ title, action, children }: { title: string; action?: React.Reac
   );
 }
 
-function CasesGrouped({ cases }: { cases: CaseCard[] }) {
+type Tr = (k: MessageKey, vars?: Record<string, string | number>) => string;
+
+function CasesGrouped({ cases, t }: { cases: CaseCard[]; t: Tr }) {
   const groups: Record<CaseStatus, CaseCard[]> = { new: [], in_progress: [], done: [], delivered: [] };
   for (const c of cases) groups[c.status].push(c);
   return (
@@ -292,9 +294,9 @@ function CasesGrouped({ cases }: { cases: CaseCard[] }) {
       {OPEN_STATUSES.map((s) =>
         groups[s].length === 0 ? null : (
           <div key={s}>
-            <div className="text-[11px] uppercase font-medium text-[var(--muted)] mb-1.5">{CASE_STATUS_LABELS[s]} ({groups[s].length})</div>
+            <div className="text-[11px] uppercase font-medium text-[var(--muted)] mb-1.5">{t(`status.${s}` as MessageKey)} ({groups[s].length})</div>
             <ul className="divide-y divide-[var(--border)]">
-              {groups[s].map((c) => <CaseRow key={c.id} c={c} showStatus={false} />)}
+              {groups[s].map((c) => <CaseRow key={c.id} c={c} showStatus={false} t={t} />)}
             </ul>
           </div>
         ),
@@ -303,33 +305,33 @@ function CasesGrouped({ cases }: { cases: CaseCard[] }) {
   );
 }
 
-function CasesFlat({ cases, showStatus }: { cases: CaseCard[]; showStatus: boolean }) {
+function CasesFlat({ cases, showStatus, t }: { cases: CaseCard[]; showStatus: boolean; t: Tr }) {
   return (
     <ul className="divide-y divide-[var(--border)]">
-      {cases.map((c) => <CaseRow key={c.id} c={c} showStatus={showStatus} />)}
+      {cases.map((c) => <CaseRow key={c.id} c={c} showStatus={showStatus} t={t} />)}
     </ul>
   );
 }
 
-function CaseRow({ c, showStatus }: { c: CaseCard; showStatus: boolean }) {
+function CaseRow({ c, showStatus, t }: { c: CaseCard; showStatus: boolean; t: Tr }) {
   return (
     <li>
       <Link href={`/cases/${c.id}`} className="py-2 grid grid-cols-[80px_1fr_auto] gap-3 items-center hover:text-brand">
         <span className="font-mono text-[12px] text-[var(--muted)]">{c.code}</span>
         <span className="min-w-0">
           <span className="text-[13.5px] text-ink font-medium truncate block">
-            {c.client?.full_name ?? "Deleted client"}
+            {c.client?.full_name ?? t("common.deleted_client")}
           </span>
           <span className="text-[11.5px] text-[var(--muted)] truncate block">
             {c.title || c.service?.name || "—"}
           </span>
         </span>
         <span className="flex items-center gap-2 shrink-0">
-          <span className={`text-[11px] ${PRIORITY_COLORS[c.priority]}`}>{CASE_PRIORITY_LABELS[c.priority]}</span>
+          <span className={`text-[11px] ${PRIORITY_COLORS[c.priority]}`}>{t(`priority.${c.priority}` as MessageKey)}</span>
           {c.deadline && <span className="text-[11px] text-[var(--muted)]">· {fmtDate(c.deadline)}</span>}
           {showStatus && (
             <span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[c.status]}`}>
-              {CASE_STATUS_LABELS[c.status]}
+              {t(`status.${c.status}` as MessageKey)}
             </span>
           )}
         </span>
@@ -338,8 +340,8 @@ function CaseRow({ c, showStatus }: { c: CaseCard; showStatus: boolean }) {
   );
 }
 
-function RenewalBadge({ kind }: { kind: Renewal["kind"] }) {
-  const label = kind === "passport" ? "Passport" : "Case";
+function RenewalBadge({ kind, t }: { kind: Renewal["kind"]; t: Tr }) {
+  const label = kind === "passport" ? t("renewal.badge.passport") : t("renewal.badge.case");
   const color =
     kind === "passport"
       ? "bg-blue-100 text-blue-800"

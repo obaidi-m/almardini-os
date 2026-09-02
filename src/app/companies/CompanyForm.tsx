@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import type { Company } from "@/lib/types";
 import { DateInput } from "@/components/ui/DateInput";
 import { NATIONALITIES } from "@/lib/nationalities";
+import { useT } from "@/lib/i18n/client";
 
 type Mode = "create" | "edit";
 
@@ -48,6 +49,7 @@ export function CompanyForm({
   roles?: CompanyRoleOption[];
   existingClients?: ExistingClientOption[];
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const defaultRole = roles[0]?.code ?? "";
@@ -90,30 +92,30 @@ export function CompanyForm({
       {mode === "edit" && company?.id && <input type="hidden" name="id" value={company.id} />}
       {mode === "create" && <input type="hidden" name="people_json" value={peopleJson} />}
 
-      <Section title="Identity">
-        <Row label="Company name" required>
+      <Section title={t("section.identity")}>
+        <Row label={t("field.company_name")} required>
           <input
             name="name"
             defaultValue={company?.name ?? ""}
             required
             autoFocus={mode === "create"}
-            placeholder="e.g. PT Almardini Karya Bali"
+            placeholder={t("form.placeholder.company_name_example")}
             className={cellInput}
           />
         </Row>
 
         {mode === "edit" && (
           <>
-            <Row label="NIB">
+            <Row label={t("field.nib")}>
               <input
                 name="nib"
                 defaultValue={company?.nib ?? ""}
-                placeholder="Nomor Induk Berusaha (13 digits)"
+                placeholder={t("form.placeholder.nib")}
                 className={cellInput + " font-mono"}
               />
             </Row>
 
-            <Row label="Incorporation date">
+            <Row label={t("field.incorporation_date")}>
               <DateInput name="incorporation_date" defaultValue={company?.incorporation_date} />
             </Row>
           </>
@@ -122,25 +124,25 @@ export function CompanyForm({
 
       {mode === "edit" && (
         <>
-          <Section title="Address">
-            <Row label="Address" align="start">
+          <Section title={t("section.address")}>
+            <Row label={t("field.address")} align="start">
               <textarea
                 name="address"
                 defaultValue={company?.address ?? ""}
                 rows={2}
-                placeholder="Street, city, province, postal code"
+                placeholder={t("form.placeholder.address")}
                 className={cellInput + " resize-y"}
               />
             </Row>
           </Section>
 
-          <Section title="Files">
-            <Row label="OneDrive folder">
+          <Section title={t("section.files")}>
+            <Row label={t("field.onedrive_folder")}>
               <input
                 name="drive_folder_url"
                 type="url"
                 defaultValue={company?.drive_folder_url ?? ""}
-                placeholder="Paste OneDrive share link"
+                placeholder={t("form.placeholder.drive_url")}
                 className={cellInput}
               />
             </Row>
@@ -158,13 +160,13 @@ export function CompanyForm({
         />
       )}
 
-      <Section title="Notes" last>
-        <Row label="Notes" align="start">
+      <Section title={t("section.notes")} last>
+        <Row label={t("field.notes")} align="start">
           <textarea
             name="notes"
             defaultValue={company?.notes ?? ""}
             rows={3}
-            placeholder="Anything worth remembering…"
+            placeholder={t("form.placeholder.notes")}
             className={cellInput + " resize-y"}
           />
         </Row>
@@ -179,11 +181,11 @@ export function CompanyForm({
       <div className="flex items-center justify-end gap-2 pt-5">
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md hover:bg-[var(--surface-muted)]">
-            Cancel
+            {t("action.cancel")}
           </button>
         )}
         <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
-          {pending ? "Saving…" : submitLabel ?? (mode === "create" ? "Create company" : "Save changes")}
+          {pending ? t("form.saving") : submitLabel ?? (mode === "create" ? t("form.action.create_company") : t("action.save_changes"))}
         </button>
       </div>
     </form>
@@ -199,6 +201,7 @@ function PeopleSection({
   existingClients: ExistingClientOption[];
   defaultRole: string;
 }) {
+  const { t } = useT();
   const update = (uid: string, patch: Partial<PersonRow>) =>
     setPeople((prev) => prev.map((p) => (p.uid === uid ? { ...p, ...patch } : p)));
   const remove = (uid: string) => setPeople((prev) => prev.filter((p) => p.uid !== uid));
@@ -208,23 +211,23 @@ function PeopleSection({
     <div className="mb-6">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold">
-          People at this company
+          {t("form.people_at_company")}
         </div>
         <button type="button" onClick={add} className="text-[12px] font-medium text-brand hover:text-brand-dark">
-          + Add person
+          {t("form.add_person")}
         </button>
       </div>
       <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
         {people.length === 0 && (
           <div className="py-3 text-[12.5px] text-[var(--muted)]">
-            No people yet. You can add them here or later from the company page.
+            {t("form.no_people_yet")}
           </div>
         )}
         {people.map((p, idx) => (
           <div key={p.uid} className="py-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-semibold">
-                Person {idx + 1}
+                {t("form.person_index", { n: idx + 1 })}
               </div>
               <div className="flex items-center gap-2 text-[11.5px]">
                 <label className="inline-flex items-center gap-1 text-[var(--muted)]">
@@ -234,7 +237,7 @@ function PeopleSection({
                     checked={p.kind === "new"}
                     onChange={() => update(p.uid, { kind: "new" })}
                   />
-                  New
+                  {t("form.kind_new")}
                 </label>
                 <label className="inline-flex items-center gap-1 text-[var(--muted)]">
                   <input
@@ -243,14 +246,14 @@ function PeopleSection({
                     checked={p.kind === "existing"}
                     onChange={() => update(p.uid, { kind: "existing" })}
                   />
-                  Existing
+                  {t("form.kind_existing")}
                 </label>
                 <button
                   type="button"
                   onClick={() => remove(p.uid)}
                   className="text-[var(--muted)] hover:text-red-700 ml-1"
-                  aria-label="Remove"
-                  title="Remove"
+                  aria-label={t("form.remove")}
+                  title={t("form.remove")}
                 >
                   ✕
                 </button>
@@ -264,7 +267,7 @@ function PeopleSection({
                   onChange={(e) => update(p.uid, { client_id: e.target.value })}
                   className={cellInput}
                 >
-                  <option value="">Pick an existing person…</option>
+                  <option value="">{t("form.pick_existing_person")}</option>
                   {existingClients.map((c) => (
                     <option key={c.id} value={c.id}>{c.full_name} ({c.code})</option>
                   ))}
@@ -274,20 +277,20 @@ function PeopleSection({
             ) : (
               <div className="grid grid-cols-[1.4fr_1fr_1fr_180px] gap-2">
                 <input
-                  placeholder="Full name*"
+                  placeholder={t("form.placeholder.full_name_required")}
                   value={p.full_name}
                   onChange={(e) => update(p.uid, { full_name: e.target.value })}
                   className={cellInput}
                 />
                 <input
-                  placeholder="Passport no.*"
+                  placeholder={t("form.placeholder.passport_required")}
                   value={p.passport_no}
                   onChange={(e) => update(p.uid, { passport_no: e.target.value })}
                   className={cellInput + " font-mono"}
                 />
                 <input
                   list={`nats-${p.uid}`}
-                  placeholder="Nationality"
+                  placeholder={t("field.nationality")}
                   value={p.nationality}
                   onChange={(e) => update(p.uid, { nationality: e.target.value })}
                   className={cellInput}
@@ -306,9 +309,10 @@ function PeopleSection({
 }
 
 function RoleSelect({ value, onChange, roles }: { value: string; onChange: (v: string) => void; roles: CompanyRoleOption[] }) {
+  const { t } = useT();
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} required className={cellInput}>
-      {roles.length === 0 && <option value="">No roles configured</option>}
+      {roles.length === 0 && <option value="">{t("form.no_roles_configured")}</option>}
       {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
     </select>
   );

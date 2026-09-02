@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import type { Client, Partner } from "@/lib/types";
 import { NATIONALITIES } from "@/lib/nationalities";
 import { DateInput } from "@/components/ui/DateInput";
+import { useT } from "@/lib/i18n/client";
 
 type Mode = "create" | "edit";
 
@@ -46,6 +47,7 @@ export function ClientForm({
   roles?: CompanyRoleOption[];
   existingCompanies?: ExistingCompanyOption[];
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const defaultRole = roles[0]?.code ?? "";
@@ -86,34 +88,34 @@ export function ClientForm({
         {NATIONALITIES.map((n) => <option key={n} value={n} />)}
       </datalist>
 
-      <Section title="Identity">
-        <Row label="Full name" required>
+      <Section title={t("section.identity")}>
+        <Row label={t("field.full_name")} required>
           <input
             name="full_name"
             defaultValue={client?.full_name ?? ""}
             required
             autoFocus={mode === "create"}
-            placeholder="e.g. John Michael Smith"
+            placeholder={t("form.placeholder.full_name_example")}
             className={cellInput}
           />
         </Row>
 
-        <Row label="Passport no." required={mode === "create"}>
+        <Row label={t("field.passport_no")} required={mode === "create"}>
           <input
             name="passport_no"
             defaultValue={client?.passport_no ?? ""}
             required={mode === "create"}
-            placeholder="e.g. A1234567"
+            placeholder={t("form.placeholder.passport_example")}
             className={cellInput + " font-mono uppercase"}
           />
         </Row>
 
-        <Row label="Nationality">
+        <Row label={t("field.nationality")}>
           <input
             name="nationality"
             list="nationalities-list"
             defaultValue={client?.nationality ?? ""}
-            placeholder="Start typing, e.g. Indo…"
+            placeholder={t("form.placeholder.nationality")}
             autoComplete="off"
             className={cellInput}
           />
@@ -121,15 +123,15 @@ export function ClientForm({
 
         {mode === "edit" && (
           <>
-            <Row label="Date of birth">
+            <Row label={t("field.date_of_birth")}>
               <DateInput name="date_of_birth" defaultValue={client?.date_of_birth} />
             </Row>
 
-            <Row label="Place of birth">
+            <Row label={t("field.place_of_birth")}>
               <input
                 name="place_of_birth"
                 defaultValue={client?.place_of_birth ?? ""}
-                placeholder="City, Country — e.g. London, UK"
+                placeholder={t("form.placeholder.dob_place")}
                 className={cellInput}
               />
             </Row>
@@ -139,64 +141,64 @@ export function ClientForm({
 
       {mode === "edit" && (
         <>
-          <Section title="Passport">
-            <Row label="Passport expiry">
+          <Section title={t("section.passport")}>
+            <Row label={t("field.passport_expiry")}>
               <DateInput name="passport_expires_at" defaultValue={client?.passport_expires_at} />
             </Row>
           </Section>
 
-          <Section title="Contact">
-            <Row label="Phone">
+          <Section title={t("section.contact")}>
+            <Row label={t("field.phone")}>
               <input
                 name="phone"
                 defaultValue={client?.phone ?? ""}
-                placeholder="+62 812 3456 7890"
+                placeholder={t("form.placeholder.phone")}
                 className={cellInput}
               />
             </Row>
 
-            <Row label="Email">
+            <Row label={t("field.email")}>
               <input
                 name="email"
                 type="email"
                 defaultValue={client?.email ?? ""}
-                placeholder="name@example.com"
+                placeholder={t("form.placeholder.email")}
                 className={cellInput}
               />
             </Row>
 
-            <Row label="Preferred channel">
+            <Row label={t("field.preferred_channel")}>
               <select
                 name="preferred_channel"
                 defaultValue={client?.preferred_channel ?? "whatsapp"}
                 className={cellInput + " bg-transparent"}
               >
-                <option value="whatsapp">WhatsApp</option>
-                <option value="email">Email</option>
+                <option value="whatsapp">{t("form.channel.whatsapp")}</option>
+                <option value="email">{t("form.channel.email")}</option>
               </select>
             </Row>
           </Section>
 
-          <Section title="Files">
-            <Row label="OneDrive folder">
+          <Section title={t("section.files")}>
+            <Row label={t("field.onedrive_folder")}>
               <input
                 name="drive_folder_url"
                 type="url"
                 defaultValue={client?.drive_folder_url ?? ""}
-                placeholder="Paste OneDrive share link"
+                placeholder={t("form.placeholder.drive_url")}
                 className={cellInput}
               />
             </Row>
           </Section>
 
-          <Section title="Relationship">
-            <Row label="Introduced by">
+          <Section title={t("section.relationship")}>
+            <Row label={t("field.introduced_by")}>
               <select
                 name="introduced_by_partner_id"
                 defaultValue={client?.introduced_by_partner_id ?? ""}
                 className={cellInput + " bg-transparent"}
               >
-                <option value="">—</option>
+                <option value="">{t("form.dash")}</option>
                 {partners.map((p) => (
                   <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
                 ))}
@@ -216,13 +218,13 @@ export function ClientForm({
         />
       )}
 
-      <Section title="Notes" last>
-        <Row label="Notes" align="start">
+      <Section title={t("section.notes")} last>
+        <Row label={t("field.notes")} align="start">
           <textarea
             name="notes"
             defaultValue={client?.notes ?? ""}
             rows={3}
-            placeholder="Anything worth remembering…"
+            placeholder={t("form.placeholder.notes")}
             className={cellInput + " resize-y"}
           />
         </Row>
@@ -241,7 +243,7 @@ export function ClientForm({
             onClick={onCancel}
             className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md hover:bg-[var(--surface-muted)]"
           >
-            Cancel
+            {t("action.cancel")}
           </button>
         )}
         <button
@@ -249,7 +251,7 @@ export function ClientForm({
           disabled={pending}
           className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50"
         >
-          {pending ? "Saving…" : submitLabel ?? (mode === "create" ? "Create client" : "Save changes")}
+          {pending ? t("form.saving") : submitLabel ?? (mode === "create" ? t("form.action.create_client") : t("action.save_changes"))}
         </button>
       </div>
     </form>
@@ -265,6 +267,7 @@ function CompaniesSection({
   existingCompanies: ExistingCompanyOption[];
   defaultRole: string;
 }) {
+  const { t } = useT();
   const update = (uid: string, patch: Partial<CompanyRow>) =>
     setCompanies((prev) => prev.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
   const remove = (uid: string) => setCompanies((prev) => prev.filter((c) => c.uid !== uid));
@@ -274,23 +277,23 @@ function CompaniesSection({
     <div className="mb-6">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold">
-          Companies this person is at
+          {t("form.companies_of_person")}
         </div>
         <button type="button" onClick={add} className="text-[12px] font-medium text-brand hover:text-brand-dark">
-          + Add company
+          {t("form.add_company")}
         </button>
       </div>
       <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
         {companies.length === 0 && (
           <div className="py-3 text-[12.5px] text-[var(--muted)]">
-            None. Add later from the client page if not applicable now.
+            {t("form.no_companies_yet")}
           </div>
         )}
         {companies.map((c, idx) => (
           <div key={c.uid} className="py-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-semibold">
-                Company {idx + 1}
+                {t("form.company_index", { n: idx + 1 })}
               </div>
               <div className="flex items-center gap-2 text-[11.5px]">
                 <label className="inline-flex items-center gap-1 text-[var(--muted)]">
@@ -300,7 +303,7 @@ function CompaniesSection({
                     checked={c.kind === "new"}
                     onChange={() => update(c.uid, { kind: "new" })}
                   />
-                  New
+                  {t("form.kind_new")}
                 </label>
                 <label className="inline-flex items-center gap-1 text-[var(--muted)]">
                   <input
@@ -309,14 +312,14 @@ function CompaniesSection({
                     checked={c.kind === "existing"}
                     onChange={() => update(c.uid, { kind: "existing" })}
                   />
-                  Existing
+                  {t("form.kind_existing")}
                 </label>
                 <button
                   type="button"
                   onClick={() => remove(c.uid)}
                   className="text-[var(--muted)] hover:text-red-700 ml-1"
-                  aria-label="Remove"
-                  title="Remove"
+                  aria-label={t("form.remove")}
+                  title={t("form.remove")}
                 >
                   ✕
                 </button>
@@ -330,7 +333,7 @@ function CompaniesSection({
                   onChange={(e) => update(c.uid, { company_id: e.target.value })}
                   className={cellInput}
                 >
-                  <option value="">Pick an existing company…</option>
+                  <option value="">{t("form.pick_existing_company")}</option>
                   {existingCompanies.map((co) => (
                     <option key={co.id} value={co.id}>{co.name} ({co.code})</option>
                   ))}
@@ -340,7 +343,7 @@ function CompaniesSection({
             ) : (
               <div className="grid grid-cols-[1fr_180px] gap-2">
                 <input
-                  placeholder="Company name*"
+                  placeholder={t("form.placeholder.company_name_required")}
                   value={c.name}
                   onChange={(e) => update(c.uid, { name: e.target.value })}
                   className={cellInput}
@@ -356,9 +359,10 @@ function CompaniesSection({
 }
 
 function RoleSelect({ value, onChange, roles }: { value: string; onChange: (v: string) => void; roles: CompanyRoleOption[] }) {
+  const { t } = useT();
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} required className={cellInput}>
-      {roles.length === 0 && <option value="">No roles configured</option>}
+      {roles.length === 0 && <option value="">{t("form.no_roles_configured")}</option>}
       {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
     </select>
   );
