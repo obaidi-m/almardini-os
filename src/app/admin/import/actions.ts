@@ -115,20 +115,41 @@ export type ClientImportRow = {
   email?: string | null;
   preferred_channel?: string | null;
   notes?: string | null;
+  // Optional company link: either company_code (preferred, unambiguous) or
+  // company_name (case-insensitive match). role must exist in company_roles.
+  company_code?: string | null;
+  company_name?: string | null;
+  role?: string | null;
 };
 
 export async function bulkImportClients(rows: ClientImportRow[]): Promise<ImportSummary> {
   const { supabase } = await requireOwner();
 
-  const { data: existing } = await supabase
-    .from("clients")
-    .select("full_name, passport_no")
-    .is("deleted_at", null);
+  const [{ data: existing }, { data: companyList }, { data: roleList }] = await Promise.all([
+    supabase.from("clients").select("id, full_name, passport_no").is("deleted_at", null),
+    supabase.from("companies").select("id, code, name").is("deleted_at", null),
+    supabase.from("company_roles").select("code"),
+  ]);
+
   // Passport is the reliable dedup key when present — someone's full name
   // often has spelling variants. Full name is used only when there's no
   // passport, or when both rows lack one.
   const existingPassports = new Set<string>((existing ?? []).map((r) => r.passport_no).filter(Boolean) as string[]);
   const existingNames = new Set<string>((existing ?? []).map((r) => normName(r.full_name)));
+
+  // Lookup maps for the optional company link. Code match is exact
+  // (uppercase); name match is case-insensitive and skipped when ambiguous
+  // (two live companies with the same name) so we don't guess.
+  const companiesByCode = new Map<string, string>();
+  const companyNameHits = new Map<string, string[]>();
+  for (const c of (companyList ?? []) as Array<{ id: string; code: string; name: string }>) {
+    companiesByCode.set(c.code.toUpperCase(), c.id);
+    const k = normName(c.name);
+    const arr = companyNameHits.get(k) ?? [];
+    arr.push(c.id);
+    companyNameHits.set(k, arr);
+  }
+  const validRoles = new Set<string>((roleList ?? []).map((r) => r.code));
 
   const seenPassports = new Set<string>();
   const seenNames = new Set<string>();
@@ -166,18 +187,75 @@ export async function bulkImportClients(rows: ClientImportRow[]): Promise<Import
       preferred_channel: channel,
       notes: raw.notes?.trim() || null,
     };
-    const { error } = await supabase.from("clients").insert(payload);
+    const { data: created, error } = await supabase.from("clients").insert(payload).select("id").single();
     if (error) {
       results.push({ row, outcome: "error", reason: error.message, label: full_name });
       continue;
     }
     if (passport_no) seenPassports.add(passport_no);
     else seenNames.add(normName(full_name));
-    results.push({ row, outcome: "created", label: full_name });
+
+    // Optional company link — success or "created but link failed" both
+    // still count the client as created, since the client itself is in.
+    const linkNote = await tryLinkCompany({
+      supabase, clientId: created.id, raw,
+      companiesByCode, companyNameHits, validRoles,
+    });
+    results.push({ row, outcome: "created", label: linkNote ? `${full_name} — ${linkNote}` : full_name });
   }
 
   revalidatePath("/clients");
   return summarize(results);
+}
+
+/** Try to link the freshly-inserted client to a company named in the sheet.
+ *  Returns a human string describing what happened (or nothing when the
+ *  sheet didn't ask for a link at all). Never throws — a bad link is a
+ *  soft failure the operator can fix by hand later. */
+async function tryLinkCompany({
+  supabase, clientId, raw, companiesByCode, companyNameHits, validRoles,
+}: {
+  supabase: Awaited<ReturnType<typeof requireOwner>>["supabase"];
+  clientId: string;
+  raw: ClientImportRow;
+  companiesByCode: Map<string, string>;
+  companyNameHits: Map<string, string[]>;
+  validRoles: Set<string>;
+}): Promise<string | null> {
+  const codeCell = raw.company_code?.trim();
+  const nameCell = raw.company_name?.trim();
+  // Default to "director" when the sheet doesn't say — that's the common
+  // case and matches what the user asked for. Only validated against
+  // company_roles if the sheet supplied an explicit value.
+  const roleCell = raw.role?.trim() || "director";
+  if (!codeCell && !nameCell) return null;
+  if (raw.role?.trim() && !validRoles.has(roleCell)) return `unknown role "${roleCell}" — link skipped`;
+  if (!raw.role?.trim() && !validRoles.has(roleCell)) {
+    return `default role "director" not defined in company_roles — link skipped`;
+  }
+
+  let companyId: string | null = null;
+  if (codeCell) {
+    companyId = companiesByCode.get(codeCell.toUpperCase()) ?? null;
+    if (!companyId) return `company code "${codeCell}" not found — link skipped`;
+  } else if (nameCell) {
+    const hits = companyNameHits.get(normName(nameCell)) ?? [];
+    if (hits.length === 0) return `company "${nameCell}" not found — link skipped`;
+    if (hits.length > 1)  return `company "${nameCell}" is ambiguous (${hits.length} matches) — use company_code`;
+    companyId = hits[0];
+  }
+  if (!companyId) return null;
+
+  const { error } = await supabase
+    .from("client_companies")
+    .insert({ client_id: clientId, company_id: companyId, role: roleCell });
+  if (error) {
+    // Unique-constraint violation on (client_id, company_id, role) means
+    // the link already exists (from a previous import). Treat as success.
+    if (error.code === "23505") return "already linked";
+    return `link failed: ${error.message}`;
+  }
+  return `linked to company as ${roleCell}`;
 }
 
 /* ---------------- helpers ---------------- */

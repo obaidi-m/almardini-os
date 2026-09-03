@@ -17,6 +17,11 @@ const COMPANY_COLS: (keyof CompanyImportRow)[] = [
 const CLIENT_COLS: (keyof ClientImportRow)[] = [
   "full_name", "nationality", "passport_no", "date_of_birth", "place_of_birth",
   "phone", "email", "preferred_channel", "notes",
+  // Optional company link — either code or name is enough. Role defaults
+  // to "director" (the common case); add a `role` column only when a
+  // different role is needed. Unknown company becomes a soft warning; the
+  // client itself still imports.
+  "company_code", "company_name",
 ];
 
 /** Column hints shown on the template — populate one example row so users
@@ -40,6 +45,8 @@ const CLIENT_EXAMPLE: Record<string, string> = {
   email: "jane@example.com",
   preferred_channel: "whatsapp",
   notes: "Anything worth remembering",
+  company_code: "CMP-0105",
+  company_name: "PT Example Group",
 };
 
 export function ImportTabs() {
