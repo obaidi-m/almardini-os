@@ -4,6 +4,7 @@ import type { CaseStatus, CasePriority } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ServiceFilter } from "./ServiceFilter";
+import { serviceLabel } from "@/lib/service";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
 type SearchParams = { status?: string; mine?: string; sort?: string; service?: string; show?: string };
@@ -19,7 +20,7 @@ type CaseRow = {
   deleted_at: string | null;
   client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
   company: { id: string; name: string } | { id: string; name: string }[] | null;
-  service: { id: string; name: string } | { id: string; name: string }[] | null;
+  service: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
   assignee: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
 };
 
@@ -78,7 +79,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
     .select(`id, code, title, status, priority, deadline, updated_at, deleted_at,
              client:clients(id, full_name),
              company:companies(id, name),
-             service:service_types(id, name),
+             service:service_types(id, code, name),
              assignee:users!cases_assigned_to_fkey(id, full_name)`)
     .limit(200);
 
@@ -287,7 +288,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
                     <div className="text-[11.5px] text-[var(--muted)] truncate">{c.title}</div>
                   )}
                 </Link>
-                <div className="text-[12.5px] text-[var(--muted)] truncate">{service?.name ?? <span className="text-[var(--hint)]">—</span>}</div>
+                <div className="text-[12.5px] text-[var(--muted)] truncate">{service ? serviceLabel(service) : <span className="text-[var(--hint)]">—</span>}</div>
                 <div>
                   <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${sp.bg} ${sp.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${sp.dot}`} />

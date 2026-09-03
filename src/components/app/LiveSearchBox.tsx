@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { buildIlikeOr, escapeIlike } from "@/lib/search";
+import { serviceLabel } from "@/lib/service";
 import { CASE_STATUS_LABELS } from "@/lib/types";
 import type { CaseStatus } from "@/lib/types";
 
@@ -90,13 +91,13 @@ export function LiveSearchBox({
           .or(buildIlikeOr(["name", "nib", "code"], term))
           .limit(5),
         supabase.from("cases")
-          .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+          .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, code, name)")
           .is("deleted_at", null)
           .or(buildIlikeOr(["code", "title"], term))
           .limit(5),
         svcIds.length > 0
           ? supabase.from("cases")
-              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, code, name)")
               .is("deleted_at", null)
               .in("service_type_id", svcIds)
               .order("updated_at", { ascending: false })
@@ -125,14 +126,15 @@ export function LiveSearchBox({
       }
       const seenCases = new Set<string>();
       const pushCase = (r: unknown) => {
-        const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { full_name: string }[] | { full_name: string } | null; service: { name: string }[] | { name: string } | null };
+        const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { full_name: string }[] | { full_name: string } | null; service: { code: string; name: string }[] | { code: string; name: string } | null };
         if (seenCases.has(rr.id)) return;
         seenCases.add(rr.id);
         const cli = unwrap(rr.client); const svc = unwrap(rr.service);
+        const svcLabel = serviceLabel(svc);
         rows.push({
           kind: "case", id: rr.id, href: `/cases/${rr.id}`, code: rr.code,
-          title: rr.title || svc?.name || "Case",
-          hint: [svc?.name, cli?.full_name].filter(Boolean).join(" · ") || undefined,
+          title: rr.title || svcLabel || "Case",
+          hint: [svcLabel || null, cli?.full_name].filter(Boolean).join(" · ") || undefined,
           badge: rr.status,
         });
       };

@@ -5,6 +5,7 @@ import type { CaseStatus } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { CaseRecord, UpdateRow } from "./page";
+import { serviceLabel } from "@/lib/service";
 import { CaseForm } from "../CaseForm";
 import type { CaseFormDefaults } from "../CaseForm";
 import { Modal } from "@/components/ui/Modal";
@@ -48,7 +49,7 @@ export function CaseDetail({
   caseRow: CaseRecord;
   client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
   company: { id: string; code: string; name: string } | null;
-  service: { id: string; name: string; has_deliverable: boolean } | null;
+  service: { id: string; code: string; name: string; has_deliverable: boolean } | null;
   assignee: { id: string; full_name: string } | null;
   updates: UpdateRow[];
   canDeliver: boolean;
@@ -240,7 +241,7 @@ export function CaseDetail({
           <MetaRow label={t("meta.company")} value={
             company ? <Link href={`/companies/${company.id}`} className="text-brand hover:text-brand-dark font-medium">{company.name}</Link> : null
           } />
-          <MetaRow label={t("meta.service")} value={service?.name} />
+          <MetaRow label={t("meta.service")} value={service ? serviceLabel(service) : null} />
           <MetaRow label={t("meta.assignee")} value={assignee?.full_name} />
           <MetaRow label={t("meta.priority")} value={t(`priority.${caseRow.priority}` as MessageKey)} />
           <MetaRow label={t("meta.deadline")} value={fmtDate(caseRow.deadline)} />

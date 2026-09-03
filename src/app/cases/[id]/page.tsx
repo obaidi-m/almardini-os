@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CaseDetail } from "./CaseDetail";
 import type { CaseStatus, CasePriority } from "@/lib/types";
+import { serviceLabel } from "@/lib/service";
 
 export type CaseRecord = {
   id: string;
@@ -51,7 +52,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         drive_folder_url, deleted_at, created_at, updated_at,
         client:clients(id, code, full_name, phone, email, preferred_channel),
         company:companies(id, code, name),
-        service:service_types(id, name, has_deliverable),
+        service:service_types(id, code, name, has_deliverable),
         assignee:users!cases_assigned_to_fkey(id, full_name)
       `)
       .eq("id", params.id)
@@ -63,7 +64,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       .order("created_at", { ascending: false }),
     supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name"),
     supabase.from("companies").select("id, code, name").is("deleted_at", null).order("name"),
-    supabase.from("service_types").select("id, name, has_deliverable, is_active").eq("is_active", true).order("sort_order"),
+    supabase.from("service_types").select("id, code, name, has_deliverable, is_active").eq("is_active", true).order("sort_order"),
     supabase.from("users").select("id, full_name").eq("is_active", true).order("full_name"),
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -84,7 +85,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const raw = caseRow as unknown as CaseRecord & {
     client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" }[] | { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
     company: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
-    service: { id: string; name: string; has_deliverable: boolean }[] | { id: string; name: string; has_deliverable: boolean } | null;
+    service: { id: string; code: string; name: string; has_deliverable: boolean }[] | { id: string; code: string; name: string; has_deliverable: boolean } | null;
     assignee: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
   };
   const unwrap = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
@@ -161,7 +162,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           <Link href={`/companies/${company.id}`} className="hover:text-ink">{company.name}</Link>
         )}
         {(client || company) && service?.name && <span className="mx-2 opacity-40">·</span>}
-        {service?.name && <span>{service.name}</span>}
+        {service?.name && <span>{serviceLabel(service)}</span>}
       </p>
 
       <CaseDetail
@@ -174,7 +175,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         canDeliver={canDeliver}
         clientOptions={(clients ?? []).map((x) => ({ id: x.id, label: x.full_name, hint: x.code }))}
         companyOptions={(companies ?? []).map((x) => ({ id: x.id, label: x.name, hint: x.code }))}
-        serviceOptions={(services ?? []).map((x) => ({ id: x.id, label: x.name }))}
+        serviceOptions={(services ?? []).map((x) => ({ id: x.id, label: serviceLabel(x) }))}
         userOptions={(users ?? []).map((x) => ({ id: x.id, label: x.full_name }))}
         hasDeliverableByService={Object.fromEntries((services ?? []).map((s) => [s.id, s.has_deliverable !== false]))}
       />

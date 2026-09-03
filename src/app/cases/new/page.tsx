@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CaseForm } from "../CaseForm";
 import { createCaseAction } from "../actions";
+import { serviceLabel } from "@/lib/service";
 
 export default async function NewCasePage({ searchParams }: { searchParams: { client?: string; client_id?: string; company_id?: string } }) {
   const supabase = createClient();
@@ -9,13 +10,13 @@ export default async function NewCasePage({ searchParams }: { searchParams: { cl
   const [{ data: clients }, { data: companies }, { data: services }, { data: users }] = await Promise.all([
     supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name"),
     supabase.from("companies").select("id, code, name").is("deleted_at", null).order("name"),
-    supabase.from("service_types").select("id, name, has_deliverable, is_active").eq("is_active", true).order("sort_order"),
+    supabase.from("service_types").select("id, code, name, has_deliverable, is_active").eq("is_active", true).order("sort_order"),
     supabase.from("users").select("id, full_name").eq("is_active", true).order("full_name"),
   ]);
 
   const clientOptions = (clients ?? []).map((c) => ({ id: c.id, label: c.full_name, hint: c.code }));
   const companyOptions = (companies ?? []).map((c) => ({ id: c.id, label: c.name, hint: c.code }));
-  const serviceOptions = (services ?? []).map((s) => ({ id: s.id, label: s.name }));
+  const serviceOptions = (services ?? []).map((s) => ({ id: s.id, label: serviceLabel(s) }));
   const userOptions = (users ?? []).map((u) => ({ id: u.id, label: u.full_name }));
 
   const hasDeliverableByService: Record<string, boolean> = {};

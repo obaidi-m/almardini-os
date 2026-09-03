@@ -6,6 +6,7 @@ import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
 import { PartnerForm } from "../PartnerForm";
 import { updatePartnerAction, softDeletePartnerAction, restorePartnerAction } from "../actions";
 import { Modal } from "@/components/ui/Modal";
+import { serviceLabel } from "@/lib/service";
 
 const TYPE_LABEL: Record<Partner["type"], string> = {
   referrer: "Referrer",
@@ -23,7 +24,7 @@ type PartnerCase = {
   updated_at: string;
   client: { id: string; full_name: string } | null;
   company: { id: string; name: string } | null;
-  service: { id: string; name: string } | null;
+  service: { id: string; code: string; name: string } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }> = {
@@ -193,11 +194,11 @@ function PartnerCasesList({ cases }: { cases: PartnerCase[] }) {
               </span>
               <div className="min-w-0">
                 <div className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark">
-                  {c.title || c.service?.name || "Case"}
+                  {c.title || serviceLabel(c.service) || "Case"}
                 </div>
                 <div className="text-[11.5px] text-[var(--muted)] truncate">
                   {who}
-                  {c.service?.name && <> · {c.service.name}</>}
+                  {c.service?.name && <> · {serviceLabel(c.service)}</>}
                   {c.deadline && (
                     <> · <span className={overdue ? "text-red-700 font-semibold" : ""}>due {fmtDate(c.deadline)}</span></>
                   )}

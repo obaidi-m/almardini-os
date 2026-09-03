@@ -37,7 +37,7 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
       .select(`id, code, title, status, priority, deadline, updated_at,
                client:clients(id, full_name),
                company:companies(id, name),
-               service:service_types(id, name)`)
+               service:service_types(id, code, name)`)
       .eq("partner_id", params.id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -63,7 +63,7 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
     deadline: string | null; updated_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
     company: { id: string; name: string } | { id: string; name: string }[] | null;
-    service: { id: string; name: string } | { id: string; name: string }[] | null;
+    service: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
   }>) ?? []).map((row) => ({
     id: row.id, code: row.code, title: row.title,
     status: row.status, priority: row.priority,

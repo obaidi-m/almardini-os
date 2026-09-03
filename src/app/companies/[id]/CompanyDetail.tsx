@@ -5,6 +5,7 @@ import type { Company, CaseStatus, CasePriority } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ActiveServicesList } from "@/components/app/ActiveServices";
+import { serviceLabel } from "@/lib/service";
 import { CompanyForm } from "../CompanyForm";
 import {
   updateCompanyAction,
@@ -29,7 +30,7 @@ type CompanyCase = {
   expires_at: string | null;
   updated_at: string;
   client: { id: string; full_name: string } | null;
-  service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
+  service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }> = {
@@ -282,7 +283,7 @@ function CaseRows({ rows, t }: { rows: CompanyCase[]; t: Tr }) {
               </span>
               <div className="min-w-0">
                 <div className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark flex items-center gap-1.5">
-                  <span className="truncate">{c.title || c.service?.name || t("detail.case_word")}</span>
+                  <span className="truncate">{c.title || (c.service ? serviceLabel(c.service) : t("detail.case_word"))}</span>
                   {(c.service?.schedule_kind === "annual_fixed" || c.service?.schedule_kind === "quarterly_fixed") && (
                     <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded shrink-0">
                       {c.service.schedule_kind === "annual_fixed" ? "annual" : "quarterly"}
@@ -290,7 +291,7 @@ function CaseRows({ rows, t }: { rows: CompanyCase[]; t: Tr }) {
                   )}
                 </div>
                 <div className="text-[11.5px] text-[var(--muted)] truncate">
-                  {c.service?.name ?? "—"}
+                  {c.service ? serviceLabel(c.service) : "—"}
                   {c.client && <> · {c.client.full_name}</>}
                   {c.deadline && (
                     <> · <span className={overdue ? "text-red-700 font-semibold" : ""}>{t("detail.due_prefix")} {fmtDate(c.deadline)}</span></>

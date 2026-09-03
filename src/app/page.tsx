@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { renewalTier } from "@/lib/renewal";
+import { serviceLabel } from "@/lib/service";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -32,7 +33,7 @@ type CaseCard = {
   priority: CasePriority;
   deadline: string | null;
   client: { id: string; full_name: string } | null;
-  service: { id: string; name: string } | null;
+  service: { id: string; code: string; name: string } | null;
 };
 
 type Renewal = { kind: "case_expiry"; label: string; expires_at: string; href: string };
@@ -81,7 +82,7 @@ export default async function DashboardPage() {
       .select(`
         id, code, title, status, priority, deadline,
         client:clients(id, full_name),
-        service:service_types(id, name)
+        service:service_types(id, code, name)
       `)
       .eq("assigned_to", user.id)
       .is("deleted_at", null)
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
           .select(`
             id, code, title, status, priority, deadline,
             client:clients(id, full_name),
-            service:service_types(id, name)
+            service:service_types(id, code, name)
           `)
           .eq("status", "done")
           .is("deleted_at", null)
@@ -114,7 +115,7 @@ export default async function DashboardPage() {
       .select(`
         id, code, title, status, priority, deadline, updated_at,
         client:clients(id, full_name),
-        service:service_types(id, name)
+        service:service_types(id, code, name)
       `)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -125,7 +126,7 @@ export default async function DashboardPage() {
     // service's window client-side.
     supabase
       .from("cases")
-      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
       .is("deleted_at", null)
       .not("expires_at", "is", null)
       .gte("expires_at", todayIso)
@@ -136,7 +137,7 @@ export default async function DashboardPage() {
     isOwnerLike
       ? supabase
           .from("cases")
-          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
           .is("deleted_at", null)
           .in("status", OPEN_STATUSES)
           .limit(500)
@@ -159,7 +160,7 @@ export default async function DashboardPage() {
       const rr = r as {
         id: string; code: string; title: string | null; status: CaseStatus; priority: CasePriority; deadline: string | null;
         client: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
-        service: { id: string; name: string }[] | { id: string; name: string } | null;
+        service: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
       };
       return { ...rr, client: unwrap(rr.client), service: unwrap(rr.service) };
     });
@@ -174,7 +175,7 @@ export default async function DashboardPage() {
   const renewals: Renewal[] = ((expiringCasesRes.data ?? []) as Array<{
     id: string; code: string; title: string | null; expires_at: string;
     client: { full_name: string }[] | { full_name: string } | null;
-    service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
+    service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
   }>)
     .filter((r) => {
       const svc = unwrap(r.service);
@@ -197,7 +198,7 @@ export default async function DashboardPage() {
     id: string; code: string; title: string | null; status: CaseStatus;
     deadline: string | null; expires_at: string | null; created_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
-    service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
+    service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
   };
   const activeCases = ((attentionCasesRes.data ?? []) as AttentionCase[]).map((c) => ({
     ...c,
@@ -241,25 +242,25 @@ export default async function DashboardPage() {
 
   const toRowOverdue = (c: typeof activeCases[number]): AttentionRow => ({
     id: c.id, code: c.code,
-    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    title: `${c.title || serviceLabel(c.service) || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
     href: `/cases/${c.id}`,
     meta: t("attention.was_due", { d: c.deadline ? t("attention.days", { n: -daysBetween(c.deadline) }) : "—" }),
   });
   const toRowReady = (c: typeof activeCases[number]): AttentionRow => ({
     id: c.id, code: c.code,
-    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    title: `${c.title || serviceLabel(c.service) || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
     href: `/cases/${c.id}`,
     meta: t("attention.days", { n: stuckDays(c) }),
   });
   const toRowRecurring = (c: typeof activeCases[number]): AttentionRow => ({
     id: c.id, code: c.code,
-    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
+    title: `${c.title || serviceLabel(c.service) || "Case"}${c.client ? ` · ${c.client.full_name}` : ""}`,
     href: `/cases/${c.id}`,
     meta: c.expires_at ? fmtShortDate(c.expires_at) : "—",
   });
   const toRowStuck = (c: typeof activeCases[number]): AttentionRow => ({
     id: c.id, code: c.code,
-    title: `${c.title || c.service?.name || "Case"}${c.client ? ` · ${c.client.full_name}` : ""} · ${t(`status.${c.status}` as MessageKey)}`,
+    title: `${c.title || serviceLabel(c.service) || "Case"}${c.client ? ` · ${c.client.full_name}` : ""} · ${t(`status.${c.status}` as MessageKey)}`,
     href: `/cases/${c.id}`,
     meta: t("attention.no_update", { d: t("attention.days", { n: stuckDays(c) }) }),
   });
@@ -437,7 +438,7 @@ function CaseRow({ c, showStatus, t }: { c: CaseCard; showStatus: boolean; t: Tr
             {c.client?.full_name ?? t("common.deleted_client")}
           </span>
           <span className="text-[11.5px] text-[var(--muted)] truncate block">
-            {c.title || c.service?.name || "—"}
+            {c.title || serviceLabel(c.service) || "—"}
           </span>
         </span>
         <span className="flex items-center gap-2 shrink-0">

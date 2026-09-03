@@ -2,9 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { daysUntil, leadDaysForService, renewalTier } from "@/lib/renewal";
+import { serviceLabel } from "@/lib/service";
 
 type Svc = {
   id: string;
+  code: string;
   name: string;
   schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
   annual_month: number | null;
@@ -38,7 +40,7 @@ export default async function RenewalsPage() {
   // and is collapsed by default so the page stays readable.
   const casesRes = await supabase
     .from("cases")
-    .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+    .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
     .is("deleted_at", null)
     .not("expires_at", "is", null)
     .order("expires_at", { ascending: true });
@@ -65,7 +67,7 @@ export default async function RenewalsPage() {
     rows.push({
       id: c.id,
       code: c.code,
-      title: `${c.title || svc?.name || "Case"} — ${owner}`,
+      title: `${c.title || serviceLabel(svc) || "Case"} — ${owner}`,
       subtitle: `${c.code}${cadenceLabel ? ` · ${cadenceLabel}` : ""}`,
       expires_at: c.expires_at,
       href: `/cases/${c.id}`,

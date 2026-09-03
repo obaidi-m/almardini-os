@@ -37,7 +37,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .from("cases")
       .select(`id, code, title, status, priority, deadline, expires_at, updated_at,
                client:clients(id, full_name),
-               service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)`)
+               service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)`)
       .eq("company_id", params.id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -69,7 +69,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority;
     deadline: string | null; expires_at: string | null; updated_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
-    service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
+    service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
   }>) ?? []).map((row) => ({
     id: row.id, code: row.code, title: row.title,
     status: row.status, priority: row.priority,

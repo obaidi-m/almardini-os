@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Client, Partner, CaseStatus, CasePriority } from "@/lib/types";
 import { ActiveServicesList } from "@/components/app/ActiveServices";
+import { serviceLabel } from "@/lib/service";
 import { ClientForm } from "../ClientForm";
 import { updateClientAction, softDeleteClientAction, restoreClientAction } from "../actions";
 import { linkClientToCompanyAction, unlinkClientFromCompanyAction } from "@/app/companies/actions";
@@ -18,7 +19,7 @@ type CaseSummary = {
   status: CaseStatus;
   priority: CasePriority;
   expires_at: string | null;
-  service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
+  service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, string> = {
@@ -221,7 +222,7 @@ export function ClientDetail({
                         </span>
                         <span className="min-w-0">
                           <span className="text-ink font-medium block truncate">
-                            {c.title || service?.name || t("detail.untitled")}
+                            {c.title || (service ? serviceLabel(service) : t("detail.untitled"))}
                             {(service?.schedule_kind === "annual_fixed" || service?.schedule_kind === "quarterly_fixed") && (
                               <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle">
                                 {service.schedule_kind === "annual_fixed" ? "annual" : "quarterly"}
@@ -229,7 +230,7 @@ export function ClientDetail({
                             )}
                           </span>
                           {c.title && service?.name && (
-                            <span className="text-[11.5px] text-[var(--muted)] block truncate">{service.name}</span>
+                            <span className="text-[11.5px] text-[var(--muted)] block truncate">{serviceLabel(service)}</span>
                           )}
                         </span>
                         <span className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full ${STATUS_PILL[c.status]}`}>

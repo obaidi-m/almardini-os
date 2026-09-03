@@ -2,6 +2,7 @@
 import Link from "next/link";
 import type { CaseStatus } from "@/lib/types";
 import { daysUntil, leadDaysForService } from "@/lib/renewal";
+import { serviceLabel } from "@/lib/service";
 
 export type ActiveServiceCase = {
   id: string;
@@ -11,6 +12,7 @@ export type ActiveServiceCase = {
   expires_at: string | null;
   service: {
     id: string;
+    code: string;
     name: string;
     schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
     annual_month: number | null;
@@ -90,7 +92,7 @@ export function ActiveServicesList({ cases }: { cases: ActiveServiceCase[] }) {
             >
               <span className="min-w-0">
                 <span className="text-ink font-medium block truncate">
-                  {svc?.name || c.title || "Service"}
+                  {svc ? serviceLabel(svc) : (c.title || "Service")}
                   {scheduleBadge && (
                     <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle">
                       {scheduleBadge}

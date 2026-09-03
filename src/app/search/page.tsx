@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buildIlikeOr, escapeIlike } from "@/lib/search";
 import type { CaseStatus } from "@/lib/types";
+import { serviceLabel } from "@/lib/service";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -48,14 +49,14 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           .limit(15),
         supabase
           .from("cases")
-          .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+          .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, code, name)")
           .is("deleted_at", null)
           .or(buildIlikeOr(["code", "title"], q))
           .limit(15),
         svcIds.length > 0
           ? supabase
               .from("cases")
-              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, code, name)")
               .is("deleted_at", null)
               .in("service_type_id", svcIds)
               .order("updated_at", { ascending: false })
@@ -86,9 +87,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     ...((casesBySvcRes.data ?? []) as unknown[]),
   ];
   const casesSeen = new Set<string>();
-  const cases: Array<{ id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string } | null; service: { id: string; name: string } | null }> = [];
+  const cases: Array<{ id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string } | null; service: { id: string; code: string; name: string } | null }> = [];
   for (const r of casesRaw) {
-    const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null; service: { id: string; name: string }[] | { id: string; name: string } | null };
+    const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null; service: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null };
     if (casesSeen.has(rr.id)) continue;
     casesSeen.add(rr.id);
     cases.push({ ...rr, client: unwrap(rr.client), service: unwrap(rr.service) });
@@ -157,8 +158,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                   key={cs.id}
                   href={`/cases/${cs.id}`}
                   code={cs.code}
-                  title={cs.title || cs.service?.name || t("search.untitled_case")}
-                  hint={[cs.service?.name, cs.client?.full_name].filter(Boolean).join(" · ") || undefined}
+                  title={cs.title || serviceLabel(cs.service) || t("search.untitled_case")}
+                  hint={[serviceLabel(cs.service) || null, cs.client?.full_name].filter(Boolean).join(" · ") || undefined}
                   badge={<span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[cs.status]}`}>{t(`status.${cs.status}` as MessageKey)}</span>}
                 />
               ))}
