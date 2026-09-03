@@ -18,7 +18,7 @@ type CaseSummary = {
   status: CaseStatus;
   priority: CasePriority;
   expires_at: string | null;
-  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | null;
+  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, string> = {

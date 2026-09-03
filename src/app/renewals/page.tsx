@@ -1,12 +1,26 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { daysUntil, leadDaysForService, renewalTier } from "@/lib/renewal";
+
+type Svc = {
+  id: string;
+  name: string;
+  recurring_amount: number | null;
+  recurring_unit: string | null;
+  validity_amount: number | null;
+  validity_unit: string | null;
+} | null;
 
 type Row = {
+  id: string;
+  code: string;
   title: string;
   subtitle: string;
   expires_at: string;
   href: string;
+  service: Svc;
+  daysLeft: number;
 };
 
 const CASE_STYLE = { bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", dot: "bg-[#F97316]" };
@@ -15,51 +29,75 @@ export default async function RenewalsPage() {
   const supabase = createClient();
   const { t } = await getT();
 
-  const today = new Date();
-  const in180 = new Date(); in180.setDate(in180.getDate() + 180);
-  const in180Iso = in180.toISOString().slice(0, 10);
-
+  // Pull every non-deleted case that carries an expiry date. We used to cap
+  // to a 180-day window; now we let the per-service lead-time rule decide
+  // what's "due to renew". Anything beyond its own window falls into Later
+  // and is collapsed by default so the page stays readable.
   const casesRes = await supabase
     .from("cases")
-    .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount, recurring_unit)")
+    .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
     .is("deleted_at", null)
     .not("expires_at", "is", null)
-    .lte("expires_at", in180Iso)
     .order("expires_at", { ascending: true });
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
 
   const rows: Row[] = [];
-  for (const c of (casesRes.data ?? []) as Array<{ id: string; code: string; title: string | null; expires_at: string; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null; service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | null }>) {
+  for (const c of (casesRes.data ?? []) as Array<{
+    id: string; code: string; title: string | null; expires_at: string;
+    client: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
+    company: { id: string; name: string }[] | { id: string; name: string } | null;
+    service: (NonNullable<Svc>)[] | NonNullable<Svc> | null;
+  }>) {
     const cli = unwrap(c.client);
+    const cmp = unwrap(c.company);
     const svc = unwrap(c.service);
-    const recurring = svc?.recurring_amount && svc?.recurring_unit ? `recurring every ${svc.recurring_amount} ${svc.recurring_unit}` : "";
-    rows.push({ title: `${c.title || svc?.name || "Case"} — ${cli?.full_name ?? "?"}`, subtitle: `${c.code}${recurring ? ` · ${recurring}` : ""}`, expires_at: c.expires_at, href: `/cases/${c.id}` });
+    const owner = cli?.full_name ?? cmp?.name ?? "?";
+    const cadenceLabel = svc?.recurring_amount && svc?.recurring_unit
+      ? `recurring every ${svc.recurring_amount} ${svc.recurring_unit}`
+      : svc?.validity_amount && svc?.validity_unit
+        ? `valid ${svc.validity_amount} ${svc.validity_unit}`
+        : "";
+    rows.push({
+      id: c.id,
+      code: c.code,
+      title: `${c.title || svc?.name || "Case"} — ${owner}`,
+      subtitle: `${c.code}${cadenceLabel ? ` · ${cadenceLabel}` : ""}`,
+      expires_at: c.expires_at,
+      href: `/cases/${c.id}`,
+      service: svc,
+      daysLeft: daysUntil(c.expires_at),
+    });
   }
 
-  const bucketDays = (iso: string): number => {
-    const d = new Date(iso + "T00:00:00");
-    return Math.floor((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  };
-
-  const overdue = rows.filter((r) => bucketDays(r.expires_at) < 0).sort((a, b) => a.expires_at.localeCompare(b.expires_at));
-  const in30    = rows.filter((r) => { const d = bucketDays(r.expires_at); return d >= 0 && d <= 30; });
-  const in60    = rows.filter((r) => { const d = bucketDays(r.expires_at); return d > 30 && d <= 60; });
-  const in90    = rows.filter((r) => { const d = bucketDays(r.expires_at); return d > 60 && d <= 90; });
-  const later   = rows.filter((r) => bucketDays(r.expires_at) > 90);
+  const overdue  = rows.filter((r) => renewalTier(r.expires_at, r.service) === "overdue");
+  const dueSoon  = rows.filter((r) => renewalTier(r.expires_at, r.service) === "due_soon");
+  const later    = rows.filter((r) => renewalTier(r.expires_at, r.service) === "later");
 
   return (
     <div className="max-w-[1100px]">
       <div className="mb-5">
         <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">{t("page.renewals.title")}</h1>
-        <p className="text-[13.5px] text-[var(--muted)] mt-1">{t("page.renewals.subtitle")}</p>
+        <p className="text-[13.5px] text-[var(--muted)] mt-1">
+          Renewal windows use a fixed rule: yearly services surface 90 days out, quarterly 30 days, monthly 10 days.
+        </p>
       </div>
 
-      <Bucket title={t("renewals.bucket.overdue")} count={overdue.length} rows={overdue} tone="red" t={t} />
-      <Bucket title={t("renewals.bucket.30")} count={in30.length} rows={in30} tone="gold" t={t} />
-      <Bucket title={t("renewals.bucket.30_60")} count={in60.length} rows={in60} tone="neutral" t={t} />
-      <Bucket title={t("renewals.bucket.60_90")} count={in90.length} rows={in90} tone="neutral" t={t} />
-      <Bucket title={t("renewals.bucket.later")} count={later.length} rows={later} tone="muted" t={t} />
+      <Bucket title={`Overdue · ${overdue.length}`} rows={overdue} tone="red" />
+      <Bucket title={`Due to renew · ${dueSoon.length}`} rows={dueSoon} tone="gold" />
+
+      {later.length > 0 && (
+        <details className="mb-6">
+          <summary className="cursor-pointer list-none inline-flex items-center gap-2 text-[11.5px] uppercase tracking-[0.08em] font-semibold text-[var(--muted)] hover:text-ink py-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted)]" />
+            <span>Later · {later.length}</span>
+            <span className="text-[10px]">(outside their reminder window)</span>
+          </summary>
+          <div className="mt-2">
+            <RowList rows={later} tone="muted" />
+          </div>
+        </details>
+      )}
 
       {rows.length === 0 && (
         <div className="py-16 text-center text-[13px] text-[var(--muted)]">
@@ -70,17 +108,12 @@ export default async function RenewalsPage() {
   );
 }
 
-type Tr = (k: import("@/lib/i18n/messages").MessageKey, vars?: Record<string, string | number>) => string;
-
-function Bucket({ title, count, rows, tone, t }: { title: string; count: number; rows: Row[]; tone: "red" | "gold" | "neutral" | "muted"; t: Tr }) {
+function Bucket({ title, rows, tone }: { title: string; rows: Row[]; tone: "red" | "gold" | "muted" }) {
   if (rows.length === 0) return null;
-
   const toneClass =
     tone === "red" ? "text-red-700"
     : tone === "gold" ? "text-[#8A6919]"
-    : tone === "muted" ? "text-[var(--muted)]"
-    : "text-ink";
-
+    : "text-[var(--muted)]";
   const dotClass =
     tone === "red" ? "bg-red-500"
     : tone === "gold" ? "bg-[#E8B14A]"
@@ -91,32 +124,48 @@ function Bucket({ title, count, rows, tone, t }: { title: string; count: number;
       <div className={`flex items-center gap-2 mb-2 text-[11.5px] uppercase tracking-[0.08em] font-semibold ${toneClass}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
         <span>{title}</span>
-        <span className="opacity-60 font-normal normal-case tracking-normal text-[11px]">· {count}</span>
       </div>
-      <div className="border-y border-[var(--border-strong)]">
-        {rows.map((r, i) => {
-          return (
-            <Link
-              key={i}
-              href={r.href}
-              className={`group grid grid-cols-[90px_1fr_100px] gap-3 items-center px-3 py-2 text-[13px] hover:bg-white/50 transition-colors ${i > 0 ? "border-t border-[var(--border)]" : ""}`}
-            >
-              <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full justify-self-start ${CASE_STYLE.bg} ${CASE_STYLE.text}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${CASE_STYLE.dot}`} />
-                {t("renewal.badge.case")}
-              </span>
-              <div className="min-w-0">
-                <div className="text-ink font-medium truncate group-hover:text-brand-dark">{r.title}</div>
-                <div className="text-[11.5px] text-[var(--muted)] truncate">{r.subtitle}</div>
-              </div>
-              <div className={`text-right text-[11.5px] font-mono ${tone === "red" ? "text-red-700 font-semibold" : tone === "gold" ? "text-[#8A6919] font-medium" : "text-[var(--muted)]"}`}>
-                {fmtDate(r.expires_at)}
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      <RowList rows={rows} tone={tone} />
     </section>
+  );
+}
+
+function RowList({ rows, tone }: { rows: Row[]; tone: "red" | "gold" | "muted" }) {
+  return (
+    <div className="border-y border-[var(--border-strong)]">
+      {rows.map((r, i) => (
+        <Link
+          key={r.id}
+          href={r.href}
+          className={`group grid grid-cols-[90px_1fr_90px_100px] gap-3 items-center px-3 py-2 text-[13px] hover:bg-white/50 transition-colors ${i > 0 ? "border-t border-[var(--border)]" : ""}`}
+        >
+          <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full justify-self-start ${CASE_STYLE.bg} ${CASE_STYLE.text}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${CASE_STYLE.dot}`} />
+            case
+          </span>
+          <div className="min-w-0">
+            <div className="text-ink font-medium truncate group-hover:text-brand-dark">{r.title}</div>
+            <div className="text-[11.5px] text-[var(--muted)] truncate">
+              {r.subtitle} · lead {leadDaysForService(r.service)}d
+            </div>
+          </div>
+          <div className={`text-right text-[11.5px] tabular-nums ${
+            tone === "red" ? "text-red-700 font-semibold"
+            : tone === "gold" ? "text-[#8A6919] font-medium"
+            : "text-[var(--muted)]"
+          }`}>
+            {r.daysLeft < 0 ? `overdue ${-r.daysLeft}d` : `in ${r.daysLeft}d`}
+          </div>
+          <div className={`text-right text-[11.5px] font-mono ${
+            tone === "red" ? "text-red-700 font-semibold"
+            : tone === "gold" ? "text-[#8A6919] font-medium"
+            : "text-[var(--muted)]"
+          }`}>
+            {fmtDate(r.expires_at)}
+          </div>
+        </Link>
+      ))}
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { CaseStatus } from "@/lib/types";
+import { daysUntil, leadDaysForService } from "@/lib/renewal";
 
 export type ActiveServiceCase = {
   id: string;
@@ -13,6 +14,8 @@ export type ActiveServiceCase = {
     name: string;
     recurring_amount: number | null;
     recurring_unit: string | null;
+    validity_amount: number | null;
+    validity_unit: string | null;
   } | null;
 };
 
@@ -31,19 +34,19 @@ function pickRenewable(rows: ActiveServiceCase[]): ActiveServiceCase[] {
   });
 }
 
-function daysUntil(iso: string): number {
-  const d = new Date(iso + "T00:00:00");
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  return Math.floor((d.getTime() - today.getTime()) / 86_400_000);
-}
+type Urgency = {
+  label: string;
+  className: string;
+  tier: "overdue" | "due_soon" | "later" | "unknown";
+};
 
-function urgency(iso: string | null): { label: string; className: string } {
-  if (!iso) return { label: "no expiry set", className: "text-[var(--muted)]" };
-  const n = daysUntil(iso);
-  if (n < 0) return { label: `overdue ${-n}d`, className: "text-red-700 font-semibold" };
-  if (n <= 30) return { label: `in ${n}d`, className: "text-[#8A6919] font-medium" };
-  if (n <= 90) return { label: `in ${n}d`, className: "text-ink" };
-  return { label: `in ${n}d`, className: "text-[var(--muted)]" };
+function urgency(c: ActiveServiceCase): Urgency {
+  if (!c.expires_at) return { label: "no expiry set", className: "text-[var(--muted)]", tier: "unknown" };
+  const n = daysUntil(c.expires_at);
+  const lead = leadDaysForService(c.service);
+  if (n < 0)        return { label: `overdue ${-n}d`, className: "text-red-700 font-semibold", tier: "overdue" };
+  if (n <= lead)    return { label: `in ${n}d`,        className: "text-[#8A6919] font-semibold", tier: "due_soon" };
+  return { label: `in ${n}d`, className: "text-[var(--muted)]", tier: "later" };
 }
 
 function fmt(iso: string): string {
@@ -67,13 +70,16 @@ export function ActiveServicesList({ cases }: { cases: ActiveServiceCase[] }) {
     <ul className="divide-y divide-[var(--border)] -mx-1">
       {rows.map((c) => {
         const svc = c.service;
-        const u = urgency(c.expires_at);
+        const u = urgency(c);
         const isRecurring = !!(svc?.recurring_amount && svc?.recurring_unit);
+        const showReminder = u.tier === "overdue" || u.tier === "due_soon";
         return (
           <li key={c.id}>
             <Link
               href={`/cases/${c.id}`}
-              className="grid grid-cols-[1fr_auto] gap-3 items-center px-1 py-2.5 text-[13.5px] hover:bg-[var(--surface-deep)] rounded"
+              className={`grid grid-cols-[1fr_auto] gap-3 items-center px-1 py-2.5 text-[13.5px] hover:bg-[var(--surface-deep)] rounded ${
+                u.tier === "overdue" ? "bg-red-50/50" : u.tier === "due_soon" ? "bg-amber-50/50" : ""
+              }`}
             >
               <span className="min-w-0">
                 <span className="text-ink font-medium block truncate">
@@ -82,6 +88,15 @@ export function ActiveServicesList({ cases }: { cases: ActiveServiceCase[] }) {
                     <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle"
                       title={`Recurring every ${svc?.recurring_amount} ${svc?.recurring_unit}`}>
                       recurring
+                    </span>
+                  )}
+                  {showReminder && (
+                    <span className={`text-[9.5px] font-semibold px-1 py-0 rounded ml-1.5 align-middle uppercase tracking-wide ${
+                      u.tier === "overdue"
+                        ? "text-red-800 bg-red-100"
+                        : "text-[#8A6919] bg-[#FEF3C7]"
+                    }`}>
+                      {u.tier === "overdue" ? "overdue" : "renew soon"}
                     </span>
                   )}
                 </span>

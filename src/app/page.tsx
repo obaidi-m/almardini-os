@@ -6,6 +6,7 @@ import { OpsSidebar } from "@/components/app/OpsSidebar";
 import { getT } from "@/lib/i18n/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { renewalTier } from "@/lib/renewal";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -118,20 +119,24 @@ export default async function DashboardPage() {
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(8),
+    // For the non-owner "Renewals" side panel: pull upcoming expiries and
+    // let the per-service lead-time rule filter which ones surface. We pull
+    // a 90-day window (the widest lead) and drop anything outside its own
+    // service's window client-side.
     supabase
       .from("cases")
-      .select("id, code, title, expires_at, client:clients(id, full_name)")
+      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
       .is("deleted_at", null)
       .not("expires_at", "is", null)
       .gte("expires_at", todayIso)
       .lte("expires_at", in90Iso)
       .order("expires_at", { ascending: true })
-      .limit(20),
+      .limit(50),
     // For the attention panel: all active cases (owner-like only)
     isOwnerLike
       ? supabase
           .from("cases")
-          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount)")
+          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
           .is("deleted_at", null)
           .in("status", OPEN_STATUSES)
           .limit(500)
@@ -166,8 +171,17 @@ export default async function DashboardPage() {
   const counts: Record<CaseStatus, number> = { new: 0, in_progress: 0, done: 0, delivered: 0 };
   for (const r of (countsRes.data ?? []) as { status: CaseStatus }[]) counts[r.status] = (counts[r.status] ?? 0) + 1;
 
-  const renewals: Renewal[] = [
-    ...((expiringCasesRes.data ?? []) as { id: string; code: string; title: string | null; expires_at: string; client: { full_name: string }[] | { full_name: string } | null }[]).map((r) => {
+  const renewals: Renewal[] = ((expiringCasesRes.data ?? []) as Array<{
+    id: string; code: string; title: string | null; expires_at: string;
+    client: { full_name: string }[] | { full_name: string } | null;
+    service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
+  }>)
+    .filter((r) => {
+      const svc = unwrap(r.service);
+      const tier = renewalTier(r.expires_at, svc);
+      return tier === "due_soon" || tier === "overdue";
+    })
+    .map((r) => {
       const cli = unwrap(r.client);
       return {
         kind: "case_expiry" as const,
@@ -175,15 +189,15 @@ export default async function DashboardPage() {
         expires_at: r.expires_at,
         href: `/cases/${r.id}`,
       };
-    }),
-  ].sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+    })
+    .sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
   // Compute attention buckets for Admin + Owner
   type AttentionCase = {
     id: string; code: string; title: string | null; status: CaseStatus;
     deadline: string | null; expires_at: string | null; created_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
-    service: { id: string; name: string; recurring_amount: number | null } | { id: string; name: string; recurring_amount: number | null }[] | null;
+    service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | null;
   };
   const activeCases = ((attentionCasesRes.data ?? []) as AttentionCase[]).map((c) => ({
     ...c,
@@ -213,8 +227,12 @@ export default async function DashboardPage() {
     .filter((c) => c.status === "done")
     .sort((a, b) => stuckDays(b) - stuckDays(a));
 
+  // Owner "renewals due" bucket: an active case is due when its expiry
+  // falls inside its own service's lead-time window (90/30/10 by cadence).
+  // Overdue cases are covered by the Overdue bucket above; this one is
+  // "action needed soon", not "action needed yesterday".
   const recurringDue = activeCases
-    .filter((c) => c.expires_at && c.expires_at >= todayIso && c.expires_at <= in30Iso)
+    .filter((c) => renewalTier(c.expires_at, c.service) === "due_soon")
     .sort((a, b) => (a.expires_at ?? "").localeCompare(b.expires_at ?? ""));
 
   const stuck7 = activeCases.filter((c) => stuckDays(c) > 7).sort((a, b) => stuckDays(b) - stuckDays(a));

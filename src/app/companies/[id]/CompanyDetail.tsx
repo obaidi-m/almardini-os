@@ -29,7 +29,7 @@ type CompanyCase = {
   expires_at: string | null;
   updated_at: string;
   client: { id: string; full_name: string } | null;
-  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | null;
+  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }> = {
