@@ -83,44 +83,52 @@ function makeDate(year: number, month1: number, day: number): Date {
   return new Date(year, month1 - 1, Math.min(day, lastDay));
 }
 
-/** Next occurrence of (month, day) strictly after `from` (default: today).
- *  Returns an ISO YYYY-MM-DD date. */
+/** Next occurrence of (month, day) more than `minDaysAhead` after `from`.
+ *  minDaysAhead lets callers skip a candidate that falls inside the
+ *  service's own reminder window — that candidate is almost always the
+ *  cycle the operator just completed. Returns an ISO YYYY-MM-DD date. */
 export function nextAnnualOccurrence(
-  month: number, day: number, from: Date = new Date(),
+  month: number, day: number, from: Date = new Date(), minDaysAhead = 0,
 ): string {
   const anchor = new Date(from); anchor.setHours(0, 0, 0, 0);
+  const floor = new Date(anchor); floor.setDate(floor.getDate() + minDaysAhead);
   let year = anchor.getFullYear();
   let candidate = makeDate(year, month, day);
-  if (candidate <= anchor) candidate = makeDate(++year, month, day);
+  while (candidate <= floor) candidate = makeDate(++year, month, day);
   return toIsoDate(candidate);
 }
 
-/** Next occurrence of `day` in any of `months` (1-12), strictly after `from`.
- *  Falls into next year if all four candidates for this year are past. */
+/** Next occurrence of `day` in any of `months` (1-12), more than
+ *  `minDaysAhead` after `from`. Walks year-by-year until a candidate
+ *  clears the floor (bounded — we never need more than two years). */
 export function nextQuarterlyOccurrence(
-  day: number, months: number[], from: Date = new Date(),
+  day: number, months: number[], from: Date = new Date(), minDaysAhead = 0,
 ): string {
   const anchor = new Date(from); anchor.setHours(0, 0, 0, 0);
-  const startYear = anchor.getFullYear();
+  const floor = new Date(anchor); floor.setDate(floor.getDate() + minDaysAhead);
   const sorted = [...months].sort((a, b) => a - b);
   const candidates: Date[] = [];
-  for (const y of [startYear, startYear + 1]) {
+  for (const y of [anchor.getFullYear(), anchor.getFullYear() + 1, anchor.getFullYear() + 2]) {
     for (const m of sorted) candidates.push(makeDate(y, m, day));
   }
-  const hit = candidates.find((d) => d > anchor);
-  // `hit` is guaranteed because we always look at least a year ahead.
+  const hit = candidates.find((d) => d > floor);
   return toIsoDate(hit!);
 }
 
-/** Compute expires_at for a service that just moved to Done. Returns null
- *  when the service has no schedule (case will have no expiry). */
+/** Compute expires_at for a service that just moved to Done. Skips the
+ *  candidate that falls inside the service's reminder window, since the
+ *  operator marking Done today is almost always closing the cycle whose
+ *  deadline is coming up — pushing them onto that same date would mean
+ *  the successor case reminds them again for work they just finished.
+ *  Returns null when the service has no schedule. */
 export function computeNextExpiry(svc: ServiceSchedule, from: Date = new Date()): string | null {
   if (!svc) return null;
+  const skip = leadDaysForService(svc);
   if (svc.schedule_kind === "annual_fixed" && svc.annual_month && svc.annual_day) {
-    return nextAnnualOccurrence(svc.annual_month, svc.annual_day, from);
+    return nextAnnualOccurrence(svc.annual_month, svc.annual_day, from, skip);
   }
   if (svc.schedule_kind === "quarterly_fixed" && svc.quarterly_day && svc.quarterly_months?.length) {
-    return nextQuarterlyOccurrence(svc.quarterly_day, svc.quarterly_months, from);
+    return nextQuarterlyOccurrence(svc.quarterly_day, svc.quarterly_months, from, skip);
   }
   // one_off with validity → today + validity (shelf life of the output).
   const validity = toDays(svc.validity_amount, svc.validity_unit);
