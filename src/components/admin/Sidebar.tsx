@@ -13,6 +13,7 @@ const nav: NavItem[] = [
   { href: "/admin/services", label: "Service catalog", icon: <IconCatalog /> },
   { href: "/admin/company-roles", label: "Company roles", icon: <IconTag /> },
   { href: "/admin/activity", label: "Activity log",  icon: <IconActivity /> },
+  { href: "/admin/import",   label: "Import data",   icon: <IconImport /> },
 ];
 
 export function Sidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
@@ -127,6 +128,15 @@ function IconActivity() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M3 12h4l3-8 4 16 3-8h4" />
+    </svg>
+  );
+}
+function IconImport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M12 15V3" />
     </svg>
   );
 }
