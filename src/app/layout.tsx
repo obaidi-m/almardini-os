@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/client";
+import { DetailsAutoClose } from "@/components/app/DetailsAutoClose";
 
 export const metadata: Metadata = {
   title: "Almardini · Operations",
@@ -14,6 +15,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale}>
       <body>
         <LocaleProvider locale={locale}>{children}</LocaleProvider>
+        <DetailsAutoClose />
       </body>
     </html>
   );

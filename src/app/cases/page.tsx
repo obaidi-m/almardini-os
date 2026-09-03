@@ -3,9 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ServiceFilter } from "./ServiceFilter";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
-type SearchParams = { status?: string; mine?: string; sort?: string; priority?: string };
+type SearchParams = { status?: string; mine?: string; sort?: string; service?: string };
 
 type CaseRow = {
   id: string;
@@ -37,8 +38,6 @@ const PRIORITY_STYLE: Record<CasePriority, string> = {
   urgent: "text-red-700 font-semibold",
 };
 
-const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
-
 const SORT_KEYS: SortKey[] = ["recent", "deadline_asc", "priority", "code_asc"];
 
 export default async function CasesListPage({ searchParams }: { searchParams: SearchParams }) {
@@ -50,7 +49,19 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
     : null;
   const mineOnly = searchParams.mine === "1";
   const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "recent") as SortKey;
-  const priorityFilter = (PRIORITIES.includes(searchParams.priority as CasePriority) ? (searchParams.priority as CasePriority) : "") as CasePriority | "";
+  const serviceIds = (searchParams.service ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  const serviceFilterParam = serviceIds.join(",");
+
+  const { data: services } = await supabase
+    .from("service_types")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("name");
+  const serviceOptions = (services as Array<{ id: string; name: string }> | null) ?? [];
+  const selectedServiceNames = serviceIds
+    .map((id) => serviceOptions.find((s) => s.id === id)?.name)
+    .filter((n): n is string => !!n);
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -66,7 +77,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
   if (status) query = query.eq("status", status);
   if (mineOnly && user) query = query.eq("assigned_to", user.id);
-  if (priorityFilter) query = query.eq("priority", priorityFilter);
+  if (serviceIds.length > 0) query = query.in("service_type_id", serviceIds);
 
   switch (sort) {
     case "deadline_asc": query = query.order("deadline", { ascending: true, nullsFirst: false }); break;
@@ -80,14 +91,14 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
   function hrefWith(patch: Partial<SearchParams>): string {
     const params = new URLSearchParams();
-    const merged = { status: status ?? undefined, mine: mineOnly ? "1" : undefined, sort, priority: priorityFilter || undefined, ...patch };
+    const merged = { status: status ?? undefined, mine: mineOnly ? "1" : undefined, sort, service: serviceFilterParam || undefined, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, String(v));
     const s = params.toString();
     return s ? `/cases?${s}` : "/cases";
   }
 
   const sortLabel = sortLabelFor(sort);
-  const activeFilterCount = (status ? 1 : 0) + (mineOnly ? 1 : 0) + (priorityFilter ? 1 : 0);
+  const activeFilterCount = (status ? 1 : 0) + (mineOnly ? 1 : 0) + (serviceIds.length > 0 ? 1 : 0);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -166,32 +177,15 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
           </div>
         </details>
 
-        <details className="relative">
-          <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 3H2l8 9v7l4 2v-9l8-9z"/></svg>
-            <span>{t("toolbar.filter")}</span>
-            {priorityFilter && <span className="ml-1 bg-brand text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">1</span>}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
-          </summary>
-          <div className="absolute z-20 mt-1 left-0 min-w-[200px] bg-white rounded-lg shadow-lg border border-[var(--border)] p-3">
-            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.priority")}</div>
-            <div className="-mx-1">
-              <Link href={hrefWith({ priority: undefined })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!priorityFilter ? "text-brand-dark font-medium" : "text-ink"}`}>
-                {t("toolbar.any_priority")}
-              </Link>
-              {PRIORITIES.map((p) => (
-                <Link key={p} href={hrefWith({ priority: p })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${priorityFilter === p ? "text-brand-dark font-medium" : "text-ink"}`}>
-                  {t(`priority.${p}` as MessageKey)}
-                </Link>
-              ))}
-            </div>
-            {priorityFilter && (
-              <Link href={hrefWith({ priority: undefined })} className="block text-center text-[11.5px] text-[var(--muted)] hover:text-ink pt-2 mt-2 border-t border-[var(--border)]">
-                {t("toolbar.clear_filters")}
-              </Link>
-            )}
-          </div>
-        </details>
+        <ServiceFilter
+          userId={user?.id ?? null}
+          options={serviceOptions}
+          selectedIds={serviceIds}
+          selectedNames={selectedServiceNames}
+          baseHref={hrefWith({ service: undefined })}
+          otherParams={{ status: status ?? undefined, mine: mineOnly ? "1" : undefined, sort }}
+          clearLabel={t("toolbar.clear_filters")}
+        />
 
         {activeFilterCount > 0 && (
           <Link href="/cases" className="text-[11.5px] text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50">
@@ -224,7 +218,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
-            {status || mineOnly || priorityFilter ? (
+            {status || mineOnly || serviceIds.length > 0 ? (
               <>{t("cases.empty.no_match")} <Link href="/cases" className="text-brand hover:text-brand-dark font-medium">{t("cases.empty.reset")}</Link></>
             ) : (
               <>{t("empty.no_cases")} <Link href="/cases/new" className="text-brand hover:text-brand-dark font-medium">{t("cases.empty.create_first")}</Link></>

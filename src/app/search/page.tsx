@@ -20,8 +20,19 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
   const hasQuery = q.length >= 1;
   const textLike = `%${escapeIlike(q)}%`;
 
+  // Look up service_type ids whose name matches, so cases attached to those
+  // services show up even when the case's own code/title doesn't include the
+  // service name (e.g. "LKPM" finds every quarterly filing).
+  const svcIds: string[] = hasQuery
+    ? (((await supabase
+        .from("service_types")
+        .select("id")
+        .ilike("name", `%${escapeIlike(q)}%`)
+        .limit(50)).data ?? []) as Array<{ id: string }>).map((r) => r.id)
+    : [];
+
   const empty = { data: [] as unknown[] };
-  const [clientsRes, companiesRes, casesRes, partnersRes, updatesRes] = hasQuery
+  const [clientsRes, companiesRes, casesByCodeRes, casesBySvcRes, partnersRes, updatesRes] = hasQuery
     ? await Promise.all([
         supabase
           .from("clients")
@@ -41,6 +52,15 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           .is("deleted_at", null)
           .or(buildIlikeOr(["code", "title"], q))
           .limit(15),
+        svcIds.length > 0
+          ? supabase
+              .from("cases")
+              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+              .is("deleted_at", null)
+              .in("service_type_id", svcIds)
+              .order("updated_at", { ascending: false })
+              .limit(15)
+          : Promise.resolve({ data: [] as unknown[] }),
         supabase
           .from("partners")
           .select("id, code, name, contact_person, phone, email")
@@ -54,17 +74,25 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           .order("created_at", { ascending: false })
           .limit(15),
       ])
-    : [empty, empty, empty, empty, empty];
+    : [empty, empty, empty, empty, empty, empty];
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
   const clients = (clientsRes.data ?? []) as Array<{ id: string; code: string; full_name: string; passport_no: string | null; phone: string | null; email: string | null }>;
   const companies = (companiesRes.data ?? []) as Array<{ id: string; code: string; name: string; nib: string | null }>;
   const partners = (partnersRes.data ?? []) as Array<{ id: string; code: string; name: string; contact_person: string | null; phone: string | null; email: string | null }>;
-  const cases = ((casesRes.data ?? []) as unknown[]).map((r) => {
+  const casesRaw = [
+    ...((casesByCodeRes.data ?? []) as unknown[]),
+    ...((casesBySvcRes.data ?? []) as unknown[]),
+  ];
+  const casesSeen = new Set<string>();
+  const cases: Array<{ id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string } | null; service: { id: string; name: string } | null }> = [];
+  for (const r of casesRaw) {
     const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null; service: { id: string; name: string }[] | { id: string; name: string } | null };
-    return { ...rr, client: unwrap(rr.client), service: unwrap(rr.service) };
-  });
+    if (casesSeen.has(rr.id)) continue;
+    casesSeen.add(rr.id);
+    cases.push({ ...rr, client: unwrap(rr.client), service: unwrap(rr.service) });
+  }
   const updates = ((updatesRes.data ?? []) as unknown[]).map((r) => {
     const rr = r as { id: string; text: string; created_at: string; case: { id: string; code: string; title: string | null; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null }[] | { id: string; code: string; title: string | null; client: { id: string; full_name: string }[] | { id: string; full_name: string } | null } | null };
     const c = unwrap(rr.case);
@@ -130,7 +158,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                   href={`/cases/${cs.id}`}
                   code={cs.code}
                   title={cs.title || cs.service?.name || t("search.untitled_case")}
-                  hint={cs.client?.full_name ?? undefined}
+                  hint={[cs.service?.name, cs.client?.full_name].filter(Boolean).join(" · ") || undefined}
                   badge={<span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded ${STATUS_COLORS[cs.status]}`}>{t(`status.${cs.status}` as MessageKey)}</span>}
                 />
               ))}

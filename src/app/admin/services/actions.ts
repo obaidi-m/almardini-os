@@ -51,12 +51,14 @@ export async function createService(formData: FormData) {
   const has_deliverable = formData.getAll("has_deliverable").pop() === "true";
   const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
   const recurring_amount = r.amount, recurring_unit = r.unit;
+  const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
+  const validity_amount = v.amount, validity_unit = v.unit;
 
   if (!code || !name || !category_id) throw new Error("Code, name and category are required");
 
   const { data, error } = await supabase
     .from("service_types")
-    .insert({ code, name, category_id, duration, description, recurring_amount, recurring_unit, has_deliverable, created_by: actorId })
+    .insert({ code, name, category_id, duration, description, recurring_amount, recurring_unit, validity_amount, validity_unit, has_deliverable, created_by: actorId })
     .select("id, name, code")
     .single();
   if (error) throw new Error(error.message);
@@ -70,6 +72,8 @@ export async function updateService(formData: FormData) {
   const id = String(formData.get("id"));
   const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
   const recurring_amount = r.amount, recurring_unit = r.unit;
+  const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
+  const validity_amount = v.amount, validity_unit = v.unit;
   const patch = {
     code: String(formData.get("code") || "").trim().toUpperCase(),
     name: String(formData.get("name") || "").trim(),
@@ -78,6 +82,8 @@ export async function updateService(formData: FormData) {
     description: String(formData.get("description") || "").trim() || null,
     recurring_amount,
     recurring_unit,
+    validity_amount,
+    validity_unit,
     has_deliverable: formData.getAll("has_deliverable").pop() === "true",
   };
   const { error } = await supabase.from("service_types").update(patch).eq("id", id);

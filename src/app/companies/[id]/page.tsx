@@ -35,7 +35,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .order("sort_order"),
     supabase
       .from("cases")
-      .select(`id, code, title, status, priority, deadline, updated_at,
+      .select(`id, code, title, status, priority, deadline, expires_at, updated_at,
                client:clients(id, full_name),
                service:service_types(id, name, recurring_amount, recurring_unit)`)
       .eq("company_id", params.id)
@@ -67,13 +67,13 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   const cases = ((casesRaw as unknown as Array<{
     id: string; code: string; title: string | null;
     status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority;
-    deadline: string | null; updated_at: string;
+    deadline: string | null; expires_at: string | null; updated_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
     service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null }[] | null;
   }>) ?? []).map((row) => ({
     id: row.id, code: row.code, title: row.title,
     status: row.status, priority: row.priority,
-    deadline: row.deadline, updated_at: row.updated_at,
+    deadline: row.deadline, expires_at: row.expires_at, updated_at: row.updated_at,
     client: unwrap(row.client),
     service: unwrap(row.service),
   }));

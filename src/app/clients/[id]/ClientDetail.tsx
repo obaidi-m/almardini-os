@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Client, Partner, CaseStatus, CasePriority } from "@/lib/types";
+import { ActiveServicesList } from "@/components/app/ActiveServices";
 import { ClientForm } from "../ClientForm";
 import { updateClientAction, softDeleteClientAction, restoreClientAction } from "../actions";
 import { linkClientToCompanyAction, unlinkClientFromCompanyAction } from "@/app/companies/actions";
@@ -16,6 +17,7 @@ type CaseSummary = {
   title: string | null;
   status: CaseStatus;
   priority: CasePriority;
+  expires_at: string | null;
   service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | null;
 };
 
@@ -167,6 +169,16 @@ export function ClientDetail({
               allCompanies={allCompanies}
               roles={roles}
               roleLabel={roleLabel}
+            />
+          </Card>
+
+          <Card title="Active services" padded>
+            <ActiveServicesList
+              cases={cases.map((c) => ({
+                id: c.id, code: c.code, title: c.title, status: c.status,
+                expires_at: c.expires_at,
+                service: Array.isArray(c.service) ? c.service[0] ?? null : c.service,
+              }))}
             />
           </Card>
 

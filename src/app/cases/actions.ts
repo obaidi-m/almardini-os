@@ -28,8 +28,11 @@ function addDuration(from: Date, amount: number, unit: DurationUnit): Date {
   return d;
 }
 
-/** When a recurring case first hits Done, seed its expires_at from the
- *  service's recurring cadence — that becomes the next filing due date.
+/** When a case first hits Done, seed its expires_at so the renewal calendar
+ *  and the Active Services section on the client/company page can surface it.
+ *  Two sources, in order of precedence:
+ *    1. recurring cadence — the next filing due date for LKPM-style services
+ *    2. validity duration  — the shelf life of a one-off issuance (visa, KITAS)
  *  Manual dates are never overwritten. */
 async function autoFillExpiresOnDone(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
@@ -37,15 +40,19 @@ async function autoFillExpiresOnDone(
 ): Promise<string | null> {
   const { data: c } = await supabase
     .from("cases")
-    .select("expires_at, service:service_types(recurring_amount, recurring_unit)")
+    .select("expires_at, service:service_types(recurring_amount, recurring_unit, validity_amount, validity_unit)")
     .eq("id", case_id)
     .single();
   if (!c || c.expires_at) return null;
   const svc = Array.isArray(c.service) ? c.service[0] : c.service;
   if (!svc) return null;
 
-  const amt = svc.recurring_amount;
-  const unit = svc.recurring_unit as DurationUnit | null;
+  let amt: number | null = svc.recurring_amount;
+  let unit: DurationUnit | null = svc.recurring_unit as DurationUnit | null;
+  if (!amt || !unit) {
+    amt = svc.validity_amount;
+    unit = svc.validity_unit as DurationUnit | null;
+  }
   if (!amt || !unit) return null;
 
   const iso = addDuration(new Date(), amt, unit).toISOString().slice(0, 10);

@@ -123,6 +123,8 @@ export type ServiceType = {
   description: string | null;
   recurring_amount: number | null;
   recurring_unit: "days" | "months" | "years" | null;
+  validity_amount: number | null;
+  validity_unit: "days" | "months" | "years" | null;
   has_deliverable: boolean;
   is_active: boolean;
   sort_order: number;

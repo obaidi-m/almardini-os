@@ -48,6 +48,20 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
                 </select>
               </div>
             </Field>
+            <Field label="Validity">
+              <div className="flex gap-2">
+                <input name="validity_amount" type="number" min="1" step="1"
+                  defaultValue={service.validity_amount ?? ""} placeholder="—"
+                  className="w-20 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm tabular-nums" />
+                <select name="validity_unit" defaultValue={service.validity_unit ?? ""}
+                  className="flex-1 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
+                  <option value="">— no expiry —</option>
+                  <option value="days">days</option>
+                  <option value="months">months</option>
+                  <option value="years">years</option>
+                </select>
+              </div>
+            </Field>
             <div className="flex gap-2 justify-end">
               <button type="button" onClick={() => setEditing(false)}
                 className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-md hover:bg-[var(--surface)]">

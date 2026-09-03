@@ -68,7 +68,17 @@ export function LiveSearchBox({
 
     setLoading(true);
     const handle = setTimeout(async () => {
-      const [c, co, cs, p, u] = await Promise.all([
+      // Look up service_type ids whose name matches the term, so cases
+      // attached to those services surface even when the case title doesn't
+      // mention the service name (e.g. searching "LKPM" finds every filing).
+      const svcRes = await supabase
+        .from("service_types")
+        .select("id")
+        .ilike("name", `%${escapeIlike(term)}%`)
+        .limit(20);
+      const svcIds = ((svcRes.data ?? []) as Array<{ id: string }>).map((r) => r.id);
+
+      const [c, co, cs, csBySvc, p, u] = await Promise.all([
         supabase.from("clients")
           .select("id, code, full_name, passport_no")
           .is("deleted_at", null)
@@ -84,6 +94,14 @@ export function LiveSearchBox({
           .is("deleted_at", null)
           .or(buildIlikeOr(["code", "title"], term))
           .limit(5),
+        svcIds.length > 0
+          ? supabase.from("cases")
+              .select("id, code, title, status, client:clients(id, full_name), service:service_types(id, name)")
+              .is("deleted_at", null)
+              .in("service_type_id", svcIds)
+              .order("updated_at", { ascending: false })
+              .limit(5)
+          : Promise.resolve({ data: [] as unknown[] }),
         supabase.from("partners")
           .select("id, code, name, contact_person")
           .is("deleted_at", null)
@@ -105,15 +123,21 @@ export function LiveSearchBox({
       for (const r of (co.data ?? []) as Array<{ id: string; code: string; name: string; nib: string | null }>) {
         rows.push({ kind: "company", id: r.id, href: `/companies/${r.id}`, code: r.code, title: r.name, hint: r.nib ? `NIB ${r.nib}` : undefined });
       }
-      for (const r of (cs.data ?? []) as unknown[]) {
+      const seenCases = new Set<string>();
+      const pushCase = (r: unknown) => {
         const rr = r as { id: string; code: string; title: string | null; status: CaseStatus; client: { full_name: string }[] | { full_name: string } | null; service: { name: string }[] | { name: string } | null };
+        if (seenCases.has(rr.id)) return;
+        seenCases.add(rr.id);
         const cli = unwrap(rr.client); const svc = unwrap(rr.service);
         rows.push({
           kind: "case", id: rr.id, href: `/cases/${rr.id}`, code: rr.code,
           title: rr.title || svc?.name || "Case",
-          hint: cli?.full_name, badge: rr.status,
+          hint: [svc?.name, cli?.full_name].filter(Boolean).join(" · ") || undefined,
+          badge: rr.status,
         });
-      }
+      };
+      for (const r of (cs.data ?? []) as unknown[]) pushCase(r);
+      for (const r of (csBySvc.data ?? []) as unknown[]) pushCase(r);
       for (const r of (p.data ?? []) as Array<{ id: string; code: string; name: string; contact_person: string | null }>) {
         rows.push({ kind: "partner", id: r.id, href: `/partners/${r.id}`, code: r.code, title: r.name, hint: r.contact_person ?? undefined });
       }

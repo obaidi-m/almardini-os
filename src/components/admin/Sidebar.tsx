@@ -12,6 +12,7 @@ const nav: NavItem[] = [
   { href: "/admin/roles",    label: "Roles",           icon: <IconShield /> },
   { href: "/admin/services", label: "Service catalog", icon: <IconCatalog /> },
   { href: "/admin/company-roles", label: "Company roles", icon: <IconTag /> },
+  { href: "/admin/activity", label: "Activity log",  icon: <IconActivity /> },
 ];
 
 export function Sidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
@@ -119,6 +120,13 @@ function IconTag() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M20 12l-8 8-9-9V3h8z" />
       <circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+function IconActivity() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 12h4l3-8 4 16 3-8h4" />
     </svg>
   );
 }

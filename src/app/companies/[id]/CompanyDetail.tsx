@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { Company, CaseStatus, CasePriority } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ActiveServicesList } from "@/components/app/ActiveServices";
 import { CompanyForm } from "../CompanyForm";
 import {
   updateCompanyAction,
@@ -25,6 +26,7 @@ type CompanyCase = {
   status: CaseStatus;
   priority: CasePriority;
   deadline: string | null;
+  expires_at: string | null;
   updated_at: string;
   client: { id: string; full_name: string } | null;
   service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null } | null;
@@ -164,6 +166,16 @@ export function CompanyDetail({
               allClients={allClients}
               roles={roles}
               roleLabel={roleLabel}
+            />
+          </Card>
+
+          <Card title="Active services" padded>
+            <ActiveServicesList
+              cases={cases.map((c) => ({
+                id: c.id, code: c.code, title: c.title, status: c.status,
+                expires_at: c.expires_at,
+                service: c.service,
+              }))}
             />
           </Card>
 
