@@ -240,17 +240,14 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
       {/* Dense table — flanked by strong top/bottom lines so it reads as a table */}
       <div className="border-y border-[var(--border-strong)]">
         {/* Header */}
-        <div className="grid grid-cols-[36px_90px_1.3fr_0.9fr_1fr_1fr_1.4fr_100px] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
+        <div className="grid grid-cols-[36px_90px_2fr_1fr_1fr] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
           <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
           <HeadCell icon={<IconUser />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconGlobe />} label={t("field.nationality")} />
           <HeadCell icon={<IconPassport />} label={t("col.passport")} />
           <HeadCell icon={<IconPhone />} label={t("field.phone")} />
-          <HeadCell icon={<IconMail />} label={t("field.email")} />
-          <HeadCell icon={<IconChat />} label={t("col.channel")} />
         </div>
 
         {rows.length === 0 ? (
@@ -275,7 +272,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
           rows.map((c) => (
             <div
               key={c.id}
-              className={`group grid grid-cols-[36px_90px_1.3fr_0.9fr_1fr_1fr_1.4fr_100px] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${
+              className={`group grid grid-cols-[36px_90px_2fr_1fr_1fr] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${
                 c.deleted_at ? "opacity-55" : ""
               }`}
             >
@@ -300,26 +297,11 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
                   </span>
                 )}
               </Link>
-              <div className="truncate">
-                {c.nationality ? (
-                  <span className="inline-block text-[11.5px] text-ink bg-white/60 border border-[var(--border)] px-1.5 py-0.5 rounded">
-                    {c.nationality}
-                  </span>
-                ) : (
-                  <span className="text-[var(--hint)]">—</span>
-                )}
-              </div>
               <div className="font-mono text-[11.5px] text-[var(--muted)] truncate">
                 {c.passport_no ?? "—"}
               </div>
               <div className="text-ink text-[12.5px] truncate">
                 {c.phone ?? <span className="text-[var(--hint)]">—</span>}
-              </div>
-              <div className="text-[var(--muted)] text-[12.5px] truncate">
-                {c.email ?? <span className="text-[var(--hint)]">—</span>}
-              </div>
-              <div>
-                <ChannelPill channel={c.preferred_channel} label={c.preferred_channel ? t(`channel.${c.preferred_channel}` as MessageKey) : undefined} />
               </div>
             </div>
           ))

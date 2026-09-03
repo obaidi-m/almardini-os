@@ -85,7 +85,7 @@ function parseSchedule(fd: FormData): ScheduleFields {
 export async function createService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
 
-  const code = String(formData.get("code") || "").trim().toUpperCase();
+  const code = String(formData.get("code") || "").trim().toUpperCase() || null;
   const name = String(formData.get("name") || "").trim();
   const category_id = String(formData.get("category_id") || "");
   const duration = String(formData.get("duration") || "").trim() || null;
@@ -95,7 +95,7 @@ export async function createService(formData: FormData) {
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
 
-  if (!code || !name || !category_id) throw new Error("Code, name and category are required");
+  if (!name || !category_id) throw new Error("Name and category are required");
 
   const { data, error } = await supabase
     .from("service_types")
@@ -115,7 +115,7 @@ export async function updateService(formData: FormData) {
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
   const patch = {
-    code: String(formData.get("code") || "").trim().toUpperCase(),
+    code: String(formData.get("code") || "").trim().toUpperCase() || null,
     name: String(formData.get("name") || "").trim(),
     category_id: String(formData.get("category_id") || ""),
     duration: String(formData.get("duration") || "").trim() || null,

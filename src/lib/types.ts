@@ -118,7 +118,7 @@ export type ServiceScheduleKind = "one_off" | "annual_fixed" | "quarterly_fixed"
 
 export type ServiceType = {
   id: string;
-  code: string;
+  code: string | null;
   name: string;
   category_id: string;
   duration: string | null;

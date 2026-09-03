@@ -27,8 +27,8 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
       id="new-service-form"
       className="grid grid-cols-3 gap-3"
     >
-      <Field label="Code">
-        <input name="code" required placeholder="E28A"
+      <Field label="Code (optional)">
+        <input name="code" placeholder="E28A"
           className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm uppercase focus:outline-brand focus:border-brand" />
       </Field>
       <Field label="Service name">

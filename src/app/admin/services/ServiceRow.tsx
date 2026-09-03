@@ -17,8 +17,8 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
             className="grid grid-cols-6 gap-3 items-end"
           >
             <input type="hidden" name="id" value={service.id} />
-            <Field label="Code">
-              <input name="code" defaultValue={service.code} required
+            <Field label="Code (optional)">
+              <input name="code" defaultValue={service.code ?? ""}
                 className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm uppercase" />
             </Field>
             <Field label="Name">
