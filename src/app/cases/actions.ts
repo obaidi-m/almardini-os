@@ -345,16 +345,28 @@ export async function reopenCaseAction(fd: FormData) {
 }
 
 export async function softDeleteCaseAction(fd: FormData) {
-  const { supabase, actorId } = await requireUser();
+  const { supabase } = await requireUser();
   const id = String(fd.get("id") ?? "");
   if (!id) throw new Error("Missing case id.");
 
-  const { error } = await supabase
-    .from("cases")
-    .update({ deleted_at: new Date().toISOString(), updated_by: actorId })
-    .eq("id", id);
+  // Goes through the SECURITY DEFINER RPC (migration 026) so the archive
+  // still works when the row-level cases_update WITH CHECK rejects the
+  // direct update. The RPC itself gates on is_owner / cases.delete.
+  const { error } = await supabase.rpc("soft_delete_case", { target_case_id: id });
   if (error) throw new Error(error.message);
 
   revalidatePath("/cases");
   redirect("/cases");
+}
+
+export async function restoreCaseAction(fd: FormData) {
+  const { supabase } = await requireUser();
+  const id = String(fd.get("id") ?? "");
+  if (!id) throw new Error("Missing case id.");
+
+  const { error } = await supabase.rpc("restore_case", { target_case_id: id });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/cases");
+  revalidatePath(`/cases/${id}`);
 }

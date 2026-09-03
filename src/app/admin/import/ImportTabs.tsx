@@ -1,15 +1,22 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import {
   bulkImportCompanies,
   bulkImportClients,
+  bulkOpenCases,
   type CompanyImportRow,
   type ClientImportRow,
   type ImportSummary,
 } from "./actions";
+import type { CasePriority } from "@/lib/types";
 
-type Mode = "companies" | "clients";
+type Mode = "companies" | "clients" | "open_cases";
+
+type Service = { id: string; code: string; name: string };
+type Company = { id: string; code: string; name: string };
+type Client  = { id: string; code: string; full_name: string };
+type User    = { id: string; full_name: string };
 
 const COMPANY_COLS: (keyof CompanyImportRow)[] = [
   "name", "nib", "incorporation_date", "address", "drive_folder_url", "notes",
@@ -49,15 +56,22 @@ const CLIENT_EXAMPLE: Record<string, string> = {
   company_name: "PT Example Group",
 };
 
-export function ImportTabs() {
+export function ImportTabs({
+  services, companies, clients, users,
+}: {
+  services: Service[]; companies: Company[]; clients: Client[]; users: User[];
+}) {
   const [mode, setMode] = useState<Mode>("companies");
   return (
     <div>
       <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
-        <TabButton active={mode === "companies"} onClick={() => setMode("companies")}>Companies</TabButton>
-        <TabButton active={mode === "clients"}   onClick={() => setMode("clients")}>Clients</TabButton>
+        <TabButton active={mode === "companies"}  onClick={() => setMode("companies")}>Import companies</TabButton>
+        <TabButton active={mode === "clients"}    onClick={() => setMode("clients")}>Import clients</TabButton>
+        <TabButton active={mode === "open_cases"} onClick={() => setMode("open_cases")}>Bulk open cases</TabButton>
       </div>
-      {mode === "companies" ? <CompaniesImport /> : <ClientsImport />}
+      {mode === "companies"  && <CompaniesImport />}
+      {mode === "clients"    && <ClientsImport />}
+      {mode === "open_cases" && <BulkOpenCases services={services} companies={companies} clients={clients} users={users} />}
     </div>
   );
 }
@@ -331,5 +345,189 @@ function PreviewTable<T extends Record<string, unknown>>({
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------- Bulk open cases ---------------- */
+
+function BulkOpenCases({
+  services, companies, clients, users,
+}: {
+  services: Service[]; companies: Company[]; clients: Client[]; users: User[];
+}) {
+  const [serviceId, setServiceId] = useState<string>("");
+  const [target, setTarget] = useState<"companies" | "clients">("companies");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState("");
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [priority, setPriority] = useState<CasePriority>("normal");
+  const [title, setTitle] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  // Rebuilding the list on every filter keystroke is fine at 1000 rows;
+  // if this ever hurts, useDeferredValue is the drop-in.
+  const list = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (target === "companies") {
+      return companies
+        .filter((c) => !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
+        .map((c) => ({ id: c.id, label: c.name, code: c.code }));
+    }
+    return clients
+      .filter((c) => !q || c.full_name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
+      .map((c) => ({ id: c.id, label: c.full_name, code: c.code }));
+  }, [target, filter, companies, clients]);
+
+  function toggle(id: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAllVisible() { setPicked((prev) => { const n = new Set(prev); for (const x of list) n.add(x.id); return n; }); }
+  function clearAll() { setPicked(new Set()); }
+
+  function submit() {
+    setError(null); setSummary(null);
+    if (!serviceId) { setError("Pick a service"); return; }
+    if (picked.size === 0) { setError("Pick at least one target"); return; }
+    start(async () => {
+      try {
+        const s = await bulkOpenCases({
+          service_type_id: serviceId,
+          target,
+          target_ids: [...picked],
+          assigned_to: assignedTo || null,
+          priority,
+          title: title || null,
+          deadline: deadline || null,
+        });
+        setSummary(s);
+        setPicked(new Set());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to open cases");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
+        <div className="space-y-3 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-[10px]">
+          <FieldLabel>Service</FieldLabel>
+          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}
+            className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
+            <option value="">— pick a service —</option>
+            {services.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
+          </select>
+
+          <FieldLabel>Open cases for</FieldLabel>
+          <div className="flex gap-2">
+            <SegmentBtn active={target === "companies"} onClick={() => { setTarget("companies"); setPicked(new Set()); }}>Companies</SegmentBtn>
+            <SegmentBtn active={target === "clients"}   onClick={() => { setTarget("clients");   setPicked(new Set()); }}>Clients</SegmentBtn>
+          </div>
+
+          <FieldLabel>Assign to (optional)</FieldLabel>
+          <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}
+            className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
+            <option value="">— unassigned —</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+          </select>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <FieldLabel>Priority</FieldLabel>
+              <select value={priority} onChange={(e) => setPriority(e.target.value as CasePriority)}
+                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Deadline (optional)</FieldLabel>
+              <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
+                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
+            </div>
+          </div>
+
+          <FieldLabel>Case title (optional, same on all)</FieldLabel>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Virtual office renewal 2027"
+            className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
+
+          <button type="button" onClick={submit} disabled={pending}
+            className="w-full mt-2 px-4 py-2 bg-brand text-white rounded-md text-[13px] font-medium hover:bg-brand-dark disabled:opacity-50">
+            {pending ? "Opening…" : `Open ${picked.size || "N"} case${picked.size === 1 ? "" : "s"}`}
+          </button>
+          {error && <div className="text-[12px] text-red-700">{error}</div>}
+        </div>
+
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-[10px]">
+          <div className="flex items-center gap-2 mb-2">
+            <input value={filter} onChange={(e) => setFilter(e.target.value)}
+              placeholder={`Search ${target}…`}
+              className="flex-1 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
+            <button type="button" onClick={selectAllVisible} className="text-[12px] text-brand hover:underline">Select all shown</button>
+            <button type="button" onClick={clearAll} className="text-[12px] text-[var(--muted)] hover:text-ink">Clear ({picked.size})</button>
+          </div>
+          <div className="max-h-[55vh] overflow-y-auto border border-[var(--border)] rounded-md divide-y divide-[var(--border)]">
+            {list.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12.5px] text-[var(--muted)]">No matches.</div>
+            ) : list.map((row) => {
+              const on = picked.has(row.id);
+              return (
+                <label key={row.id}
+                  className={`flex items-center gap-3 px-3 py-1.5 text-[13px] cursor-pointer ${on ? "bg-brand-softer" : "hover:bg-[var(--surface-muted)]"}`}>
+                  <input type="checkbox" checked={on} onChange={() => toggle(row.id)} className="w-3.5 h-3.5" />
+                  <span className="font-mono text-[11px] text-[var(--muted)] w-[80px] shrink-0">{row.code}</span>
+                  <span className="text-ink truncate">{row.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {summary && (
+        <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-[10px]">
+          <div className="text-[13px] font-medium text-ink">
+            Done — {summary.imported} opened · {summary.skipped} skipped · {summary.errored} errors
+          </div>
+          {(summary.skipped > 0 || summary.errored > 0) && (
+            <ul className="mt-2 space-y-0.5 text-[12px]">
+              {summary.results.filter((r) => r.outcome !== "created").map((r) => (
+                <li key={r.row} className={r.outcome === "error" ? "text-red-700" : "text-[#8A6919]"}>
+                  {r.label}: {r.reason ?? r.outcome}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-[10.5px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
+      {children}
+    </label>
+  );
+}
+
+function SegmentBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`flex-1 px-3 py-1.5 rounded-md border text-[13px] ${
+        active ? "bg-brand-softer border-brand text-brand-dark font-medium" : "border-[var(--border)] text-ink hover:bg-[var(--surface-muted)]"
+      }`}>
+      {children}
+    </button>
   );
 }

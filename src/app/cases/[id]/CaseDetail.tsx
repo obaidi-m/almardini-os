@@ -15,6 +15,7 @@ import {
   deliverCaseAction,
   reopenCaseAction,
   softDeleteCaseAction,
+  restoreCaseAction,
 } from "../actions";
 
 type Option = { id: string; label: string; hint?: string };
@@ -209,15 +210,27 @@ export function CaseDetail({
             </svg>
             {t("action.edit")}
           </button>
-          <form action={softDeleteCaseAction} onSubmit={(e) => { if (!confirm(t("case.detail.confirm_archive"))) e.preventDefault(); }} className="inline">
-            <input type="hidden" name="id" value={caseRow.id} />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
-            >
-              {t("action.archive")}
-            </button>
-          </form>
+          {caseRow.deleted_at ? (
+            <form action={restoreCaseAction} className="inline">
+              <input type="hidden" name="id" value={caseRow.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {t("action.restore")}
+              </button>
+            </form>
+          ) : (
+            <form action={softDeleteCaseAction} onSubmit={(e) => { if (!confirm(t("case.detail.confirm_archive"))) e.preventDefault(); }} className="inline">
+              <input type="hidden" name="id" value={caseRow.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {t("action.archive")}
+              </button>
+            </form>
+          )}
         </div>
 
         <Card title={t("case.detail.details_card")}>

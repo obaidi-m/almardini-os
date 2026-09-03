@@ -6,7 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { ServiceFilter } from "./ServiceFilter";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
-type SearchParams = { status?: string; mine?: string; sort?: string; service?: string };
+type SearchParams = { status?: string; mine?: string; sort?: string; service?: string; show?: string };
 
 type CaseRow = {
   id: string;
@@ -16,6 +16,7 @@ type CaseRow = {
   priority: CasePriority;
   deadline: string | null;
   updated_at: string;
+  deleted_at: string | null;
   client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
   company: { id: string; name: string } | { id: string; name: string }[] | null;
   service: { id: string; name: string } | { id: string; name: string }[] | null;
@@ -48,6 +49,13 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
     ? (searchParams.status as CaseStatus)
     : null;
   const mineOnly = searchParams.mine === "1";
+  // Delivered cases are the healthy end state, not deletion candidates —
+  // they're hidden by default on the "All" view to keep the list actionable,
+  // but stay one click away via the Delivered status pill or ?show=delivered.
+  // Archived (soft-deleted) cases are the real "elsewhere" pile — off by
+  // default, opt in with ?show=archived.
+  const showArchived  = searchParams.show === "archived";
+  const showDelivered = searchParams.show === "delivered" || status === "delivered" || !!status;
   const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "recent") as SortKey;
   const serviceIds = (searchParams.service ?? "")
     .split(",").map((s) => s.trim()).filter(Boolean);
@@ -67,15 +75,16 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
   let query = supabase
     .from("cases")
-    .select(`id, code, title, status, priority, deadline, updated_at,
+    .select(`id, code, title, status, priority, deadline, updated_at, deleted_at,
              client:clients(id, full_name),
              company:companies(id, name),
              service:service_types(id, name),
              assignee:users!cases_assigned_to_fkey(id, full_name)`)
-    .is("deleted_at", null)
     .limit(200);
 
+  if (!showArchived) query = query.is("deleted_at", null);
   if (status) query = query.eq("status", status);
+  else if (!showDelivered) query = query.neq("status", "delivered");
   if (mineOnly && user) query = query.eq("assigned_to", user.id);
   if (serviceIds.length > 0) query = query.in("service_type_id", serviceIds);
 
@@ -91,7 +100,14 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
 
   function hrefWith(patch: Partial<SearchParams>): string {
     const params = new URLSearchParams();
-    const merged = { status: status ?? undefined, mine: mineOnly ? "1" : undefined, sort, service: serviceFilterParam || undefined, ...patch };
+    const merged = {
+      status: status ?? undefined,
+      mine: mineOnly ? "1" : undefined,
+      sort,
+      service: serviceFilterParam || undefined,
+      show: searchParams.show,
+      ...patch,
+    };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, String(v));
     const s = params.toString();
     return s ? `/cases?${s}` : "/cases";
@@ -193,8 +209,26 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
           </Link>
         )}
 
-        <div className="ml-auto text-[var(--muted)]">
-          {t("list.count.cases", { n: rows.length })}
+        <div className="ml-auto flex items-center gap-3 text-[var(--muted)]">
+          {!status && (
+            <Link
+              href={hrefWith({ show: showDelivered ? undefined : "delivered" })}
+              className={`text-[11.5px] px-2 py-1 rounded hover:bg-white/50 ${
+                showDelivered ? "text-ink font-medium" : "text-[var(--muted)] hover:text-ink"
+              }`}
+            >
+              {showDelivered ? "Hide delivered" : "Show delivered"}
+            </Link>
+          )}
+          <Link
+            href={hrefWith({ show: showArchived ? undefined : "archived" })}
+            className={`text-[11.5px] px-2 py-1 rounded hover:bg-white/50 ${
+              showArchived ? "text-ink font-medium" : "text-[var(--muted)] hover:text-ink"
+            }`}
+          >
+            {showArchived ? "Hide archived" : "Show archived"}
+          </Link>
+          <span>{t("list.count.cases", { n: rows.length })}</span>
         </div>
       </div>
 
@@ -233,7 +267,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
             const overdue = c.deadline && c.deadline < today && c.status !== "delivered";
             const sp = STATUS_PILL[c.status];
             return (
-              <div key={c.id} className="group grid grid-cols-[36px_100px_1.6fr_1fr_120px_1fr_90px_100px] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors">
+              <div key={c.id} className={`group grid grid-cols-[36px_100px_1.6fr_1fr_120px_1fr_90px_100px] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`}>
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
                 </div>

@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import type { CasePriority } from "@/lib/types";
 
 /** Bulk-import server actions for the /admin/import page.
  *
@@ -287,6 +288,91 @@ function normChannel(v: string | null | undefined): "whatsapp" | "email" {
   const s = (v ?? "").toLowerCase().trim();
   if (s === "email" || s === "e-mail" || s === "mail") return "email";
   return "whatsapp";
+}
+
+/* ---------------- Bulk open cases ---------------- */
+
+/** Bulk-open one case per selected company or client for a single service.
+ *  Nothing else — no per-row title override, no per-row deadline — because
+ *  the common shape here is "we're kicking off the same service for N
+ *  entities in one sitting" (e.g. 70 virtual office renewals) and any
+ *  per-row detail belongs on the case itself after creation.
+ *
+ *  Duplicate protection: for each target, if a non-deleted case already
+ *  exists for the same (target, service) that isn't yet Delivered, we
+ *  skip — otherwise a slip of the mouse would open a second live case
+ *  for the same filing. */
+export type BulkOpenCasesInput = {
+  service_type_id: string;
+  target: "companies" | "clients";
+  target_ids: string[];
+  assigned_to?: string | null;
+  priority?: CasePriority;
+  title?: string | null;
+  deadline?: string | null;   // ISO YYYY-MM-DD, optional
+};
+
+export async function bulkOpenCases(input: BulkOpenCasesInput): Promise<ImportSummary> {
+  const { supabase, actorId } = await requireOwner();
+  const priority: CasePriority = input.priority ?? "normal";
+
+  if (!input.service_type_id) throw new Error("Pick a service");
+  if (input.target_ids.length === 0) throw new Error("Pick at least one target");
+
+  // Resolve display labels so the result table isn't just a wall of ids.
+  const { data: labelRows } = input.target === "companies"
+    ? await supabase.from("companies").select("id, code, name").in("id", input.target_ids)
+    : await supabase.from("clients").select("id, code, full_name").in("id", input.target_ids);
+  const labelById = new Map<string, string>();
+  for (const r of (labelRows ?? []) as Array<{ id: string; code: string; name?: string; full_name?: string }>) {
+    labelById.set(r.id, `${r.code} — ${r.name ?? r.full_name ?? ""}`);
+  }
+
+  // Guard against re-opening a case for a target that already has an open
+  // one on the same service. Uses !=delivered so a delivered case (which
+  // is the "closed and archived" state) doesn't block a new cycle.
+  const targetCol = input.target === "companies" ? "company_id" : "client_id";
+  const { data: existingCases } = await supabase
+    .from("cases")
+    .select(`id, ${targetCol}`)
+    .eq("service_type_id", input.service_type_id)
+    .in(targetCol, input.target_ids)
+    .neq("status", "delivered")
+    .is("deleted_at", null);
+  const alreadyOpen = new Set<string>(
+    ((existingCases ?? []) as Array<Record<string, string>>).map((r) => r[targetCol]),
+  );
+
+  const results: ImportResult[] = [];
+  let rowNum = 0;
+  for (const id of input.target_ids) {
+    rowNum++;
+    const label = labelById.get(id) ?? id;
+    if (alreadyOpen.has(id)) {
+      results.push({ row: rowNum, outcome: "skipped_duplicate", reason: "already has an open case for this service", label });
+      continue;
+    }
+    const payload = {
+      client_id:       input.target === "clients"   ? id : null,
+      company_id:      input.target === "companies" ? id : null,
+      service_type_id: input.service_type_id,
+      priority,
+      assigned_to:     input.assigned_to || null,
+      deadline:        input.deadline || null,
+      title:           input.title?.trim() || null,
+      created_by:      actorId,
+      updated_by:      actorId,
+    };
+    const { error } = await supabase.from("cases").insert(payload);
+    if (error) {
+      results.push({ row: rowNum, outcome: "error", reason: error.message, label });
+      continue;
+    }
+    results.push({ row: rowNum, outcome: "created", label });
+  }
+
+  revalidatePath("/cases");
+  return summarize(results);
 }
 
 function summarize(results: ImportResult[]): ImportSummary {
