@@ -40,6 +40,48 @@ function parseAmountUnit(fd: FormData, amountKey: string, unitKey: string, label
   return { amount, unit: rawUnit as Unit };
 }
 
+const SCHEDULE_KINDS = ["one_off", "annual_fixed", "quarterly_fixed"] as const;
+type ScheduleKind = (typeof SCHEDULE_KINDS)[number];
+
+type ScheduleFields = {
+  schedule_kind: ScheduleKind;
+  annual_month: number | null;
+  annual_day: number | null;
+  quarterly_day: number | null;
+  quarterly_months: number[] | null;
+};
+
+function parseSchedule(fd: FormData): ScheduleFields {
+  const rawKind = String(fd.get("schedule_kind") || "one_off");
+  if (!SCHEDULE_KINDS.includes(rawKind as ScheduleKind)) {
+    throw new Error(`Unknown schedule kind: ${rawKind}`);
+  }
+  const kind = rawKind as ScheduleKind;
+
+  const zero: ScheduleFields = {
+    schedule_kind: kind,
+    annual_month: null, annual_day: null,
+    quarterly_day: null, quarterly_months: null,
+  };
+
+  if (kind === "annual_fixed") {
+    const m = Number(fd.get("annual_month"));
+    const d = Number(fd.get("annual_day"));
+    if (!Number.isInteger(m) || m < 1 || m > 12) throw new Error("Annual month must be 1–12");
+    if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error("Annual day must be 1–31");
+    return { ...zero, annual_month: m, annual_day: d };
+  }
+  if (kind === "quarterly_fixed") {
+    const d = Number(fd.get("quarterly_day"));
+    if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error("Quarterly day must be 1–31");
+    const months = fd.getAll("quarterly_months").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 12);
+    const uniq = Array.from(new Set(months)).sort((a, b) => a - b);
+    if (uniq.length < 1 || uniq.length > 4) throw new Error("Pick 1–4 anchor months");
+    return { ...zero, quarterly_day: d, quarterly_months: uniq };
+  }
+  return zero;
+}
+
 export async function createService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
 
@@ -49,8 +91,7 @@ export async function createService(formData: FormData) {
   const duration = String(formData.get("duration") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;
   const has_deliverable = formData.getAll("has_deliverable").pop() === "true";
-  const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
-  const recurring_amount = r.amount, recurring_unit = r.unit;
+  const schedule = parseSchedule(formData);
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
 
@@ -58,7 +99,7 @@ export async function createService(formData: FormData) {
 
   const { data, error } = await supabase
     .from("service_types")
-    .insert({ code, name, category_id, duration, description, recurring_amount, recurring_unit, validity_amount, validity_unit, has_deliverable, created_by: actorId })
+    .insert({ code, name, category_id, duration, description, ...schedule, validity_amount, validity_unit, has_deliverable, created_by: actorId })
     .select("id, name, code")
     .single();
   if (error) throw new Error(error.message);
@@ -70,8 +111,7 @@ export async function createService(formData: FormData) {
 export async function updateService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
   const id = String(formData.get("id"));
-  const r = parseAmountUnit(formData, "recurring_amount", "recurring_unit", "Recurring interval");
-  const recurring_amount = r.amount, recurring_unit = r.unit;
+  const schedule = parseSchedule(formData);
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
   const patch = {
@@ -80,8 +120,7 @@ export async function updateService(formData: FormData) {
     category_id: String(formData.get("category_id") || ""),
     duration: String(formData.get("duration") || "").trim() || null,
     description: String(formData.get("description") || "").trim() || null,
-    recurring_amount,
-    recurring_unit,
+    ...schedule,
     validity_amount,
     validity_unit,
     has_deliverable: formData.getAll("has_deliverable").pop() === "true",

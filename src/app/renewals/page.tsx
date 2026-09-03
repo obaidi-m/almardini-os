@@ -6,8 +6,11 @@ import { daysUntil, leadDaysForService, renewalTier } from "@/lib/renewal";
 type Svc = {
   id: string;
   name: string;
-  recurring_amount: number | null;
-  recurring_unit: string | null;
+  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
+  annual_month: number | null;
+  annual_day: number | null;
+  quarterly_day: number | null;
+  quarterly_months: number[] | null;
   validity_amount: number | null;
   validity_unit: string | null;
 } | null;
@@ -35,7 +38,7 @@ export default async function RenewalsPage() {
   // and is collapsed by default so the page stays readable.
   const casesRes = await supabase
     .from("cases")
-    .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
+    .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
     .is("deleted_at", null)
     .not("expires_at", "is", null)
     .order("expires_at", { ascending: true });
@@ -53,9 +56,10 @@ export default async function RenewalsPage() {
     const cmp = unwrap(c.company);
     const svc = unwrap(c.service);
     const owner = cli?.full_name ?? cmp?.name ?? "?";
-    const cadenceLabel = svc?.recurring_amount && svc?.recurring_unit
-      ? `recurring every ${svc.recurring_amount} ${svc.recurring_unit}`
-      : svc?.validity_amount && svc?.validity_unit
+    const cadenceLabel =
+      svc?.schedule_kind === "annual_fixed" ? "annual" :
+      svc?.schedule_kind === "quarterly_fixed" ? "quarterly" :
+      (svc?.validity_amount && svc?.validity_unit)
         ? `valid ${svc.validity_amount} ${svc.validity_unit}`
         : "";
     rows.push({

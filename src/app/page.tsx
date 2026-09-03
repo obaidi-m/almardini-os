@@ -125,7 +125,7 @@ export default async function DashboardPage() {
     // service's window client-side.
     supabase
       .from("cases")
-      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
+      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
       .is("deleted_at", null)
       .not("expires_at", "is", null)
       .gte("expires_at", todayIso)
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
     isOwnerLike
       ? supabase
           .from("cases")
-          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
+          .select("id, code, title, status, deadline, expires_at, created_at, client:clients(id, full_name), service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
           .is("deleted_at", null)
           .in("status", OPEN_STATUSES)
           .limit(500)
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
   const renewals: Renewal[] = ((expiringCasesRes.data ?? []) as Array<{
     id: string; code: string; title: string | null; expires_at: string;
     client: { full_name: string }[] | { full_name: string } | null;
-    service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
+    service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
   }>)
     .filter((r) => {
       const svc = unwrap(r.service);
@@ -197,7 +197,7 @@ export default async function DashboardPage() {
     id: string; code: string; title: string | null; status: CaseStatus;
     deadline: string | null; expires_at: string | null; created_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
-    service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | null;
+    service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
   };
   const activeCases = ((attentionCasesRes.data ?? []) as AttentionCase[]).map((c) => ({
     ...c,

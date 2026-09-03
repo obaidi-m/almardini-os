@@ -18,7 +18,7 @@ type CaseSummary = {
   status: CaseStatus;
   priority: CasePriority;
   expires_at: string | null;
-  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
+  service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, string> = {
@@ -222,9 +222,9 @@ export function ClientDetail({
                         <span className="min-w-0">
                           <span className="text-ink font-medium block truncate">
                             {c.title || service?.name || t("detail.untitled")}
-                            {service?.recurring_amount && service?.recurring_unit && (
-                              <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle" title={`Recurring every ${service.recurring_amount} ${service.recurring_unit}`}>
-                                {t("badge.recurring")}
+                            {(service?.schedule_kind === "annual_fixed" || service?.schedule_kind === "quarterly_fixed") && (
+                              <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle">
+                                {service.schedule_kind === "annual_fixed" ? "annual" : "quarterly"}
                               </span>
                             )}
                           </span>

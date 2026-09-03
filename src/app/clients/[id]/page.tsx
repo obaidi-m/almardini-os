@@ -33,7 +33,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       .order("sort_order"),
     supabase
       .from("cases")
-      .select("id, code, title, status, priority, expires_at, service:service_types(id, name, recurring_amount, recurring_unit, validity_amount, validity_unit)")
+      .select("id, code, title, status, priority, expires_at, service:service_types(id, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
       .eq("client_id", params.id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -100,7 +100,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         linkedCompanies={linkedCompanies}
         allCompanies={companies}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
-        cases={(caseRows as unknown as Array<{ id: string; code: string; title: string | null; status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority; expires_at: string | null; service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null }>) ?? []}
+        cases={(caseRows as unknown as Array<{ id: string; code: string; title: string | null; status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority; expires_at: string | null; service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null }>) ?? []}
       />
     </div>
   );

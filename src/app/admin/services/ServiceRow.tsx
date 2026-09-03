@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { updateService, toggleService, deleteService } from "./actions";
 import type { ServiceCategory, ServiceType } from "@/lib/types";
+import { ScheduleFields } from "./ScheduleFields";
 
 export function ServiceRow({ service, categories }: { service: ServiceType; categories: ServiceCategory[] }) {
   const [editing, setEditing] = useState(false);
@@ -33,20 +34,6 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
             <Field label="Duration">
               <input name="duration" defaultValue={service.duration ?? ""}
                 className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-            </Field>
-            <Field label="Recurring">
-              <div className="flex gap-2">
-                <input name="recurring_amount" type="number" min="1" step="1"
-                  defaultValue={service.recurring_amount ?? ""} placeholder="—"
-                  className="w-20 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm tabular-nums" />
-                <select name="recurring_unit" defaultValue={service.recurring_unit ?? ""}
-                  className="flex-1 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
-                  <option value="">— one-off —</option>
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
-                </select>
-              </div>
             </Field>
             <Field label="Validity">
               <div className="flex gap-2">
@@ -81,6 +68,15 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
               <span className="text-[11.5px] text-[var(--muted)]">
                 (uncheck for services with no hand-off to the client)
               </span>
+            </div>
+            <div className="col-span-6">
+              <ScheduleFields
+                initialKind={service.schedule_kind}
+                annualMonth={service.annual_month}
+                annualDay={service.annual_day}
+                quarterlyDay={service.quarterly_day}
+                quarterlyMonths={service.quarterly_months}
+              />
             </div>
             <div className="col-span-6">
               <Field label="Description (optional)">

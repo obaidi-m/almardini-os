@@ -114,6 +114,8 @@ export type Partner = {
   updated_at: string;
 };
 
+export type ServiceScheduleKind = "one_off" | "annual_fixed" | "quarterly_fixed";
+
 export type ServiceType = {
   id: string;
   code: string;
@@ -121,8 +123,11 @@ export type ServiceType = {
   category_id: string;
   duration: string | null;
   description: string | null;
-  recurring_amount: number | null;
-  recurring_unit: "days" | "months" | "years" | null;
+  schedule_kind: ServiceScheduleKind;
+  annual_month: number | null;
+  annual_day: number | null;
+  quarterly_day: number | null;
+  quarterly_months: number[] | null;
   validity_amount: number | null;
   validity_unit: "days" | "months" | "years" | null;
   has_deliverable: boolean;
@@ -132,3 +137,5 @@ export type ServiceType = {
   updated_at: string;
   category?: ServiceCategory;
 };
+
+export const DEFAULT_QUARTERLY_MONTHS = [1, 4, 7, 10];

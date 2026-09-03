@@ -12,8 +12,11 @@ export type ActiveServiceCase = {
   service: {
     id: string;
     name: string;
-    recurring_amount: number | null;
-    recurring_unit: string | null;
+    schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
+    annual_month: number | null;
+    annual_day: number | null;
+    quarterly_day: number | null;
+    quarterly_months: number[] | null;
     validity_amount: number | null;
     validity_unit: string | null;
   } | null;
@@ -22,15 +25,16 @@ export type ActiveServiceCase = {
 /** Project a client's or company's cases down to a "what services are you
  *  currently on the hook for" list. Excludes delivered cases (finished work).
  *  Keeps only cases that carry a renewal signal: an expires_at on the case
- *  itself, or a recurring service (LKPM quarterly etc). One row per case —
- *  we don't dedupe by service, because two live filings of the same service
- *  is itself information the operator wants to see. */
+ *  itself, or a calendar-fixed service (which will get an expiry once it
+ *  hits Done). One row per case — we don't dedupe by service, because two
+ *  live filings of the same service is itself information the operator
+ *  wants to see. */
 function pickRenewable(rows: ActiveServiceCase[]): ActiveServiceCase[] {
   return rows.filter((c) => {
     if (c.status === "delivered") return false;
     if (c.expires_at) return true;
     const svc = c.service;
-    return !!(svc?.recurring_amount && svc?.recurring_unit);
+    return svc?.schedule_kind === "annual_fixed" || svc?.schedule_kind === "quarterly_fixed";
   });
 }
 
@@ -71,7 +75,10 @@ export function ActiveServicesList({ cases }: { cases: ActiveServiceCase[] }) {
       {rows.map((c) => {
         const svc = c.service;
         const u = urgency(c);
-        const isRecurring = !!(svc?.recurring_amount && svc?.recurring_unit);
+        const kind = svc?.schedule_kind;
+        const scheduleBadge = kind === "annual_fixed" ? "annual"
+          : kind === "quarterly_fixed" ? "quarterly"
+          : null;
         const showReminder = u.tier === "overdue" || u.tier === "due_soon";
         return (
           <li key={c.id}>
@@ -84,10 +91,9 @@ export function ActiveServicesList({ cases }: { cases: ActiveServiceCase[] }) {
               <span className="min-w-0">
                 <span className="text-ink font-medium block truncate">
                   {svc?.name || c.title || "Service"}
-                  {isRecurring && (
-                    <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle"
-                      title={`Recurring every ${svc?.recurring_amount} ${svc?.recurring_unit}`}>
-                      recurring
+                  {scheduleBadge && (
+                    <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded ml-1.5 align-middle">
+                      {scheduleBadge}
                     </span>
                   )}
                   {showReminder && (

@@ -29,7 +29,7 @@ type CompanyCase = {
   expires_at: string | null;
   updated_at: string;
   client: { id: string; full_name: string } | null;
-  service: { id: string; name: string; recurring_amount: number | null; recurring_unit: string | null; validity_amount: number | null; validity_unit: string | null } | null;
+  service: { id: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
 };
 
 const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }> = {
@@ -283,9 +283,9 @@ function CaseRows({ rows, t }: { rows: CompanyCase[]; t: Tr }) {
               <div className="min-w-0">
                 <div className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark flex items-center gap-1.5">
                   <span className="truncate">{c.title || c.service?.name || t("detail.case_word")}</span>
-                  {c.service?.recurring_amount && c.service?.recurring_unit && (
-                    <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded shrink-0" title={`Recurring every ${c.service.recurring_amount} ${c.service.recurring_unit}`}>
-                      {t("badge.recurring")}
+                  {(c.service?.schedule_kind === "annual_fixed" || c.service?.schedule_kind === "quarterly_fixed") && (
+                    <span className="text-[9.5px] font-medium text-[#5B21B6] bg-[#EDE9FE] px-1 py-0 rounded shrink-0">
+                      {c.service.schedule_kind === "annual_fixed" ? "annual" : "quarterly"}
                     </span>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { CaseStatus, CasePriority } from "@/lib/types";
+import { computeNextExpiry, serviceRepeats, type ServiceSchedule } from "@/lib/renewal";
 
 async function requireUser() {
   const supabase = createClient();
@@ -18,53 +19,40 @@ function str(fd: FormData, key: string): string | null {
 
 const STATUSES: CaseStatus[] = ["new", "in_progress", "done", "delivered"];
 
-type DurationUnit = "days" | "months" | "years";
-
-function addDuration(from: Date, amount: number, unit: DurationUnit): Date {
-  const d = new Date(from);
-  if (unit === "days")   d.setDate(d.getDate() + amount);
-  if (unit === "months") d.setMonth(d.getMonth() + amount);
-  if (unit === "years")  d.setFullYear(d.getFullYear() + amount);
-  return d;
-}
+const SCHEDULE_SELECT = "schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit";
 
 /** When a case first hits Done, seed its expires_at so the renewal calendar
  *  and the Active Services section on the client/company page can surface it.
- *  Two sources, in order of precedence:
- *    1. recurring cadence — the next filing due date for LKPM-style services
- *    2. validity duration  — the shelf life of a one-off issuance (visa, KITAS)
- *  Manual dates are never overwritten. */
+ *  The date comes from the service's schedule:
+ *    annual_fixed    → next occurrence of (annual_month, annual_day)
+ *    quarterly_fixed → next occurrence in (quarterly_day, quarterly_months)
+ *    one_off + validity → today + validity (shelf life of the output)
+ *    one_off no validity → no date, no reminder
+ *  A manually set expires_at is never overwritten. */
 async function autoFillExpiresOnDone(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   case_id: string,
 ): Promise<string | null> {
   const { data: c } = await supabase
     .from("cases")
-    .select("expires_at, service:service_types(recurring_amount, recurring_unit, validity_amount, validity_unit)")
+    .select(`expires_at, service:service_types(${SCHEDULE_SELECT})`)
     .eq("id", case_id)
     .single();
   if (!c || c.expires_at) return null;
-  const svc = Array.isArray(c.service) ? c.service[0] : c.service;
-  if (!svc) return null;
+  const svc = (Array.isArray(c.service) ? c.service[0] : c.service) as ServiceSchedule;
+  const iso = computeNextExpiry(svc);
+  if (!iso) return null;
 
-  let amt: number | null = svc.recurring_amount;
-  let unit: DurationUnit | null = svc.recurring_unit as DurationUnit | null;
-  if (!amt || !unit) {
-    amt = svc.validity_amount;
-    unit = svc.validity_unit as DurationUnit | null;
-  }
-  if (!amt || !unit) return null;
-
-  const iso = addDuration(new Date(), amt, unit).toISOString().slice(0, 10);
   const { error } = await supabase.from("cases").update({ expires_at: iso }).eq("id", case_id);
   if (error) throw new Error(error.message);
   return iso;
 }
 
-/** When a recurring case is Delivered, open a fresh sibling case for the next
- *  period. deadline = the previous case's expires_at (which was itself
- *  auto-filled on Done). No-op if the service isn't recurring, or if a
- *  successor already exists (protects against double-delivery). */
+/** When a calendar-fixed case is Delivered, open a fresh sibling case for
+ *  the next filing period. deadline = the previous case's expires_at
+ *  (which was itself computed from the calendar rule on Done). No-op for
+ *  one-off services, and skipped if a successor already exists so that a
+ *  re-deliver of the same case doesn't double-spawn. */
 async function spawnNextRecurringCase(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   actorId: string,
@@ -72,12 +60,12 @@ async function spawnNextRecurringCase(
 ): Promise<void> {
   const { data: c } = await supabase
     .from("cases")
-    .select("client_id, company_id, service_type_id, assigned_to, priority, title, expires_at, service:service_types(recurring_amount, recurring_unit)")
+    .select(`client_id, company_id, service_type_id, assigned_to, priority, title, expires_at, service:service_types(${SCHEDULE_SELECT})`)
     .eq("id", case_id)
     .single();
   if (!c) return;
-  const svc = Array.isArray(c.service) ? c.service[0] : c.service;
-  if (!svc?.recurring_amount || !svc?.recurring_unit) return;
+  const svc = (Array.isArray(c.service) ? c.service[0] : c.service) as ServiceSchedule;
+  if (!serviceRepeats(svc)) return;
 
   // Successor already opened? (a re-deliver of the same case shouldn't
   // double-spawn.) We consider the newest sibling for the same client/company
@@ -93,9 +81,8 @@ async function spawnNextRecurringCase(
     .limit(1);
   if (existing && existing.length > 0) return;
 
-  const nextDeadline = c.expires_at ??
-    addDuration(new Date(), svc.recurring_amount, svc.recurring_unit as DurationUnit)
-      .toISOString().slice(0, 10);
+  const nextDeadline = c.expires_at ?? computeNextExpiry(svc);
+  if (!nextDeadline) return;
 
   const { error } = await supabase.from("cases").insert({
     client_id: c.client_id,
