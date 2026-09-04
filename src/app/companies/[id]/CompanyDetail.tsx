@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Company, CaseStatus, CasePriority } from "@/lib/types";
+import type { Company, CaseStatus, CasePriority, VirtualOffice } from "@/lib/types";
+import { VirtualOfficeCard } from "@/components/app/VirtualOfficeCard";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ActiveServicesList } from "@/components/app/ActiveServices";
@@ -41,13 +42,14 @@ const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }>
 };
 
 export function CompanyDetail({
-  company, linkedClients, allClients, roles, cases,
+  company, linkedClients, allClients, roles, cases, virtualOffices,
 }: {
   company: Company;
   linkedClients: LinkedClient[];
   allClients: ClientOption[];
   roles: Role[];
   cases: CompanyCase[];
+  virtualOffices: VirtualOffice[];
 }) {
   const { t } = useT();
   const roleLabel = (code: string) => roles.find((r) => r.code === code)?.label_en ?? code;
@@ -179,6 +181,8 @@ export function CompanyDetail({
               }))}
             />
           </Card>
+
+          <VirtualOfficeCard companyId={company.id} offices={virtualOffices} />
 
           <Card
             title={t("section.cases")}

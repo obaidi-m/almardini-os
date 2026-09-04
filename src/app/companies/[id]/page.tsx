@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Company } from "@/lib/types";
+import type { Company, VirtualOffice } from "@/lib/types";
 import { CompanyDetail } from "./CompanyDetail";
 
 type LinkedClient = {
@@ -12,7 +12,7 @@ type LinkedClient = {
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }] = await Promise.all([
+  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }] = await Promise.all([
     supabase
       .from("companies")
       .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, deleted_at, created_at, updated_at")
@@ -42,6 +42,12 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("virtual_offices")
+      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, created_at, updated_at, deleted_at")
+      .eq("company_id", params.id)
+      .is("deleted_at", null)
+      .order("end_date", { ascending: false }),
   ]);
 
   if (error) {
@@ -113,6 +119,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         allClients={clients}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
         cases={cases}
+        virtualOffices={(vosRaw as VirtualOffice[]) ?? []}
       />
     </div>
   );

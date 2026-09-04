@@ -15,6 +15,7 @@ const nav: NavItem[] = [
   { href: "/cases", labelKey: "nav.cases", icon: <IconFolder /> },
   { href: "/partners", labelKey: "nav.partners", icon: <IconHandshake /> },
   { href: "/renewals", labelKey: "nav.renewals", icon: <IconClock /> },
+  { href: "/virtual-offices", labelKey: "nav.virtual_offices", icon: <IconKey /> },
 ];
 
 export function OpsSidebar({
@@ -106,5 +107,6 @@ function IconBuilding() { return (<svg viewBox="0 0 24 24" fill="none" stroke="c
 function IconFolder() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>); }
 function IconHandshake() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 12l4-4 4 4-2 2 4 4 6-6-8-8H5z" /></svg>); }
 function IconClock() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>); }
+function IconKey() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="8" cy="15" r="4" /><path d="M10.85 12.15L20 3M18 5l2 2M15 8l2 2" /></svg>); }
 function IconCog() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4.8a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.4a7 7 0 0 0-2 1.2L5.1 5.8l-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-.8a7 7 0 0 0 2 1.2L10 21h4l.5-2.4a7 7 0 0 0 2-1.2l2.4.8 2-3.4-2-1.6a7 7 0 0 0 .1-1.2z" /></svg>); }
 function IconSignOut() { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="15" height="15"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5" /><path d="M5 12h11" /></svg>); }

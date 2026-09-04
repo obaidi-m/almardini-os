@@ -10,33 +10,58 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export function DateInput({
   name,
   defaultValue,
+  value,
+  onChange,
   placeholder = "dd/mm/yyyy",
 }: {
   name: string;
   defaultValue?: string | null;
+  /** Controlled ISO value (yyyy-mm-dd). When provided, parent owns state
+   *  and the field updates whenever `value` changes (used e.g. to auto-fill
+   *  an End date after a Start date is picked). */
+  value?: string | null;
+  /** Fires with the ISO value whenever it becomes a valid date, or with ""
+   *  when the field is cleared. Not fired for half-typed inputs. */
+  onChange?: (iso: string) => void;
   placeholder?: string;
 }) {
-  const initial = useMemo(() => isoToDisplay(defaultValue ?? ""), [defaultValue]);
+  const initial = useMemo(
+    () => isoToDisplay((value ?? defaultValue) ?? ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const [display, setDisplay] = useState<string>(initial);
-  const [iso, setIso] = useState<string>(defaultValue ?? "");
+  const [iso, setIso] = useState<string>((value ?? defaultValue) ?? "");
   const [error, setError] = useState<string | null>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
 
+  // Sync from a controlled `value` (parent set it programmatically).
+  useEffect(() => {
+    if (value === undefined) return;
+    const next = value ?? "";
+    if (next === iso) return;
+    setIso(next);
+    setDisplay(isoToDisplay(next));
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   useEffect(() => {
     if (display === "") {
-      setIso("");
+      if (iso !== "") { setIso(""); onChange?.(""); }
       setError(null);
       return;
     }
     const parsed = parseDisplayToIso(display);
     if (parsed) {
-      setIso(parsed);
+      if (parsed !== iso) { setIso(parsed); onChange?.(parsed); }
       setError(null);
     } else if (display.length === 10) {
       setError("Invalid date");
     } else {
       setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [display]);
 
   function openPicker() {
