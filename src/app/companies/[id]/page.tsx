@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Company, VirtualOffice } from "@/lib/types";
 import { CompanyDetail } from "./CompanyDetail";
+import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 type LinkedClient = {
   role: string;
@@ -11,6 +12,8 @@ type LinkedClient = {
 
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
+
+  await expireOverdueVirtualOffices(supabase);
 
   const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }] = await Promise.all([
     supabase

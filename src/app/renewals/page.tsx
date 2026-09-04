@@ -4,6 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { daysUntil, leadDaysForService, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 import { serviceLabel } from "@/lib/service";
 import type { VirtualOfficeTier } from "@/lib/types";
+import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 type Filter = "all" | "renew_soon" | "overdue" | "later";
 type SearchParams = { filter?: string };
@@ -61,6 +62,8 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
   const supabase = createClient();
   const { t } = await getT();
   const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+
+  await expireOverdueVirtualOffices(supabase);
 
   const [casesRes, vosRes] = await Promise.all([
     supabase

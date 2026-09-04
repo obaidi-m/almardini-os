@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { VirtualOffice, VirtualOfficeTier, VirtualOfficeStatus } from "@/lib/types";
 import { NewVirtualOfficeButton } from "./NewButton";
+import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -52,6 +53,8 @@ const COLS = "36px 1.6fr 90px 70px 100px 100px 90px 100px";
 export default async function VirtualOfficesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+
+  await expireOverdueVirtualOffices(supabase);
 
   const [{ data, error }, { data: companiesRaw }] = await Promise.all([
     supabase
