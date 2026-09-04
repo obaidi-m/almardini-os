@@ -553,7 +553,7 @@ function AttentionPanel({
           hideIfEmpty
         />
         {attention.stuck1.length > 0 && (
-          <details className="group">
+          <details className="group" open>
             <summary className="p-3 cursor-pointer list-none flex items-center gap-2 text-[12.5px] font-semibold text-[#8A6919] hover:bg-[var(--surface-muted)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E8B14A]" />
               {t("attention.stuck_show", { n: attention.stuck1.length })}
