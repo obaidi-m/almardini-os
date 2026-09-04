@@ -74,7 +74,7 @@ export type Company = {
 /** Company roles are stored in the `company_roles` table, editable from
  *  the admin panel. See /admin/company-roles. Reads happen per-page. */
 
-export type VirtualOfficeTier = "silver" | "gold" | "platinum";
+export type VirtualOfficeTier = "bronze" | "silver" | "gold" | "platinum";
 export type VirtualOfficeStatus = "active" | "expired" | "terminated";
 
 export type VirtualOffice = {

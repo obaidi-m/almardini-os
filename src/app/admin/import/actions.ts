@@ -388,7 +388,7 @@ export type VirtualOfficeImportRow = {
   notes?: string | null;
 };
 
-const VO_TIERS = new Set(["silver", "gold", "platinum"]);
+const VO_TIERS = new Set(["bronze", "silver", "gold", "platinum"]);
 const VO_STATUSES = new Set(["active", "expired", "terminated"]);
 
 export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): Promise<ImportSummary> {

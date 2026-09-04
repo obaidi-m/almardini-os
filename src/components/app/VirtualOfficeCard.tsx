@@ -18,6 +18,7 @@ export type CompanyOption = { id: string; code: string; name: string };
 export type PartnerOption = { id: string; code: string; name: string };
 
 const TIER_LABEL: Record<VirtualOfficeTier, string> = {
+  bronze: "Bronze",
   silver: "Silver",
   gold: "Gold",
   platinum: "Platinum",
@@ -107,16 +108,16 @@ export function VirtualOfficeCard({
       )}
 
       {historic.length > 0 && (
-        <details className="mt-3 group">
-          <summary className="text-[11.5px] text-[var(--muted)] hover:text-ink cursor-pointer select-none">
+        <div className="mt-3">
+          <div className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1">
             {historic.length} past {historic.length === 1 ? "term" : "terms"}
-          </summary>
-          <ul className="divide-y divide-[var(--border)] -mx-1 mt-2">
+          </div>
+          <ul className="divide-y divide-[var(--border)] -mx-1">
             {historic.map((vo) => (
               <VORow key={vo.id} vo={vo} onEdit={() => setEditing(vo)} onFlash={setFlash} start={start} pending={pending} historic />
             ))}
           </ul>
-        </details>
+        </div>
       )}
 
       <Modal open={creating} onClose={() => setCreating(false)} title="Add virtual office" size="lg">
@@ -333,7 +334,7 @@ export function VOForm({
             defaultValue={existing?.tier ?? "silver"}
             className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md bg-white text-[13px]"
           >
-            {(["silver", "gold", "platinum"] as VirtualOfficeTier[]).map((t) => (
+            {(["bronze", "silver", "gold", "platinum"] as VirtualOfficeTier[]).map((t) => (
               <option key={t} value={t}>{TIER_LABEL[t]}</option>
             ))}
           </select>

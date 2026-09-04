@@ -16,6 +16,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 const TIER_LABEL: Record<VirtualOfficeTier, string> = {
+  bronze: "Bronze",
   silver: "Silver",
   gold: "Gold",
   platinum: "Platinum",
