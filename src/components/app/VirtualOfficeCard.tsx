@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { VirtualOffice, VirtualOfficeTier, VirtualOfficeStatus } from "@/lib/types";
 import { Modal } from "@/components/ui/Modal";
@@ -187,7 +188,7 @@ function VORow({
           </div>
           {vo.responsible && (
             <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
-              PJ: <span className="text-ink">{vo.responsible.name}</span>
+              PJ: <Link href={`/partners/${vo.responsible.id}`} className="text-ink hover:text-brand-dark font-medium">{vo.responsible.name}</Link>
             </div>
           )}
         </div>
