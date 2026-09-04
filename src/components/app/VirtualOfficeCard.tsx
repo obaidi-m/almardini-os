@@ -361,19 +361,22 @@ export function VOForm({
 
       <div className="flex justify-between items-center pt-2">
         {mode === "edit" && existing ? (
-          <form
-            action={(fd) => {
+          <button
+            type="button"
+            onClick={() => {
               onError(null);
               if (!confirm("Archive this virtual office record?")) return;
+              const fd = new FormData();
+              fd.set("id", existing.id);
               start(async () => {
                 try { await archiveVirtualOfficeAction(fd); onDone(); }
                 catch (e) { onError(e instanceof Error ? e.message : "Failed"); }
               });
             }}
+            className="text-[12px] text-red-700 hover:underline"
           >
-            <input type="hidden" name="id" value={existing.id} />
-            <button type="submit" className="text-[12px] text-red-700 hover:underline">Archive</button>
-          </form>
+            Archive
+          </button>
         ) : <span />}
         <button
           type="submit"
