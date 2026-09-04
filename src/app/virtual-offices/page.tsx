@@ -202,7 +202,15 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                 <div className="text-[var(--muted)]">{fmtDate(vo.start_date)}</div>
                 <div>{fmtDate(vo.end_date)}</div>
                 <div>
-                  {days ? <span className={days.tone}>{days.text}</span> : <span className="text-[var(--muted)]">—</span>}
+                  {vo.status === "active" && days ? (
+                    <span className={days.tone}>{days.text}</span>
+                  ) : vo.status === "expired" ? (
+                    <span className="text-[var(--muted)]">
+                      {(() => { const n = daysUntil(vo.end_date); return n < 0 ? `expired ${-n}d ago` : "expired"; })()}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--muted)]">—</span>
+                  )}
                 </div>
                 <div>
                   <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full ${p.bg} ${p.text}`}>

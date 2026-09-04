@@ -8,6 +8,7 @@ import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { renewalTier } from "@/lib/renewal";
 import { serviceLabel } from "@/lib/service";
+import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -36,7 +37,7 @@ type CaseCard = {
   service: { id: string; code: string; name: string } | null;
 };
 
-type Renewal = { kind: "case_expiry"; label: string; expires_at: string; href: string };
+type Renewal = { kind: "case_expiry" | "vo_expiry"; label: string; expires_at: string; href: string };
 
 type AttentionRow = {
   id: string;
@@ -68,6 +69,8 @@ export default async function DashboardPage() {
   const in30Iso = in30.toISOString().slice(0, 10);
   const in90Iso = in90.toISOString().slice(0, 10);
 
+  await expireOverdueVirtualOffices(supabase);
+
   const [
     myCasesRes,
     readyToDeliverRes,
@@ -76,6 +79,7 @@ export default async function DashboardPage() {
     expiringCasesRes,
     attentionCasesRes,
     latestUpdatesRes,
+    expiringVOsRes,
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -150,6 +154,16 @@ export default async function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(2000)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    // VOs coming due in 90 days — feeds the Renewals side panel alongside
+    // case expiries.
+    supabase
+      .from("virtual_offices")
+      .select("id, tier, end_date, company:companies(id, name)")
+      .is("deleted_at", null)
+      .eq("status", "active")
+      .lte("end_date", in90Iso)
+      .order("end_date", { ascending: true })
+      .limit(50),
   ]);
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -190,8 +204,24 @@ export default async function DashboardPage() {
         expires_at: r.expires_at,
         href: `/cases/${r.id}`,
       };
-    })
-    .sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+    });
+
+  const voRenewals: Renewal[] = ((expiringVOsRes.data ?? []) as Array<{
+    id: string; tier: string; end_date: string;
+    company: { id: string; name: string }[] | { id: string; name: string } | null;
+  }>).map((v) => {
+    const cmp = unwrap(v.company);
+    const tier = v.tier.charAt(0).toUpperCase() + v.tier.slice(1);
+    return {
+      kind: "vo_expiry" as const,
+      label: `${cmp?.name ?? "?"} — Virtual office (${tier})`,
+      expires_at: v.end_date,
+      href: cmp ? `/companies/${cmp.id}` : "/virtual-offices",
+    };
+  });
+
+  renewals.push(...voRenewals);
+  renewals.sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
   // Compute attention buckets for Admin + Owner
   type AttentionCase = {
@@ -455,9 +485,10 @@ function CaseRow({ c, showStatus, t }: { c: CaseCard; showStatus: boolean; t: Tr
   );
 }
 
-function RenewalBadge({ t }: { kind: Renewal["kind"]; t: Tr }) {
-  const label = t("renewal.badge.case");
-  const color = "bg-orange-100 text-orange-800";
+function RenewalBadge({ kind, t }: { kind: Renewal["kind"]; t: Tr }) {
+  const isVO = kind === "vo_expiry";
+  const label = isVO ? "office" : t("renewal.badge.case");
+  const color = isVO ? "bg-sky-100 text-sky-800" : "bg-orange-100 text-orange-800";
   return (
     <span className={`text-[10.5px] font-medium px-1.5 py-0.5 rounded shrink-0 w-[64px] text-center ${color}`}>
       {label}
