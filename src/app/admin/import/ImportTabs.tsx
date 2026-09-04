@@ -5,15 +5,17 @@ import {
   bulkImportCompanies,
   bulkImportClients,
   bulkImportVirtualOffices,
+  bulkImportPermits,
   bulkOpenCases,
   type CompanyImportRow,
   type ClientImportRow,
   type VirtualOfficeImportRow,
+  type PermitImportRow,
   type ImportSummary,
 } from "./actions";
 import type { CasePriority } from "@/lib/types";
 
-type Mode = "companies" | "clients" | "virtual_offices" | "open_cases";
+type Mode = "companies" | "clients" | "virtual_offices" | "permits" | "open_cases";
 
 type Service = { id: string; code: string; name: string };
 type Company = { id: string; code: string; name: string };
@@ -41,6 +43,26 @@ const VO_EXAMPLE: Record<string, string> = {
   responsible_partner_name: "",
   notes: "",
 };
+const PERMIT_COLS: (keyof PermitImportRow)[] = [
+  // Pick ONE of client_code or client_name per row. code is unambiguous.
+  "client_code", "client_name",
+  "kind", "reference_no", "issued_date", "expires_date", "status",
+  "sponsor_company_name", "responsible_partner_name",
+  "notes",
+];
+const PERMIT_EXAMPLE: Record<string, string> = {
+  client_code: "CLI-0123",
+  client_name: "",
+  kind: "KITAS",
+  reference_no: "2C1XX0000...",
+  issued_date: "2024-06-25",
+  expires_date: "2025-06-25",
+  status: "active",
+  sponsor_company_name: "PT Example Group",
+  responsible_partner_name: "",
+  notes: "",
+};
+
 const CLIENT_COLS: (keyof ClientImportRow)[] = [
   "full_name", "nationality", "passport_no", "date_of_birth", "place_of_birth",
   "phone", "email", "preferred_channel", "notes",
@@ -88,11 +110,13 @@ export function ImportTabs({
         <TabButton active={mode === "companies"}  onClick={() => setMode("companies")}>Import companies</TabButton>
         <TabButton active={mode === "clients"}    onClick={() => setMode("clients")}>Import clients</TabButton>
         <TabButton active={mode === "virtual_offices"} onClick={() => setMode("virtual_offices")}>Import virtual offices</TabButton>
+        <TabButton active={mode === "permits"} onClick={() => setMode("permits")}>Import permits</TabButton>
         <TabButton active={mode === "open_cases"} onClick={() => setMode("open_cases")}>Bulk open cases</TabButton>
       </div>
       {mode === "companies"       && <CompaniesImport />}
       {mode === "clients"         && <ClientsImport />}
       {mode === "virtual_offices" && <VirtualOfficesImport />}
+      {mode === "permits"         && <PermitsImport />}
       {mode === "open_cases"      && <BulkOpenCases services={services} companies={companies} clients={clients} users={users} />}
     </div>
   );
@@ -136,6 +160,19 @@ function VirtualOfficesImport() {
       templateName="virtual-offices-template.xlsx"
       previewLabel={(r) => r.company_name || "(missing company_name)"}
       submit={bulkImportVirtualOffices}
+    />
+  );
+}
+
+function PermitsImport() {
+  return (
+    <ImportPanel<PermitImportRow>
+      columns={PERMIT_COLS as string[]}
+      example={PERMIT_EXAMPLE}
+      requiredCol="kind"
+      templateName="permits-template.xlsx"
+      previewLabel={(r) => `${r.client_code || r.client_name || "(missing client)"} · ${r.kind || "(missing kind)"}`}
+      submit={bulkImportPermits}
     />
   );
 }

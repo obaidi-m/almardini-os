@@ -561,6 +561,196 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
   return summarize(results);
 }
 
+/* ---------------- Permits ---------------- */
+
+export type PermitImportRow = {
+  client_code?: string | null;         // preferred — unique
+  client_name?: string | null;         // fallback — case-insensitive match
+  kind: string;
+  reference_no?: string | null;
+  issued_date?: string | null;
+  expires_date: string;
+  status?: string | null;
+  sponsor_company_name?: string | null;
+  responsible_partner_name?: string | null;
+  notes?: string | null;
+};
+
+const PERMIT_STATUSES = new Set(["active", "expired", "terminated"]);
+
+export async function bulkImportPermits(rows: PermitImportRow[]): Promise<ImportSummary> {
+  const { supabase, actorId } = await requireOwner();
+
+  const [{ data: clientList }, { data: companyList }, { data: partnerList }, { data: existingPermits }] = await Promise.all([
+    supabase.from("clients").select("id, code, full_name").is("deleted_at", null),
+    supabase.from("companies").select("id, name").is("deleted_at", null),
+    supabase.from("partners").select("id, name").is("deleted_at", null),
+    supabase.from("permits").select("id, client_id, kind, expires_date, responsible_partner_id").is("deleted_at", null),
+  ]);
+
+  // Client lookup: exact code (uppercase) OR case-insensitive name.
+  const clientsByCode = new Map<string, string>();
+  const clientIdsByName = new Map<string, string[]>();
+  for (const c of (clientList ?? []) as Array<{ id: string; code: string; full_name: string }>) {
+    clientsByCode.set(c.code.toUpperCase(), c.id);
+    const k = normName(c.full_name);
+    const arr = clientIdsByName.get(k) ?? [];
+    arr.push(c.id);
+    clientIdsByName.set(k, arr);
+  }
+  // Company lookup for sponsor: match-only (don't auto-create — permit
+  // import shouldn't spawn companies the operator didn't set up).
+  const companyIdsByName = new Map<string, string[]>();
+  for (const c of (companyList ?? []) as Array<{ id: string; name: string }>) {
+    const k = normName(c.name);
+    const arr = companyIdsByName.get(k) ?? [];
+    arr.push(c.id);
+    companyIdsByName.set(k, arr);
+  }
+  // Partner lookup for PJ: auto-create (same as VO importer).
+  const partnerIdsByName = new Map<string, string[]>();
+  for (const p of (partnerList ?? []) as Array<{ id: string; name: string }>) {
+    const k = normName(p.name);
+    const arr = partnerIdsByName.get(k) ?? [];
+    arr.push(p.id);
+    partnerIdsByName.set(k, arr);
+  }
+  // Dup key = (client_id, kind, expires_date). Back-fills PJ on existing.
+  const existingByKey = new Map<string, { id: string; responsible_partner_id: string | null }>();
+  for (const p of (existingPermits ?? []) as Array<{ id: string; client_id: string; kind: string; expires_date: string; responsible_partner_id: string | null }>) {
+    existingByKey.set(`${p.client_id}|${p.kind.toLowerCase()}|${p.expires_date}`, { id: p.id, responsible_partner_id: p.responsible_partner_id });
+  }
+  const seenKeys = new Set<string>();
+
+  const results: ImportResult[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i];
+    const rowNum = i + 1;
+    const kind = (raw.kind ?? "").trim();
+    if (!kind) {
+      results.push({ row: rowNum, outcome: "error", reason: "kind is required", label: "(blank)" });
+      continue;
+    }
+    const expires_date = normDate(raw.expires_date);
+    if (!expires_date) {
+      results.push({ row: rowNum, outcome: "error", reason: "expires_date is required", label: kind });
+      continue;
+    }
+
+    // Resolve client. Code first (unambiguous), then name.
+    let client_id: string | null = null;
+    let holderLabel = "";
+    const code = (raw.client_code ?? "").trim().toUpperCase();
+    const nameStr = (raw.client_name ?? "").trim();
+    if (code) {
+      client_id = clientsByCode.get(code) ?? null;
+      holderLabel = code;
+      if (!client_id) {
+        results.push({ row: rowNum, outcome: "error", reason: `no client with code ${code}`, label: `${code} · ${kind}` });
+        continue;
+      }
+    } else if (nameStr) {
+      const hits = clientIdsByName.get(normName(nameStr)) ?? [];
+      holderLabel = nameStr;
+      if (hits.length === 0) {
+        results.push({ row: rowNum, outcome: "error", reason: `no client named "${nameStr}"`, label: `${nameStr} · ${kind}` });
+        continue;
+      }
+      if (hits.length > 1) {
+        results.push({ row: rowNum, outcome: "error", reason: `multiple clients named "${nameStr}" — use client_code instead`, label: `${nameStr} · ${kind}` });
+        continue;
+      }
+      client_id = hits[0];
+    } else {
+      results.push({ row: rowNum, outcome: "error", reason: "one of client_code or client_name is required", label: kind });
+      continue;
+    }
+
+    const status = (raw.status ?? "active").toLowerCase().trim();
+    if (!PERMIT_STATUSES.has(status)) {
+      results.push({ row: rowNum, outcome: "error", reason: `invalid status "${status}"`, label: `${holderLabel} · ${kind}` });
+      continue;
+    }
+
+    // Sponsor: match-only.
+    let sponsor_company_id: string | null = null;
+    const sponsorName = (raw.sponsor_company_name ?? "").trim();
+    if (sponsorName) {
+      const hits = companyIdsByName.get(normName(sponsorName)) ?? [];
+      if (hits.length === 1) sponsor_company_id = hits[0];
+      // 0 or >1 → leave empty; ambiguous or unknown sponsors don't block the row.
+    }
+
+    // Responsible partner: match; auto-create when missing (same rule as VO importer).
+    let responsible_partner_id: string | null = null;
+    const respName = (raw.responsible_partner_name ?? "").trim();
+    if (respName) {
+      const pk = normName(respName);
+      const hits = partnerIdsByName.get(pk) ?? [];
+      if (hits.length > 1) {
+        // ambiguous — leave empty
+      } else if (hits.length === 1) {
+        responsible_partner_id = hits[0];
+      } else {
+        const { data: created, error: pErr } = await supabase
+          .from("partners")
+          .insert({ name: respName, type: "referrer" })
+          .select("id")
+          .single();
+        if (!pErr && created) {
+          responsible_partner_id = created.id;
+          partnerIdsByName.set(pk, [created.id]);
+        }
+      }
+    }
+
+    const dupKey = `${client_id}|${kind.toLowerCase()}|${expires_date}`;
+    const dup = existingByKey.get(dupKey);
+    if (dup || seenKeys.has(dupKey)) {
+      if (dup && responsible_partner_id && !dup.responsible_partner_id) {
+        const { error: upErr } = await supabase
+          .from("permits")
+          .update({ responsible_partner_id, updated_by: actorId })
+          .eq("id", dup.id);
+        if (upErr) {
+          results.push({ row: rowNum, outcome: "error", reason: `couldn't set PJ: ${upErr.message}`, label: `${holderLabel} · ${kind}` });
+        } else {
+          results.push({ row: rowNum, outcome: "created", reason: "PJ back-filled on existing permit", label: `${holderLabel} · ${kind}` });
+          dup.responsible_partner_id = responsible_partner_id;
+        }
+      } else {
+        results.push({ row: rowNum, outcome: "skipped_duplicate", reason: `${kind} expiring ${expires_date} already exists for this client`, label: `${holderLabel} · ${kind}` });
+      }
+      continue;
+    }
+
+    const { error } = await supabase.from("permits").insert({
+      client_id,
+      kind,
+      reference_no: raw.reference_no?.trim() || null,
+      issued_date: normDate(raw.issued_date),
+      expires_date,
+      status,
+      sponsor_company_id,
+      responsible_partner_id,
+      notes: raw.notes?.trim() || null,
+      created_by: actorId,
+      updated_by: actorId,
+    });
+    if (error) {
+      results.push({ row: rowNum, outcome: "error", reason: error.message, label: `${holderLabel} · ${kind}` });
+      continue;
+    }
+    seenKeys.add(dupKey);
+    results.push({ row: rowNum, outcome: "created", label: `${holderLabel} · ${kind}` });
+  }
+
+  revalidatePath("/permits");
+  revalidatePath("/clients");
+  return summarize(results);
+}
+
 function summarize(results: ImportResult[]): ImportSummary {
   return {
     imported: results.filter((r) => r.outcome === "created").length,
