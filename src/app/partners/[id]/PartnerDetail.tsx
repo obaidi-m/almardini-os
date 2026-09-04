@@ -35,12 +35,32 @@ const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }>
   delivered:   { bg: "bg-[var(--surface-2)]", text: "text-[var(--muted)]", dot: "bg-[var(--muted)]" },
 };
 
+type ManagedOffice = {
+  id: string;
+  tier: "bronze" | "silver" | "gold" | "platinum";
+  term_months: number;
+  start_date: string | null;
+  end_date: string;
+  status: "active" | "expired" | "terminated";
+  company: { id: string; code: string; name: string } | null;
+};
+
+const OFFICE_TIER_LABEL: Record<ManagedOffice["tier"], string> = {
+  bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum",
+};
+const OFFICE_STATUS_PILL: Record<ManagedOffice["status"], { bg: string; text: string; dot: string }> = {
+  active:     { bg: "bg-[#DCFCE7]",           text: "text-[#166534]",       dot: "bg-[#22C55E]" },
+  expired:    { bg: "bg-[#FEE2E2]",           text: "text-[#991B1B]",       dot: "bg-[#EF4444]" },
+  terminated: { bg: "bg-[var(--surface-2)]",  text: "text-[var(--muted)]",  dot: "bg-[var(--muted)]" },
+};
+
 export function PartnerDetail({
-  partner, introducedClients, introducedCompanies = [], cases,
+  partner, introducedClients, introducedCompanies = [], managedOffices = [], cases,
 }: {
   partner: Partner;
   introducedClients: Array<{ id: string; code: string; full_name: string }>;
   introducedCompanies?: Array<{ id: string; code: string; name: string }>;
+  managedOffices?: ManagedOffice[];
   cases: PartnerCase[];
 }) {
   const [editing, setEditing] = useState(false);
@@ -173,6 +193,40 @@ export function PartnerDetail({
                     </Link>
                   </li>
                 ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Virtual offices managed" count={managedOffices.length} padded>
+            {managedOffices.length === 0 ? (
+              <p className="text-[12.5px] text-[var(--muted)]">Not the PJ on any virtual office yet.</p>
+            ) : (
+              <ul className="divide-y divide-[var(--border)] -mx-1">
+                {managedOffices.map((vo) => {
+                  const pill = OFFICE_STATUS_PILL[vo.status];
+                  return (
+                    <li key={vo.id} className="px-1 py-2.5">
+                      <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+                        <div className="min-w-0">
+                          {vo.company ? (
+                            <Link href={`/companies/${vo.company.id}`} className="text-[13.5px] text-ink font-medium hover:text-brand-dark block truncate">
+                              {vo.company.name}
+                            </Link>
+                          ) : (
+                            <span className="text-[13.5px] text-[var(--muted)]">—</span>
+                          )}
+                          <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
+                            {OFFICE_TIER_LABEL[vo.tier]} · {vo.term_months}mo · ends {fmtDate(vo.end_date)}
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${pill.bg} ${pill.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
+                          {vo.status}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Card>

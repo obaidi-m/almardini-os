@@ -19,7 +19,7 @@ const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: strin
 export default async function PartnerDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: partner, error }, { data: introducedClients }, { data: introducedCompanies }, { data: casesRaw }] = await Promise.all([
+  const [{ data: partner, error }, { data: introducedClients }, { data: introducedCompanies }, { data: managedVOs }, { data: casesRaw }] = await Promise.all([
     supabase
       .from("partners")
       .select("id, code, name, type, contact_person, phone, email, notes, deleted_at, created_at, updated_at")
@@ -39,6 +39,13 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("virtual_offices")
+      .select("id, tier, term_months, start_date, end_date, status, company:companies(id, code, name)")
+      .eq("responsible_partner_id", params.id)
+      .is("deleted_at", null)
+      .order("end_date", { ascending: false })
+      .limit(200),
     supabase
       .from("cases")
       .select(`id, code, title, status, priority, deadline, updated_at,
@@ -62,7 +69,36 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
 
   const p = partner as Partner;
   const clients = (introducedClients as Array<{ id: string; code: string; full_name: string }>) ?? [];
-  const companies = (introducedCompanies as Array<{ id: string; code: string; name: string }>) ?? [];
+
+  const unwrapCo = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
+  type VORaw = {
+    id: string;
+    tier: "bronze" | "silver" | "gold" | "platinum";
+    term_months: number;
+    start_date: string | null;
+    end_date: string;
+    status: "active" | "expired" | "terminated";
+    company: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
+  };
+  const managedOffices = ((managedVOs as VORaw[]) ?? []).map((v) => ({
+    id: v.id,
+    tier: v.tier,
+    term_months: v.term_months,
+    start_date: v.start_date,
+    end_date: v.end_date,
+    status: v.status,
+    company: unwrapCo(v.company),
+  }));
+
+  // Related companies = introduced-by ∪ companies where this partner is PJ of any VO.
+  const companyMap = new Map<string, { id: string; code: string; name: string }>();
+  for (const c of (introducedCompanies as Array<{ id: string; code: string; name: string }>) ?? []) {
+    companyMap.set(c.id, c);
+  }
+  for (const vo of managedOffices) {
+    if (vo.company) companyMap.set(vo.company.id, vo.company);
+  }
+  const companies = Array.from(companyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
   const cases = ((casesRaw as unknown as Array<{
@@ -112,7 +148,7 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
         {p.email && <><span className="mx-2 opacity-40">·</span><span>{p.email}</span></>}
       </p>
 
-      <PartnerDetail partner={p} introducedClients={clients} introducedCompanies={companies} cases={cases} />
+      <PartnerDetail partner={p} introducedClients={clients} introducedCompanies={companies} managedOffices={managedOffices} cases={cases} />
     </div>
   );
 }
