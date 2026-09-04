@@ -108,16 +108,16 @@ export function VirtualOfficeCard({
       )}
 
       {historic.length > 0 && (
-        <div className="mt-3">
-          <div className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-1">
+        <details className="mt-3 group">
+          <summary className="text-[11.5px] text-[var(--muted)] hover:text-ink cursor-pointer select-none">
             {historic.length} past {historic.length === 1 ? "term" : "terms"}
-          </div>
-          <ul className="divide-y divide-[var(--border)] -mx-1">
+          </summary>
+          <ul className="divide-y divide-[var(--border)] -mx-1 mt-2">
             {historic.map((vo) => (
               <VORow key={vo.id} vo={vo} onEdit={() => setEditing(vo)} onFlash={setFlash} start={start} pending={pending} historic />
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
       <Modal open={creating} onClose={() => setCreating(false)} title="Add virtual office" size="lg">
