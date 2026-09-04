@@ -4,14 +4,16 @@ import * as XLSX from "xlsx";
 import {
   bulkImportCompanies,
   bulkImportClients,
+  bulkImportVirtualOffices,
   bulkOpenCases,
   type CompanyImportRow,
   type ClientImportRow,
+  type VirtualOfficeImportRow,
   type ImportSummary,
 } from "./actions";
 import type { CasePriority } from "@/lib/types";
 
-type Mode = "companies" | "clients" | "open_cases";
+type Mode = "companies" | "clients" | "virtual_offices" | "open_cases";
 
 type Service = { id: string; code: string; name: string };
 type Company = { id: string; code: string; name: string };
@@ -21,6 +23,18 @@ type User    = { id: string; full_name: string };
 const COMPANY_COLS: (keyof CompanyImportRow)[] = [
   "name", "nib", "incorporation_date", "address", "drive_folder_url", "notes",
 ];
+const VO_COLS: (keyof VirtualOfficeImportRow)[] = [
+  "company_name", "tier", "term_months", "start_date", "end_date", "status", "notes",
+];
+const VO_EXAMPLE: Record<string, string> = {
+  company_name: "PT Example Group",
+  tier: "silver",
+  term_months: "12",
+  start_date: "2025-10-15",
+  end_date: "2026-10-14",
+  status: "active",
+  notes: "",
+};
 const CLIENT_COLS: (keyof ClientImportRow)[] = [
   "full_name", "nationality", "passport_no", "date_of_birth", "place_of_birth",
   "phone", "email", "preferred_channel", "notes",
@@ -67,11 +81,13 @@ export function ImportTabs({
       <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
         <TabButton active={mode === "companies"}  onClick={() => setMode("companies")}>Import companies</TabButton>
         <TabButton active={mode === "clients"}    onClick={() => setMode("clients")}>Import clients</TabButton>
+        <TabButton active={mode === "virtual_offices"} onClick={() => setMode("virtual_offices")}>Import virtual offices</TabButton>
         <TabButton active={mode === "open_cases"} onClick={() => setMode("open_cases")}>Bulk open cases</TabButton>
       </div>
-      {mode === "companies"  && <CompaniesImport />}
-      {mode === "clients"    && <ClientsImport />}
-      {mode === "open_cases" && <BulkOpenCases services={services} companies={companies} clients={clients} users={users} />}
+      {mode === "companies"       && <CompaniesImport />}
+      {mode === "clients"         && <ClientsImport />}
+      {mode === "virtual_offices" && <VirtualOfficesImport />}
+      {mode === "open_cases"      && <BulkOpenCases services={services} companies={companies} clients={clients} users={users} />}
     </div>
   );
 }
@@ -101,6 +117,19 @@ function CompaniesImport() {
       templateName="companies-template.xlsx"
       previewLabel={(r) => r.name || "(missing name)"}
       submit={bulkImportCompanies}
+    />
+  );
+}
+
+function VirtualOfficesImport() {
+  return (
+    <ImportPanel<VirtualOfficeImportRow>
+      columns={VO_COLS as string[]}
+      example={VO_EXAMPLE}
+      requiredCol="company_name"
+      templateName="virtual-offices-template.xlsx"
+      previewLabel={(r) => r.company_name || "(missing company_name)"}
+      submit={bulkImportVirtualOffices}
     />
   );
 }

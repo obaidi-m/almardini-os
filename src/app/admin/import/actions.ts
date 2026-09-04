@@ -375,6 +375,130 @@ export async function bulkOpenCases(input: BulkOpenCasesInput): Promise<ImportSu
   return summarize(results);
 }
 
+/* ---------------- Virtual offices ---------------- */
+
+export type VirtualOfficeImportRow = {
+  company_name: string;
+  tier?: string | null;
+  term_months?: string | null;
+  start_date?: string | null;
+  end_date: string;
+  status?: string | null;
+  notes?: string | null;
+};
+
+const VO_TIERS = new Set(["silver", "gold", "platinum"]);
+const VO_STATUSES = new Set(["active", "expired", "terminated"]);
+
+export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): Promise<ImportSummary> {
+  const { supabase, actorId } = await requireOwner();
+
+  const [{ data: companyList }, { data: existingVOs }] = await Promise.all([
+    supabase.from("companies").select("id, name").is("deleted_at", null),
+    supabase.from("virtual_offices").select("company_id, end_date, tier").is("deleted_at", null),
+  ]);
+
+  // Map: normalized name -> company_id (if unambiguous). Duplicates get flagged
+  // per row so we don't guess which one the sheet meant.
+  const companyIdsByName = new Map<string, string[]>();
+  for (const c of (companyList ?? []) as Array<{ id: string; name: string }>) {
+    const k = normName(c.name);
+    const arr = companyIdsByName.get(k) ?? [];
+    arr.push(c.id);
+    companyIdsByName.set(k, arr);
+  }
+  // Dup key = (company_id, tier, end_date). Same tenancy shouldn't import twice.
+  const existingKeys = new Set<string>();
+  for (const v of (existingVOs ?? []) as Array<{ company_id: string; end_date: string; tier: string }>) {
+    existingKeys.add(`${v.company_id}|${v.tier}|${v.end_date}`);
+  }
+  const seenKeys = new Set<string>();
+
+  const results: ImportResult[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i];
+    const rowNum = i + 1;
+    const name = (raw.company_name ?? "").trim();
+    if (!name) {
+      results.push({ row: rowNum, outcome: "error", reason: "company_name is required", label: "(blank)" });
+      continue;
+    }
+    const end_date = normDate(raw.end_date);
+    if (!end_date) {
+      results.push({ row: rowNum, outcome: "error", reason: "end_date is required", label: name });
+      continue;
+    }
+
+    // Resolve the company. Auto-create if not on file (this xlsx is the
+    // source of truth for many of them). Ambiguous name = flag and skip so
+    // the operator picks by hand.
+    let company_id: string;
+    const nk = normName(name);
+    const hits = companyIdsByName.get(nk) ?? [];
+    if (hits.length > 1) {
+      results.push({ row: rowNum, outcome: "error", reason: `multiple companies named "${name}" — pick one manually`, label: name });
+      continue;
+    }
+    if (hits.length === 1) {
+      company_id = hits[0];
+    } else {
+      const { data: created, error: cErr } = await supabase
+        .from("companies")
+        .insert({ name })
+        .select("id")
+        .single();
+      if (cErr || !created) {
+        results.push({ row: rowNum, outcome: "error", reason: cErr?.message ?? "failed to create company", label: name });
+        continue;
+      }
+      company_id = created.id;
+      companyIdsByName.set(nk, [company_id]); // subsequent rows reuse it
+    }
+
+    const tier = (raw.tier ?? "silver").toLowerCase().trim();
+    if (!VO_TIERS.has(tier)) {
+      results.push({ row: rowNum, outcome: "error", reason: `invalid tier "${tier}"`, label: name });
+      continue;
+    }
+    const status = (raw.status ?? "active").toLowerCase().trim();
+    if (!VO_STATUSES.has(status)) {
+      results.push({ row: rowNum, outcome: "error", reason: `invalid status "${status}"`, label: name });
+      continue;
+    }
+    const term_months = Number(raw.term_months);
+    const term = Number.isFinite(term_months) && term_months > 0 ? Math.floor(term_months) : 12;
+
+    const dupKey = `${company_id}|${tier}|${end_date}`;
+    if (existingKeys.has(dupKey) || seenKeys.has(dupKey)) {
+      results.push({ row: rowNum, outcome: "skipped_duplicate", reason: `${tier} ending ${end_date} already exists`, label: name });
+      continue;
+    }
+
+    const { error } = await supabase.from("virtual_offices").insert({
+      company_id,
+      tier,
+      term_months: term,
+      start_date: normDate(raw.start_date),
+      end_date,
+      status,
+      notes: raw.notes?.trim() || null,
+      created_by: actorId,
+      updated_by: actorId,
+    });
+    if (error) {
+      results.push({ row: rowNum, outcome: "error", reason: error.message, label: name });
+      continue;
+    }
+    seenKeys.add(dupKey);
+    results.push({ row: rowNum, outcome: "created", label: name });
+  }
+
+  revalidatePath("/virtual-offices");
+  revalidatePath("/companies");
+  return summarize(results);
+}
+
 function summarize(results: ImportResult[]): ImportSummary {
   return {
     imported: results.filter((r) => r.outcome === "created").length,
