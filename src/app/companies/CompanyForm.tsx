@@ -2,6 +2,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { Company } from "@/lib/types";
 import { DateInput } from "@/components/ui/DateInput";
+import { Spinner } from "@/components/ui/Spinner";
 import { NATIONALITIES } from "@/lib/nationalities";
 import { useT } from "@/lib/i18n/client";
 
@@ -184,7 +185,8 @@ export function CompanyForm({
             {t("action.cancel")}
           </button>
         )}
-        <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
+        <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
+          {pending && <Spinner className="h-3.5 w-3.5" />}
           {pending ? t("form.saving") : submitLabel ?? (mode === "create" ? t("form.action.create_company") : t("action.save_changes"))}
         </button>
       </div>

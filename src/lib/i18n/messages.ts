@@ -116,7 +116,7 @@ const en = {
   // Case status
   "status.new": "New",
   "status.in_progress": "In progress",
-  "status.done": "Done",
+  "status.done": "Ready",
   "status.delivered": "Delivered",
 
   // Case priority
@@ -577,7 +577,7 @@ const id: Messages = {
 
   "status.new": "Baru",
   "status.in_progress": "Sedang berjalan",
-  "status.done": "Selesai",
+  "status.done": "Siap",
   "status.delivered": "Terkirim",
 
   "priority.low": "Rendah",

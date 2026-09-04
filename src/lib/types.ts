@@ -80,7 +80,7 @@ export type PartnerRole = "referrer" | "agent";
 export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
   new: "New",
   in_progress: "In progress",
-  done: "Done",
+  done: "Ready",
   delivered: "Delivered",
 };
 

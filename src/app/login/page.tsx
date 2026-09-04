@@ -18,8 +18,10 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return setError(error.message);
+    if (error) {
+      setLoading(false);
+      return setError(error.message);
+    }
     router.push("/admin");
     router.refresh();
   }
@@ -96,7 +98,34 @@ export default function LoginPage() {
             className="w-full py-3 bg-ink text-[var(--bg)] rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50"
             style={{ background: "#141618", color: "#FAF7F1" }}
           >
-            {loading ? t("login.signing_in") : t("login.submit")}
+            {loading ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <svg
+                  className="animate-spin h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="opacity-25"
+                  />
+                  <path
+                    d="M22 12a10 10 0 0 1-10 10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {t("login.signing_in")}
+              </span>
+            ) : (
+              t("login.submit")
+            )}
           </button>
         </form>
       </div>

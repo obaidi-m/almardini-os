@@ -17,6 +17,7 @@ import {
   reopenCaseAction,
   softDeleteCaseAction,
   restoreCaseAction,
+  clearCaseExpiryAction,
 } from "../actions";
 
 type Option = { id: string; label: string; hint?: string };
@@ -245,7 +246,25 @@ export function CaseDetail({
           <MetaRow label={t("meta.assignee")} value={assignee?.full_name} />
           <MetaRow label={t("meta.priority")} value={t(`priority.${caseRow.priority}` as MessageKey)} />
           <MetaRow label={t("meta.deadline")} value={fmtDate(caseRow.deadline)} />
-          <MetaRow label={t("meta.expires")} value={fmtDate(caseRow.expires_at)} />
+          <MetaRow label={t("meta.expires")} value={
+            caseRow.expires_at ? (
+              <span className="inline-flex items-center gap-2">
+                {fmtDate(caseRow.expires_at)}
+                {caseRow.status !== "delivered" && (
+                  <form action={clearCaseExpiryAction}>
+                    <input type="hidden" name="case_id" value={caseRow.id} />
+                    <button
+                      type="submit"
+                      className="text-[11px] text-[var(--muted)] hover:text-ink underline"
+                      title="Clear this expiry"
+                    >
+                      clear
+                    </button>
+                  </form>
+                )}
+              </span>
+            ) : null
+          } />
           <MetaRow label={t("meta.onedrive")} value={caseRow.drive_folder_url ? (
             <a href={caseRow.drive_folder_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-brand hover:text-brand-dark font-medium">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /></svg>

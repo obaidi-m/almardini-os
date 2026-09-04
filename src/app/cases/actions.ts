@@ -67,9 +67,9 @@ async function spawnNextRecurringCase(
   const svc = (Array.isArray(c.service) ? c.service[0] : c.service) as ServiceSchedule;
   if (!serviceRepeats(svc)) return;
 
-  // Successor already opened? (a re-deliver of the same case shouldn't
-  // double-spawn.) We consider the newest sibling for the same client/company
-  // + service that was created after this one.
+  // Skip if a non-delivered successor for the same service+entity already
+  // exists — covers re-deliver, reopen-then-redeliver, and any manual
+  // creation the operator already did for the next cycle.
   const { data: existing } = await supabase
     .from("cases")
     .select("id")
@@ -77,11 +77,18 @@ async function spawnNextRecurringCase(
     .eq(c.client_id ? "client_id" : "company_id", (c.client_id ?? c.company_id) as string)
     .neq("id", case_id)
     .is("deleted_at", null)
-    .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+    .neq("status", "delivered")
     .limit(1);
   if (existing && existing.length > 0) return;
 
-  const nextDeadline = c.expires_at ?? computeNextExpiry(svc);
+  // The successor is the NEXT cycle, so anchor the calculation one day
+  // past the cycle we just closed. Without this, an annual service whose
+  // expires_at is e.g. 2026-09-30 would spawn a successor also dated
+  // 2026-09-30 instead of 2027-09-30.
+  const anchor = c.expires_at
+    ? new Date(new Date(c.expires_at + "T00:00:00").getTime() + 86_400_000)
+    : new Date();
+  const nextDeadline = computeNextExpiry(svc, anchor);
   if (!nextDeadline) return;
 
   const { error } = await supabase.from("cases").insert({
@@ -137,6 +144,24 @@ function parseCaseForm(fd: FormData): CasePayload {
 export async function createCaseAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const payload = parseCaseForm(fd);
+
+  // Block a second open case for the same service on the same client/company.
+  // "Open" = not delivered and not archived. Delivered cases are historical
+  // and shouldn't block a new cycle.
+  const { data: dup } = await supabase
+    .from("cases")
+    .select("id, code")
+    .eq("service_type_id", payload.service_type_id)
+    .eq(payload.client_id ? "client_id" : "company_id", (payload.client_id ?? payload.company_id) as string)
+    .is("deleted_at", null)
+    .neq("status", "delivered")
+    .limit(1);
+  if (dup && dup.length > 0) {
+    const existing = dup[0] as { code?: string | null };
+    throw new Error(
+      `An open case for this service already exists${existing.code ? ` (${existing.code})` : ""}. Deliver or archive it before opening a new one.`,
+    );
+  }
 
   const { data, error } = await supabase
     .from("cases")
@@ -336,12 +361,32 @@ export async function reopenCaseAction(fd: FormData) {
 
   const { error: statusError } = await supabase
     .from("cases")
-    .update({ status: "in_progress", updated_by: actorId })
+    .update({ status: "in_progress", expires_at: null, updated_by: actorId })
     .eq("id", case_id);
   if (statusError) throw new Error(statusError.message);
 
   revalidatePath(`/cases/${case_id}`);
   revalidatePath("/cases");
+  revalidatePath("/renewals");
+}
+
+/** Manually clear a case's expires_at. Useful when a test click or a wrong
+ *  Done stamped a stale expiry — the Active Services / Renewals views hide
+ *  the case afterwards, and the next real Done will auto-fill it again. */
+export async function clearCaseExpiryAction(fd: FormData) {
+  const { supabase, actorId } = await requireUser();
+  const case_id = String(fd.get("case_id") ?? "");
+  if (!case_id) throw new Error("Missing case.");
+
+  const { error } = await supabase
+    .from("cases")
+    .update({ expires_at: null, updated_by: actorId })
+    .eq("id", case_id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/cases/${case_id}`);
+  revalidatePath("/cases");
+  revalidatePath("/renewals");
 }
 
 export async function softDeleteCaseAction(fd: FormData) {

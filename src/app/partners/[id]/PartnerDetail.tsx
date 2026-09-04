@@ -129,7 +129,7 @@ export function PartnerDetail({
 
         {/* RIGHT COLUMN */}
         <div className="space-y-5">
-          <Card title="Clients introduced" count={introducedClients.length} padded>
+          <Card title="Related clients" count={introducedClients.length} padded>
             {introducedClients.length === 0 ? (
               <p className="text-[12.5px] text-[var(--muted)]">No clients yet from this partner.</p>
             ) : (

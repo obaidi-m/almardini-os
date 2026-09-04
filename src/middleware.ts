@@ -24,10 +24,10 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-  if (isAdminRoute && !user) {
+  if (isAdminRoute && !session) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return response;
