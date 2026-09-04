@@ -108,7 +108,12 @@ export async function renewVirtualOfficeAction(fd: FormData) {
     .single();
   if (fetchError) throw new Error(fetchError.message);
 
-  const newStart = current.end_date;
+  // Successor starts the day the previous tenancy ended so renewals of a
+  // still-active row are seamless. If the previous tenancy already expired
+  // (end_date in the past), start today instead — otherwise the fresh row
+  // would land in the past and immediately auto-expire.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const newStart = current.end_date < todayIso ? todayIso : current.end_date;
   const d = new Date(newStart + "T00:00:00");
   d.setMonth(d.getMonth() + current.term_months);
   const newEnd = d.toISOString().slice(0, 10);

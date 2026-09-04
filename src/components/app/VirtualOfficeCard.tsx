@@ -198,52 +198,55 @@ function VORow({
           >
             edit
           </button>
-          {!historic && vo.status === "active" && (
-            <>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={async () => {
-                  onFlash(null);
-                  const ok = await confirm({
-                    title: "Renew virtual office",
-                    message: "Open a new tenancy for the next term? The current one will be marked expired.",
-                    confirmLabel: "Renew",
-                  });
-                  if (!ok) return;
-                  const fd = new FormData(); fd.set("id", vo.id);
-                  start(async () => {
-                    try { await renewVirtualOfficeAction(fd); }
-                    catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
-                  });
-                }}
-                className="text-[11.5px] font-medium text-brand hover:text-brand-dark disabled:opacity-50"
-              >
-                renew
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={async () => {
-                  onFlash(null);
-                  const ok = await confirm({
-                    title: "Terminate virtual office",
-                    message: "This ends the tenancy early. The row stays in history but is no longer active.",
-                    confirmLabel: "Terminate",
-                    tone: "danger",
-                  });
-                  if (!ok) return;
-                  const fd = new FormData(); fd.set("id", vo.id);
-                  start(async () => {
-                    try { await terminateVirtualOfficeAction(fd); }
-                    catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
-                  });
-                }}
-                className="text-[11.5px] text-red-700 hover:underline disabled:opacity-50"
-              >
-                terminate
-              </button>
-            </>
+          {(vo.status === "active" || vo.status === "expired") && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                onFlash(null);
+                const msg = vo.status === "expired"
+                  ? "Open a new tenancy starting after this one's end date? Term and tier carry over — edit the new row if anything changed."
+                  : "Open a new tenancy for the next term? The current one will be marked expired.";
+                const ok = await confirm({
+                  title: "Renew virtual office",
+                  message: msg,
+                  confirmLabel: "Renew",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", vo.id);
+                start(async () => {
+                  try { await renewVirtualOfficeAction(fd); }
+                  catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
+                });
+              }}
+              className="text-[11.5px] font-medium text-brand hover:text-brand-dark disabled:opacity-50"
+            >
+              renew
+            </button>
+          )}
+          {vo.status === "active" && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                onFlash(null);
+                const ok = await confirm({
+                  title: "Terminate virtual office",
+                  message: "This ends the tenancy early. The row stays in history but is no longer active.",
+                  confirmLabel: "Terminate",
+                  tone: "danger",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", vo.id);
+                start(async () => {
+                  try { await terminateVirtualOfficeAction(fd); }
+                  catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
+                });
+              }}
+              className="text-[11.5px] text-red-700 hover:underline disabled:opacity-50"
+            >
+              terminate
+            </button>
           )}
         </div>
       </div>
