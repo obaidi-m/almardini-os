@@ -27,7 +27,10 @@ const STATUS_PILL: Record<VirtualOfficeStatus, { bg: string; text: string; dot: 
   terminated: { bg: "bg-[var(--surface-2)]",  text: "text-[var(--muted)]",  dot: "bg-[var(--muted)]" },
 };
 
-type Row = VirtualOffice & { company: { id: string; code: string; name: string } | null };
+type Row = VirtualOffice & {
+  company: { id: string; code: string; name: string } | null;
+  responsible: { id: string; name: string; code: string } | null;
+};
 
 function daysUntil(iso: string): number {
   const d = new Date(iso + "T00:00:00");
@@ -48,7 +51,7 @@ function fmtDate(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-const COLS = "36px minmax(220px, 1fr) 80px 70px 100px 100px 120px 100px";
+const COLS = "36px minmax(200px, 1fr) 80px 70px 100px 100px 120px 130px 100px";
 
 export default async function VirtualOfficesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
@@ -56,15 +59,21 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
 
   await expireOverdueVirtualOffices(supabase);
 
-  const [{ data, error }, { data: companiesRaw }] = await Promise.all([
+  const [{ data, error }, { data: companiesRaw }, { data: partnersRaw }] = await Promise.all([
     supabase
       .from("virtual_offices")
-      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, created_at, updated_at, deleted_at, company:companies(id, code, name)")
+      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, responsible_partner_id, created_at, updated_at, deleted_at, company:companies(id, code, name), responsible:partners!virtual_offices_responsible_partner_fk(id, name, code)")
       .is("deleted_at", null)
       .order("end_date", { ascending: true })
       .limit(1000),
     supabase
       .from("companies")
+      .select("id, code, name")
+      .is("deleted_at", null)
+      .order("name")
+      .limit(1000),
+    supabase
+      .from("partners")
       .select("id, code, name")
       .is("deleted_at", null)
       .order("name")
@@ -82,9 +91,13 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  const all: Row[] = (data as unknown as Array<VirtualOffice & { company: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null }>).map((r) => ({
+  const all: Row[] = (data as unknown as Array<VirtualOffice & {
+    company: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
+    responsible: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
+  }>).map((r) => ({
     ...r,
     company: unwrap(r.company),
+    responsible: unwrap(r.responsible),
   }));
 
   const today = new Date().toISOString().slice(0, 10);
@@ -107,6 +120,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
   });
 
   const companies = (companiesRaw as Array<{ id: string; code: string; name: string }>) ?? [];
+  const partners = (partnersRaw as Array<{ id: string; code: string; name: string }>) ?? [];
 
   function hrefWith(f: Filter): string {
     return f === "all" ? "/virtual-offices" : `/virtual-offices?filter=${f}`;
@@ -123,7 +137,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
             Rental tenancies across every company.
           </p>
         </div>
-        <NewVirtualOfficeButton companies={companies} />
+        <NewVirtualOfficeButton companies={companies} partners={partners} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -163,6 +177,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
           <div>Start</div>
           <div>End</div>
           <div>Days</div>
+          <div>PJ</div>
           <div>Status</div>
         </div>
 
@@ -208,6 +223,15 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                     <span className="text-[var(--muted)]">
                       {(() => { const n = daysUntil(vo.end_date); return n < 0 ? `expired ${-n}d ago` : "expired"; })()}
                     </span>
+                  ) : (
+                    <span className="text-[var(--muted)]">—</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  {vo.responsible ? (
+                    <Link href={`/partners/${vo.responsible.id}`} className="text-[13px] text-ink hover:text-brand-dark truncate block">
+                      {vo.responsible.name}
+                    </Link>
                   ) : (
                     <span className="text-[var(--muted)]">—</span>
                   )}

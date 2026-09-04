@@ -15,6 +15,7 @@ import {
 } from "@/app/virtual-offices/actions";
 
 export type CompanyOption = { id: string; code: string; name: string };
+export type PartnerOption = { id: string; code: string; name: string };
 
 const TIER_LABEL: Record<VirtualOfficeTier, string> = {
   silver: "Silver",
@@ -52,9 +53,11 @@ function daysLabel(iso: string): { text: string; tone: string } {
 export function VirtualOfficeCard({
   companyId,
   offices,
+  partners = [],
 }: {
   companyId: string;
   offices: VirtualOffice[];
+  partners?: PartnerOption[];
 }) {
   const [editing, setEditing] = useState<VirtualOffice | null>(null);
   const [creating, setCreating] = useState(false);
@@ -120,6 +123,7 @@ export function VirtualOfficeCard({
         <VOForm
           mode="create"
           companyId={companyId}
+          partners={partners}
           onDone={() => setCreating(false)}
           onError={setFlash}
         />
@@ -135,6 +139,7 @@ export function VirtualOfficeCard({
           <VOForm
             mode="edit"
             companyId={companyId}
+            partners={partners}
             existing={editing}
             onDone={() => setEditing(null)}
             onError={setFlash}
@@ -179,6 +184,11 @@ function VORow({
             {fmtDate(vo.start_date)} → {fmtDate(vo.end_date)}
             {days && <> · <span className={days.tone}>{days.text}</span></>}
           </div>
+          {vo.responsible && (
+            <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
+              PJ: <span className="text-ink">{vo.responsible.name}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -241,13 +251,16 @@ function VORow({
 }
 
 export function VOForm({
-  mode, companyId, companies, existing, onDone, onError,
+  mode, companyId, companies, partners = [], existing, onDone, onError,
 }: {
   mode: "create" | "edit";
   /** Fixed company (from the company page card). If absent, `companies` must
    *  be provided so the form renders a picker. */
   companyId?: string;
   companies?: CompanyOption[];
+  /** Optional list to power the responsible-partner picker. When empty, the
+   *  field is hidden — safe when partners aren't loaded on that call site. */
+  partners?: PartnerOption[];
   existing?: VirtualOffice;
   onDone: () => void;
   onError: (msg: string | null) => void;
@@ -357,6 +370,24 @@ export function VOForm({
           <option value="terminated">Terminated</option>
         </select>
       </Field>
+
+      {partners.length > 0 && (
+        <Field label="Responsible partner">
+          <Combobox
+            name="responsible_partner_id"
+            allowEmpty
+            emptyLabel="— none —"
+            options={partners.map<ComboOption>((p) => ({
+              id: p.id,
+              label: p.name,
+              hint: p.code,
+              keywords: p.code,
+            }))}
+            defaultValue={existing?.responsible_partner_id ?? ""}
+            placeholder="Search partners…"
+          />
+        </Field>
+      )}
 
       <Field label="Notes">
         <textarea

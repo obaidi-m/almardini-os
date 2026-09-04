@@ -47,7 +47,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .limit(50),
     supabase
       .from("virtual_offices")
-      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, created_at, updated_at, deleted_at")
+      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, responsible_partner_id, created_at, updated_at, deleted_at, responsible:partners!virtual_offices_responsible_partner_fk(id, name, code)")
       .eq("company_id", params.id)
       .is("deleted_at", null)
       .order("end_date", { ascending: false }),
@@ -130,7 +130,10 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         allClients={clients}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
         cases={cases}
-        virtualOffices={(vosRaw as VirtualOffice[]) ?? []}
+        virtualOffices={((vosRaw as unknown as Array<VirtualOffice & { responsible?: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null }>) ?? []).map((v) => ({
+          ...v,
+          responsible: Array.isArray(v.responsible) ? v.responsible[0] ?? null : v.responsible ?? null,
+        }))}
         partners={(partnersData as Array<{ id: string; code: string; name: string }>) ?? []}
       />
     </div>

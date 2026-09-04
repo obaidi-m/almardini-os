@@ -1,9 +1,15 @@
 "use client";
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { VOForm, type CompanyOption } from "@/components/app/VirtualOfficeCard";
+import { VOForm, type CompanyOption, type PartnerOption } from "@/components/app/VirtualOfficeCard";
 
-export function NewVirtualOfficeButton({ companies }: { companies: CompanyOption[] }) {
+export function NewVirtualOfficeButton({
+  companies,
+  partners = [],
+}: {
+  companies: CompanyOption[];
+  partners?: PartnerOption[];
+}) {
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -28,6 +34,7 @@ export function NewVirtualOfficeButton({ companies }: { companies: CompanyOption
         <VOForm
           mode="create"
           companies={companies}
+          partners={partners}
           onDone={() => setOpen(false)}
           onError={setFlash}
         />

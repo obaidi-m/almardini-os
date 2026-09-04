@@ -89,9 +89,11 @@ export type VirtualOffice = {
   status: VirtualOfficeStatus;
   notes: string | null;
   drive_folder_url: string | null;
+  responsible_partner_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  responsible?: { id: string; name: string; code: string } | null;
 };
 
 export type CaseStatus = "new" | "in_progress" | "done" | "delivered";

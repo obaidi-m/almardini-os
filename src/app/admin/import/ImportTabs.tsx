@@ -24,7 +24,12 @@ const COMPANY_COLS: (keyof CompanyImportRow)[] = [
   "name", "nib", "incorporation_date", "address", "drive_folder_url", "notes",
 ];
 const VO_COLS: (keyof VirtualOfficeImportRow)[] = [
-  "company_name", "tier", "term_months", "start_date", "end_date", "status", "notes",
+  "company_name", "tier", "term_months", "start_date", "end_date", "status",
+  // Optional. Matched to an existing partner by name (case-insensitive).
+  // Leave blank if there's no person responsible or the partner isn't in
+  // the system yet — the row still imports.
+  "responsible_partner_name",
+  "notes",
 ];
 const VO_EXAMPLE: Record<string, string> = {
   company_name: "PT Example Group",
@@ -33,6 +38,7 @@ const VO_EXAMPLE: Record<string, string> = {
   start_date: "2025-10-15",
   end_date: "2026-10-14",
   status: "active",
+  responsible_partner_name: "",
   notes: "",
 };
 const CLIENT_COLS: (keyof ClientImportRow)[] = [

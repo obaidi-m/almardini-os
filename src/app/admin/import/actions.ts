@@ -384,6 +384,7 @@ export type VirtualOfficeImportRow = {
   start_date?: string | null;
   end_date: string;
   status?: string | null;
+  responsible_partner_name?: string | null;
   notes?: string | null;
 };
 
@@ -393,9 +394,10 @@ const VO_STATUSES = new Set(["active", "expired", "terminated"]);
 export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): Promise<ImportSummary> {
   const { supabase, actorId } = await requireOwner();
 
-  const [{ data: companyList }, { data: existingVOs }] = await Promise.all([
+  const [{ data: companyList }, { data: existingVOs }, { data: partnerList }] = await Promise.all([
     supabase.from("companies").select("id, name").is("deleted_at", null),
     supabase.from("virtual_offices").select("company_id, end_date, tier").is("deleted_at", null),
+    supabase.from("partners").select("id, name").is("deleted_at", null),
   ]);
 
   // Map: normalized name -> company_id (if unambiguous). Duplicates get flagged
@@ -413,6 +415,17 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
     existingKeys.add(`${v.company_id}|${v.tier}|${v.end_date}`);
   }
   const seenKeys = new Set<string>();
+
+  // Partner lookup: normalized name -> ids. Ambiguous names (two partners
+  // with the same name) surface as a warning per row and are left empty
+  // rather than guessed.
+  const partnerIdsByName = new Map<string, string[]>();
+  for (const p of (partnerList ?? []) as Array<{ id: string; name: string }>) {
+    const k = normName(p.name);
+    const arr = partnerIdsByName.get(k) ?? [];
+    arr.push(p.id);
+    partnerIdsByName.set(k, arr);
+  }
 
   const results: ImportResult[] = [];
 
@@ -475,6 +488,16 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
       continue;
     }
 
+    // Responsible partner: optional. Match by name; leave empty if no
+    // match or if the name is ambiguous — better than guessing.
+    let responsible_partner_id: string | null = null;
+    const respName = (raw.responsible_partner_name ?? "").trim();
+    if (respName) {
+      const hits = partnerIdsByName.get(normName(respName)) ?? [];
+      if (hits.length === 1) responsible_partner_id = hits[0];
+      // 0 hits or >1 hits → silently leave empty; user can set it later.
+    }
+
     const { error } = await supabase.from("virtual_offices").insert({
       company_id,
       tier,
@@ -483,6 +506,7 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
       end_date,
       status,
       notes: raw.notes?.trim() || null,
+      responsible_partner_id,
       created_by: actorId,
       updated_by: actorId,
     });

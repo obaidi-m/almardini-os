@@ -33,6 +33,7 @@ type VOPayload = {
   status: VirtualOfficeStatus;
   notes: string | null;
   drive_folder_url: string | null;
+  responsible_partner_id: string | null;
 };
 
 function parseForm(fd: FormData): VOPayload {
@@ -59,6 +60,7 @@ function parseForm(fd: FormData): VOPayload {
     status,
     notes: str(fd, "notes"),
     drive_folder_url: str(fd, "drive_folder_url"),
+    responsible_partner_id: str(fd, "responsible_partner_id"),
   };
 }
 
@@ -101,7 +103,7 @@ export async function renewVirtualOfficeAction(fd: FormData) {
 
   const { data: current, error: fetchError } = await supabase
     .from("virtual_offices")
-    .select("company_id, tier, term_months, end_date, pic_name, pic_phone, drive_folder_url")
+    .select("company_id, tier, term_months, end_date, pic_name, pic_phone, drive_folder_url, responsible_partner_id")
     .eq("id", id)
     .single();
   if (fetchError) throw new Error(fetchError.message);
@@ -126,6 +128,7 @@ export async function renewVirtualOfficeAction(fd: FormData) {
     pic_name: current.pic_name,
     pic_phone: current.pic_phone,
     drive_folder_url: current.drive_folder_url,
+    responsible_partner_id: current.responsible_partner_id,
     status: "active",
     created_by: actorId,
     updated_by: actorId,

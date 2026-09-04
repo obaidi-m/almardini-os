@@ -201,7 +201,7 @@ export function CompanyDetail({
             />
           </Card>
 
-          <VirtualOfficeCard companyId={company.id} offices={virtualOffices} />
+          <VirtualOfficeCard companyId={company.id} offices={virtualOffices} partners={partners} />
 
           <Card
             title={t("section.cases")}
