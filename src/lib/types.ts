@@ -74,6 +74,28 @@ export type Company = {
 /** Company roles are stored in the `company_roles` table, editable from
  *  the admin panel. See /admin/company-roles. Reads happen per-page. */
 
+export type PermitStatus = "active" | "expired" | "terminated";
+
+export type Permit = {
+  id: string;
+  client_id: string;
+  kind: string;
+  reference_no: string | null;
+  issued_date: string | null;
+  expires_date: string;
+  status: PermitStatus;
+  sponsor_company_id: string | null;
+  responsible_partner_id: string | null;
+  notes: string | null;
+  drive_folder_url: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  sponsor?: { id: string; name: string; code: string } | null;
+  responsible?: { id: string; name: string; code: string } | null;
+  client?: { id: string; full_name: string; code: string } | null;
+};
+
 export type VirtualOfficeTier = "bronze" | "silver" | "gold" | "platinum";
 export type VirtualOfficeStatus = "active" | "expired" | "terminated";
 

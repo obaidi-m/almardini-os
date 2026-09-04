@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Client, Partner, CaseStatus, CasePriority } from "@/lib/types";
+import type { Client, Partner, CaseStatus, CasePriority, Permit } from "@/lib/types";
 import { ActiveServicesList } from "@/components/app/ActiveServices";
+import { PermitCard } from "@/components/app/PermitCard";
 import { serviceLabel } from "@/lib/service";
 import { ClientForm } from "../ClientForm";
 import { updateClientAction, softDeleteClientAction, restoreClientAction } from "../actions";
@@ -34,7 +35,7 @@ type LinkedCompany = { role: string; company: { id: string; code: string; name: 
 type CompanyOption = { id: string; code: string; name: string };
 
 export function ClientDetail({
-  client, partners, linkedCompanies, allCompanies, roles, cases,
+  client, partners, linkedCompanies, allCompanies, roles, cases, permits = [],
 }: {
   client: Client;
   partners: Pick<Partner, "id" | "name" | "code">[];
@@ -42,6 +43,7 @@ export function ClientDetail({
   allCompanies: CompanyOption[];
   roles: Role[];
   cases: CaseSummary[];
+  permits?: Permit[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -187,6 +189,13 @@ export function ClientDetail({
               }))}
             />
           </Card>
+
+          <PermitCard
+            clientId={client.id}
+            permits={permits}
+            companies={allCompanies}
+            partners={partners.map((p) => ({ id: p.id, code: p.code, name: p.name }))}
+          />
 
           <Card
             title={t("section.cases")}
