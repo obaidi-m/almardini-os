@@ -48,7 +48,7 @@ function fmtDate(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-const COLS = "36px 1.6fr 90px 70px 100px 100px 90px 100px";
+const COLS = "36px minmax(220px, 1fr) 80px 70px 100px 100px 120px 100px";
 
 export default async function VirtualOfficesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
@@ -201,7 +201,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                 <div className="text-[var(--muted)]">{vo.term_months}mo</div>
                 <div className="text-[var(--muted)]">{fmtDate(vo.start_date)}</div>
                 <div>{fmtDate(vo.end_date)}</div>
-                <div>
+                <div className="whitespace-nowrap">
                   {vo.status === "active" && days ? (
                     <span className={days.tone}>{days.text}</span>
                   ) : vo.status === "expired" ? (
