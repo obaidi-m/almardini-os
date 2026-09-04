@@ -488,14 +488,31 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
       continue;
     }
 
-    // Responsible partner: optional. Match by name; leave empty if no
-    // match or if the name is ambiguous — better than guessing.
+    // Responsible partner: optional. Match by name; auto-create if the
+    // partner isn't on file (defaults to type='referrer', which fits a PJ);
+    // leave empty only when the name is ambiguous (two live partners same
+    // name) so we don't silently guess the wrong one.
     let responsible_partner_id: string | null = null;
     const respName = (raw.responsible_partner_name ?? "").trim();
     if (respName) {
-      const hits = partnerIdsByName.get(normName(respName)) ?? [];
-      if (hits.length === 1) responsible_partner_id = hits[0];
-      // 0 hits or >1 hits → silently leave empty; user can set it later.
+      const pk = normName(respName);
+      const hits = partnerIdsByName.get(pk) ?? [];
+      if (hits.length > 1) {
+        // ambiguous — leave empty, user resolves it later
+      } else if (hits.length === 1) {
+        responsible_partner_id = hits[0];
+      } else {
+        const { data: created, error: pErr } = await supabase
+          .from("partners")
+          .insert({ name: respName, type: "referrer" })
+          .select("id")
+          .single();
+        if (!pErr && created) {
+          responsible_partner_id = created.id;
+          partnerIdsByName.set(pk, [created.id]); // subsequent rows reuse it
+        }
+        // On error, silently leave empty — the VO row still imports.
+      }
     }
 
     const { error } = await supabase.from("virtual_offices").insert({
