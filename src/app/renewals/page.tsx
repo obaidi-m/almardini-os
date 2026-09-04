@@ -36,7 +36,7 @@ const KIND_PILL = {
 } as const;
 
 const TIER_LABEL: Record<VirtualOfficeTier, string> = {
-  silver: "Silver", gold: "Gold", platinum: "Platinum",
+  bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum",
 };
 
 const COLS = "36px 90px 1.6fr 1.3fr 100px 100px";
