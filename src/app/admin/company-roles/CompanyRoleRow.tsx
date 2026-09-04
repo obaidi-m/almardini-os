@@ -2,11 +2,13 @@
 import { useState, useTransition } from "react";
 import type { CompanyRoleRecord } from "./page";
 import { updateCompanyRoleAction, deleteCompanyRoleAction } from "./actions";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function CompanyRoleRow({ role }: { role: CompanyRoleRecord }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
   const [flash, setFlash] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   if (editing) {
     return (
@@ -57,21 +59,27 @@ export function CompanyRoleRow({ role }: { role: CompanyRoleRecord }) {
         <button onClick={() => setEditing(true)} className="text-[12px] font-medium text-brand hover:underline">
           Edit
         </button>
-        <form
-          action={(fd) => {
-            if (!confirm(`Delete "${role.label_en}"? This can't be undone.`)) return;
+        <button
+          type="button"
+          disabled={pending}
+          onClick={async () => {
+            const ok = await confirm({
+              title: "Delete role",
+              message: `Delete "${role.label_en}"? This can't be undone.`,
+              confirmLabel: "Delete",
+              tone: "danger",
+            });
+            if (!ok) return;
+            const fd = new FormData(); fd.set("code", role.code);
             start(async () => {
               try { await deleteCompanyRoleAction(fd); }
               catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
             });
           }}
-          className="inline"
+          className="text-[12px] text-[var(--muted)] hover:text-red-700 disabled:opacity-50"
         >
-          <input type="hidden" name="code" value={role.code} />
-          <button type="submit" disabled={pending} className="text-[12px] text-[var(--muted)] hover:text-red-700 disabled:opacity-50">
-            Delete
-          </button>
-        </form>
+          Delete
+        </button>
       </div>
       {flash && <div className="col-span-4 text-[11.5px] text-red-700">{flash}</div>}
     </div>

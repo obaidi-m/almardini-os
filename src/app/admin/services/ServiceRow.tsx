@@ -3,10 +3,12 @@ import { useState, useTransition } from "react";
 import { updateService, toggleService, deleteService } from "./actions";
 import type { ServiceCategory, ServiceType } from "@/lib/types";
 import { ScheduleFields } from "./ScheduleFields";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function ServiceRow({ service, categories }: { service: ServiceType; categories: ServiceCategory[] }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
 
   if (editing) {
     return (
@@ -130,17 +132,24 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
             {service.is_active ? "Archive" : "Reactivate"}
           </button>
         </form>
-        <form
-          action={(fd) => start(async () => { await deleteService(fd); })}
-          onSubmit={(e) => { if (!confirm(`Delete "${service.name}" permanently? This cannot be undone.`)) e.preventDefault(); }}
-          className="inline"
+        <button
+          type="button"
+          disabled={pending}
+          onClick={async () => {
+            const ok = await confirm({
+              title: "Delete service",
+              message: `Delete "${service.name}" permanently? This cannot be undone.`,
+              confirmLabel: "Delete",
+              tone: "danger",
+            });
+            if (!ok) return;
+            const fd = new FormData(); fd.set("id", service.id);
+            start(async () => { await deleteService(fd); });
+          }}
+          className="text-[12px] font-medium text-red-700 hover:underline"
         >
-          <input type="hidden" name="id" value={service.id} />
-          <button type="submit" disabled={pending}
-            className="text-[12px] font-medium text-red-700 hover:underline">
-            Delete
-          </button>
-        </form>
+          Delete
+        </button>
       </td>
     </tr>
   );

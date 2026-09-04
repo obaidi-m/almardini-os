@@ -16,6 +16,7 @@ import {
   unlinkClientFromCompanyAction,
 } from "../actions";
 import { Modal } from "@/components/ui/Modal";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Role = { code: string; label_en: string; label_id: string | null; sort_order: number };
 type LinkedClient = { role: string; client: { id: string; code: string; full_name: string } | null };
@@ -52,6 +53,7 @@ export function CompanyDetail({
   virtualOffices: VirtualOffice[];
 }) {
   const { t } = useT();
+  const confirm = useConfirm();
   const roleLabel = (code: string) => roles.find((r) => r.code === code)?.label_en ?? code;
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -72,24 +74,27 @@ export function CompanyDetail({
               </svg>
               {t("action.edit")}
             </button>
-            <form
-              action={(fd) => {
-                if (!confirm(t("detail.confirm_archive_company", { name: company.name }))) return;
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: t("action.archive"),
+                  message: t("detail.confirm_archive_company", { name: company.name }),
+                  confirmLabel: t("action.archive"),
+                  tone: "danger",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", company.id);
                 start(async () => {
                   try { await softDeleteCompanyAction(fd); }
                   catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
                 });
               }}
+              className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
             >
-              <input type="hidden" name="id" value={company.id} />
-              <button
-                type="submit"
-                disabled={pending}
-                className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {t("action.archive")}
-              </button>
-            </form>
+              {t("action.archive")}
+            </button>
           </>
         ) : (
           <form
@@ -331,6 +336,7 @@ function ClientsLinker({
   const [adding, setAdding] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   return (
     <div>
@@ -404,22 +410,29 @@ function ClientsLinker({
                 )}
               </span>
               <span className="text-[11.5px] text-[var(--muted)] uppercase tracking-wider">{roleLabel(l.role)}</span>
-              <form
-                action={(fd) => {
-                  if (!confirm(t("detail.confirm_unlink"))) return;
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: t("detail.unlink"),
+                    message: t("detail.confirm_unlink"),
+                    confirmLabel: t("detail.unlink"),
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                  const fd = new FormData();
+                  fd.set("client_id", l.client?.id ?? "");
+                  fd.set("company_id", companyId);
+                  fd.set("role", l.role);
                   start(async () => {
                     try { await unlinkClientFromCompanyAction(fd); }
                     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
                   });
                 }}
+                className="text-[11.5px] text-[var(--muted)] hover:text-red-700"
               >
-                <input type="hidden" name="client_id" value={l.client?.id ?? ""} />
-                <input type="hidden" name="company_id" value={companyId} />
-                <input type="hidden" name="role" value={l.role} />
-                <button type="submit" className="text-[11.5px] text-[var(--muted)] hover:text-red-700">
-                  {t("detail.unlink")}
-                </button>
-              </form>
+                {t("detail.unlink")}
+              </button>
             </li>
           ))}
         </ul>

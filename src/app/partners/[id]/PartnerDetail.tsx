@@ -6,6 +6,7 @@ import { CASE_STATUS_LABELS, CASE_PRIORITY_LABELS } from "@/lib/types";
 import { PartnerForm } from "../PartnerForm";
 import { updatePartnerAction, softDeletePartnerAction, restorePartnerAction } from "../actions";
 import { Modal } from "@/components/ui/Modal";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { serviceLabel } from "@/lib/service";
 
 const TYPE_LABEL: Record<Partner["type"], string> = {
@@ -44,6 +45,7 @@ export function PartnerDetail({
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
   const [flash, setFlash] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   return (
     <div>
@@ -59,24 +61,27 @@ export function PartnerDetail({
               </svg>
               Edit
             </button>
-            <form
-              action={(fd) => {
-                if (!confirm(`Archive ${partner.name}?`)) return;
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Archive partner",
+                  message: `Archive ${partner.name}?`,
+                  confirmLabel: "Archive",
+                  tone: "danger",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", partner.id);
                 start(async () => {
                   try { await softDeletePartnerAction(fd); }
                   catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
                 });
               }}
+              className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
             >
-              <input type="hidden" name="id" value={partner.id} />
-              <button
-                type="submit"
-                disabled={pending}
-                className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Archive
-              </button>
-            </form>
+              Archive
+            </button>
           </>
         ) : (
           <form

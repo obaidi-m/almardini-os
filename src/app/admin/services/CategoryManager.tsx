@@ -2,11 +2,13 @@
 import { useState, useTransition } from "react";
 import { createCategory, updateCategory, deleteCategory } from "./actions";
 import type { ServiceCategory } from "@/lib/types";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export function CategoryManager({ categories, counts }: { categories: ServiceCategory[]; counts: Map<string, number> }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -101,18 +103,26 @@ export function CategoryManager({ categories, counts }: { categories: ServiceCat
                     >
                       Rename
                     </button>
-                    <form
-                      action={(fd) => start(async () => {
-                        try { await deleteCategory(fd); }
-                        catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-                      })}
-                      onSubmit={(e) => { if (!confirm(`Delete category "${c.name}"?`)) e.preventDefault(); }}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "Delete category",
+                          message: `Delete category "${c.name}"?`,
+                          confirmLabel: "Delete",
+                          tone: "danger",
+                        });
+                        if (!ok) return;
+                        const fd = new FormData(); fd.set("id", c.id);
+                        start(async () => {
+                          try { await deleteCategory(fd); }
+                          catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+                        });
+                      }}
+                      className="text-[12px] font-medium text-red-700 hover:underline"
                     >
-                      <input type="hidden" name="id" value={c.id} />
-                      <button type="submit" className="text-[12px] font-medium text-red-700 hover:underline">
-                        Delete
-                      </button>
-                    </form>
+                      Delete
+                    </button>
                   </>
                 )}
               </div>

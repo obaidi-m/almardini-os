@@ -19,6 +19,7 @@ import {
   restoreCaseAction,
   clearCaseExpiryAction,
 } from "../actions";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Option = { id: string; label: string; hint?: string };
 
@@ -61,6 +62,7 @@ export function CaseDetail({
   hasDeliverableByService: Record<string, boolean>;
 }) {
   const { t } = useT();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -223,15 +225,23 @@ export function CaseDetail({
               </button>
             </form>
           ) : (
-            <form action={softDeleteCaseAction} onSubmit={(e) => { if (!confirm(t("case.detail.confirm_archive"))) e.preventDefault(); }} className="inline">
-              <input type="hidden" name="id" value={caseRow.id} />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                {t("action.archive")}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await confirm({
+                  title: t("action.archive"),
+                  message: t("case.detail.confirm_archive"),
+                  confirmLabel: t("action.archive"),
+                  tone: "danger",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", caseRow.id);
+                await softDeleteCaseAction(fd);
+              }}
+              className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {t("action.archive")}
+            </button>
           )}
         </div>
 

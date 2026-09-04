@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { updateUser, toggleUserActive, deleteUser, resetUserPassword } from "./actions";
 import type { AppUser, Role } from "@/lib/types";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 function randomPassword() {
   const words = ["ubud", "bali", "batu", "malang", "sanur", "canggu", "jaya", "bumi", "raja", "senja"];
@@ -16,6 +17,7 @@ export function UserRow({ user, roles }: { user: AppUser; roles: Role[] }) {
   const [showNewPass, setShowNewPass] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
 
   if (editing) {
     return (
@@ -112,17 +114,27 @@ export function UserRow({ user, roles }: { user: AppUser; roles: Role[] }) {
               {user.is_active ? "Deactivate" : "Reactivate"}
             </button>
           </form>
-          <form
-            action={(fd) => start(async () => { try { await deleteUser(fd); } catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); } })}
-            onSubmit={(e) => { if (!confirm(`Delete ${user.full_name} permanently? This cannot be undone.`)) e.preventDefault(); }}
-            className="inline"
+          <button
+            type="button"
+            disabled={pending}
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Delete user",
+                message: `Delete ${user.full_name} permanently? This cannot be undone.`,
+                confirmLabel: "Delete",
+                tone: "danger",
+              });
+              if (!ok) return;
+              const fd = new FormData(); fd.set("id", user.id);
+              start(async () => {
+                try { await deleteUser(fd); }
+                catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
+              });
+            }}
+            className="text-[12px] font-medium text-red-700 hover:underline"
           >
-            <input type="hidden" name="id" value={user.id} />
-            <button type="submit" disabled={pending}
-              className="text-[12px] font-medium text-red-700 hover:underline">
-              Delete
-            </button>
-          </form>
+            Delete
+          </button>
         </div>
         {flash && <div className="mt-1 text-[11.5px] text-red-700 text-right">{flash}</div>}
       </td>

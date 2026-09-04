@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { updateRoleMeta, updateRolePermissions, deleteRole } from "./actions";
 import { PERMISSION_CATALOG, SYSTEM_ROLE_CODES } from "@/lib/permissions";
 import type { Role } from "@/lib/types";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Props = { role: Role & { user_count: number } };
 
@@ -12,6 +13,7 @@ export function RoleCard({ role }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set(role.permissions));
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const confirm = useConfirm();
 
   const isOwner = role.code === "owner";
   const isSystem = role.is_system || SYSTEM_ROLE_CODES.includes(role.code);
@@ -175,19 +177,27 @@ export function RoleCard({ role }: Props) {
                 </div>
                 <div className="flex gap-2">
                   {!isSystem && (
-                    <form
-                      action={(fd) => start(async () => {
-                        setMsg(null);
-                        try { await deleteRole(fd); }
-                        catch (e) { setMsg({ tone: "err", text: e instanceof Error ? e.message : "Failed" }); }
-                      })}
-                      onSubmit={(e) => { if (!confirm(`Delete role "${role.name}"?`)) e.preventDefault(); }}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: "Delete role",
+                          message: `Delete role "${role.name}"?`,
+                          confirmLabel: "Delete",
+                          tone: "danger",
+                        });
+                        if (!ok) return;
+                        const fd = new FormData(); fd.set("id", role.id);
+                        start(async () => {
+                          setMsg(null);
+                          try { await deleteRole(fd); }
+                          catch (e) { setMsg({ tone: "err", text: e instanceof Error ? e.message : "Failed" }); }
+                        });
+                      }}
+                      className="px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md"
                     >
-                      <input type="hidden" name="id" value={role.id} />
-                      <button type="submit" className="px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md">
-                        Delete role
-                      </button>
-                    </form>
+                      Delete role
+                    </button>
                   )}
                   <button
                     onClick={save}
