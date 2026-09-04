@@ -396,7 +396,7 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
 
   const [{ data: companyList }, { data: existingVOs }, { data: partnerList }] = await Promise.all([
     supabase.from("companies").select("id, name").is("deleted_at", null),
-    supabase.from("virtual_offices").select("company_id, end_date, tier").is("deleted_at", null),
+    supabase.from("virtual_offices").select("id, company_id, end_date, tier, responsible_partner_id").is("deleted_at", null),
     supabase.from("partners").select("id, name").is("deleted_at", null),
   ]);
 
@@ -409,10 +409,14 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
     arr.push(c.id);
     companyIdsByName.set(k, arr);
   }
-  // Dup key = (company_id, tier, end_date). Same tenancy shouldn't import twice.
-  const existingKeys = new Set<string>();
-  for (const v of (existingVOs ?? []) as Array<{ company_id: string; end_date: string; tier: string }>) {
-    existingKeys.add(`${v.company_id}|${v.tier}|${v.end_date}`);
+  // Dup key = (company_id, tier, end_date). Same tenancy shouldn't import
+  // twice — but if it exists AND the existing row has no
+  // responsible_partner_id yet, we still resolve the partner from the sheet
+  // and back-fill it. Lets a second run finish setting up rows that were
+  // imported before the PJ column existed.
+  const existingByKey = new Map<string, { id: string; responsible_partner_id: string | null }>();
+  for (const v of (existingVOs ?? []) as Array<{ id: string; company_id: string; end_date: string; tier: string; responsible_partner_id: string | null }>) {
+    existingByKey.set(`${v.company_id}|${v.tier}|${v.end_date}`, { id: v.id, responsible_partner_id: v.responsible_partner_id });
   }
   const seenKeys = new Set<string>();
 
@@ -482,16 +486,11 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
     const term_months = Number(raw.term_months);
     const term = Number.isFinite(term_months) && term_months > 0 ? Math.floor(term_months) : 12;
 
-    const dupKey = `${company_id}|${tier}|${end_date}`;
-    if (existingKeys.has(dupKey) || seenKeys.has(dupKey)) {
-      results.push({ row: rowNum, outcome: "skipped_duplicate", reason: `${tier} ending ${end_date} already exists`, label: name });
-      continue;
-    }
-
     // Responsible partner: optional. Match by name; auto-create if the
     // partner isn't on file (defaults to type='referrer', which fits a PJ);
     // leave empty only when the name is ambiguous (two live partners same
-    // name) so we don't silently guess the wrong one.
+    // name) so we don't silently guess the wrong one. Runs BEFORE the dup
+    // check so we can back-fill a partner onto a VO that already exists.
     let responsible_partner_id: string | null = null;
     const respName = (raw.responsible_partner_name ?? "").trim();
     if (respName) {
@@ -513,6 +512,28 @@ export async function bulkImportVirtualOffices(rows: VirtualOfficeImportRow[]): 
         }
         // On error, silently leave empty — the VO row still imports.
       }
+    }
+
+    const dupKey = `${company_id}|${tier}|${end_date}`;
+    const dup = existingByKey.get(dupKey);
+    if (dup || seenKeys.has(dupKey)) {
+      // Back-fill the partner on an existing VO row if we resolved one and
+      // the row didn't have one yet. Otherwise it's a plain duplicate.
+      if (dup && responsible_partner_id && !dup.responsible_partner_id) {
+        const { error: upErr } = await supabase
+          .from("virtual_offices")
+          .update({ responsible_partner_id, updated_by: actorId })
+          .eq("id", dup.id);
+        if (upErr) {
+          results.push({ row: rowNum, outcome: "error", reason: `couldn't set PJ: ${upErr.message}`, label: name });
+        } else {
+          results.push({ row: rowNum, outcome: "created", reason: "PJ back-filled on existing row", label: name });
+          dup.responsible_partner_id = responsible_partner_id;
+        }
+      } else {
+        results.push({ row: rowNum, outcome: "skipped_duplicate", reason: `${tier} ending ${end_date} already exists`, label: name });
+      }
+      continue;
     }
 
     const { error } = await supabase.from("virtual_offices").insert({
