@@ -10,6 +10,7 @@ type Mode = "create" | "edit";
 
 export type CompanyRoleOption = { code: string; label_en: string };
 export type ExistingClientOption = { id: string; code: string; full_name: string };
+export type PartnerOption = { id: string; code: string; name: string };
 
 type PersonRow = {
   uid: string;
@@ -41,6 +42,7 @@ export function CompanyForm({
   submitLabel,
   roles = [],
   existingClients = [],
+  partners = [],
 }: {
   mode: Mode;
   company?: Partial<Company>;
@@ -49,6 +51,7 @@ export function CompanyForm({
   submitLabel?: string;
   roles?: CompanyRoleOption[];
   existingClients?: ExistingClientOption[];
+  partners?: PartnerOption[];
 }) {
   const { t } = useT();
   const [pending, start] = useTransition();
@@ -146,6 +149,21 @@ export function CompanyForm({
                 placeholder={t("form.placeholder.drive_url")}
                 className={cellInput}
               />
+            </Row>
+          </Section>
+
+          <Section title={t("section.relationship")}>
+            <Row label={t("field.introduced_by")}>
+              <select
+                name="introduced_by_partner_id"
+                defaultValue={company?.introduced_by_partner_id ?? ""}
+                className={cellInput + " bg-transparent"}
+              >
+                <option value="">{t("form.dash")}</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                ))}
+              </select>
             </Row>
           </Section>
         </>

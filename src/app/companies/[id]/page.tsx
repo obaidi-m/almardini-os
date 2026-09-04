@@ -15,10 +15,10 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
 
   await expireOverdueVirtualOffices(supabase);
 
-  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }] = await Promise.all([
+  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }, { data: partnersData }] = await Promise.all([
     supabase
       .from("companies")
-      .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, deleted_at, created_at, updated_at")
+      .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, introduced_by_partner_id, deleted_at, created_at, updated_at, introduced_by:partners!companies_introduced_by_fk(id, name, code)")
       .eq("id", params.id)
       .maybeSingle(),
     supabase
@@ -51,6 +51,12 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .eq("company_id", params.id)
       .is("deleted_at", null)
       .order("end_date", { ascending: false }),
+    supabase
+      .from("partners")
+      .select("id, code, name")
+      .is("deleted_at", null)
+      .order("name")
+      .limit(500),
   ]);
 
   if (error) {
@@ -62,7 +68,9 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   }
   if (!company) notFound();
 
-  const c = company as Company;
+  const raw = company as Company & { introduced_by?: { id: string; name: string; code: string }[] | { id: string; name: string; code: string } | null };
+  const introducedBy = Array.isArray(raw.introduced_by) ? raw.introduced_by[0] ?? null : raw.introduced_by ?? null;
+  const c: Company = { ...raw, introduced_by: introducedBy };
 
   const rawLinks = (links as unknown as Array<{ role: string; client: { id: string; code: string; full_name: string }[] | { id: string; code: string; full_name: string } | null }>) ?? [];
   const linkedClients: LinkedClient[] = rawLinks.map((l) => ({
@@ -123,6 +131,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
         cases={cases}
         virtualOffices={(vosRaw as VirtualOffice[]) ?? []}
+        partners={(partnersData as Array<{ id: string; code: string; name: string }>) ?? []}
       />
     </div>
   );

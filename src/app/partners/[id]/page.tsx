@@ -19,7 +19,7 @@ const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: strin
 export default async function PartnerDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: partner, error }, { data: introducedClients }, { data: casesRaw }] = await Promise.all([
+  const [{ data: partner, error }, { data: introducedClients }, { data: introducedCompanies }, { data: casesRaw }] = await Promise.all([
     supabase
       .from("partners")
       .select("id, code, name, type, contact_person, phone, email, notes, deleted_at, created_at, updated_at")
@@ -28,6 +28,13 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
     supabase
       .from("clients")
       .select("id, code, full_name")
+      .eq("introduced_by_partner_id", params.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("companies")
+      .select("id, code, name")
       .eq("introduced_by_partner_id", params.id)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -55,6 +62,7 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
 
   const p = partner as Partner;
   const clients = (introducedClients as Array<{ id: string; code: string; full_name: string }>) ?? [];
+  const companies = (introducedCompanies as Array<{ id: string; code: string; name: string }>) ?? [];
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
   const cases = ((casesRaw as unknown as Array<{
@@ -104,7 +112,7 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
         {p.email && <><span className="mx-2 opacity-40">·</span><span>{p.email}</span></>}
       </p>
 
-      <PartnerDetail partner={p} introducedClients={clients} cases={cases} />
+      <PartnerDetail partner={p} introducedClients={clients} introducedCompanies={companies} cases={cases} />
     </div>
   );
 }

@@ -26,6 +26,7 @@ type CompanyPayload = {
   address: string | null;
   drive_folder_url: string | null;
   notes: string | null;
+  introduced_by_partner_id: string | null;
 };
 
 async function parseForm(fd: FormData): Promise<CompanyPayload> {
@@ -38,6 +39,7 @@ async function parseForm(fd: FormData): Promise<CompanyPayload> {
     address: str(fd, "address"),
     drive_folder_url: str(fd, "drive_folder_url"),
     notes: str(fd, "notes"),
+    introduced_by_partner_id: str(fd, "introduced_by_partner_id"),
   };
 }
 

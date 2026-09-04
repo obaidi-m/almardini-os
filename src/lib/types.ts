@@ -64,9 +64,11 @@ export type Company = {
   address: string | null;
   drive_folder_url: string | null;
   notes: string | null;
+  introduced_by_partner_id: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  introduced_by?: { id: string; name: string; code: string } | null;
 };
 
 /** Company roles are stored in the `company_roles` table, editable from

@@ -42,8 +42,10 @@ const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }>
   delivered:   { bg: "bg-[var(--surface-2)]", text: "text-[var(--muted)]", dot: "bg-[var(--muted)]" },
 };
 
+type PartnerOpt = { id: string; code: string; name: string };
+
 export function CompanyDetail({
-  company, linkedClients, allClients, roles, cases, virtualOffices,
+  company, linkedClients, allClients, roles, cases, virtualOffices, partners = [],
 }: {
   company: Company;
   linkedClients: LinkedClient[];
@@ -51,6 +53,7 @@ export function CompanyDetail({
   roles: Role[];
   cases: CompanyCase[];
   virtualOffices: VirtualOffice[];
+  partners?: PartnerOpt[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -129,6 +132,17 @@ export function CompanyDetail({
           <Card title={t("section.identity")}>
             <FieldRow label={t("field.nib")} value={company.nib ? <span className="font-mono text-[13px]">{company.nib}</span> : null} />
             <FieldRow label={t("field.incorporation_date")} value={fmtDate(company.incorporation_date)} />
+            <FieldRow
+              label={t("field.introduced_by")}
+              value={company.introduced_by ? (
+                <Link href={`/partners/${company.introduced_by.id}`} className="text-brand hover:text-brand-dark font-medium">
+                  {company.introduced_by.name}
+                  <span className="ml-2 font-mono text-[10.5px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">
+                    {company.introduced_by.code}
+                  </span>
+                </Link>
+              ) : null}
+            />
           </Card>
 
           <Card title={t("section.address")}>
@@ -217,6 +231,7 @@ export function CompanyDetail({
         <CompanyForm
           mode="edit"
           company={company}
+          partners={partners}
           action={async (fd) => { await updateCompanyAction(fd); setEditing(false); }}
           onCancel={() => setEditing(false)}
         />

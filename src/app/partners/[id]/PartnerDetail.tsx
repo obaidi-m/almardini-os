@@ -36,10 +36,11 @@ const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }>
 };
 
 export function PartnerDetail({
-  partner, introducedClients, cases,
+  partner, introducedClients, introducedCompanies = [], cases,
 }: {
   partner: Partner;
   introducedClients: Array<{ id: string; code: string; full_name: string }>;
+  introducedCompanies?: Array<{ id: string; code: string; name: string }>;
   cases: PartnerCase[];
 }) {
   const [editing, setEditing] = useState(false);
@@ -147,6 +148,27 @@ export function PartnerDetail({
                       </span>
                       <span className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark">
                         {c.full_name}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card title="Related companies" count={introducedCompanies.length} padded>
+            {introducedCompanies.length === 0 ? (
+              <p className="text-[12.5px] text-[var(--muted)]">No companies yet from this partner.</p>
+            ) : (
+              <ul className="divide-y divide-[var(--border)] -mx-1">
+                {introducedCompanies.map((c) => (
+                  <li key={c.id} className="px-1 py-2.5">
+                    <Link href={`/companies/${c.id}`} className="grid grid-cols-[auto_1fr] gap-3 items-center group">
+                      <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded justify-self-start">
+                        {c.code}
+                      </span>
+                      <span className="text-[13.5px] text-ink font-medium truncate group-hover:text-brand-dark">
+                        {c.name}
                       </span>
                     </Link>
                   </li>
