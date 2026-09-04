@@ -3,6 +3,7 @@ import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { DetailsAutoClose } from "@/components/app/DetailsAutoClose";
+import { ConfirmProvider } from "@/components/ui/ConfirmProvider";
 
 export const metadata: Metadata = {
   title: "Almardini · Operations",
@@ -14,7 +15,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale}>
       <body>
-        <LocaleProvider locale={locale}>{children}</LocaleProvider>
+        <LocaleProvider locale={locale}>
+          <ConfirmProvider>{children}</ConfirmProvider>
+        </LocaleProvider>
         <DetailsAutoClose />
       </body>
     </html>

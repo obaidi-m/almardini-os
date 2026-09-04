@@ -14,7 +14,9 @@ export function DetailsAutoClose() {
       // Close any open <details> that does not contain the click target.
       // Native <details> closes on second summary click; this only closes
       // the ones the user has moved on from.
-      const open = document.querySelectorAll<HTMLDetailsElement>("details[open]");
+      // Skip elements opted out with data-persist — content panels that
+      // should stay open until the user actively collapses them.
+      const open = document.querySelectorAll<HTMLDetailsElement>("details[open]:not([data-persist])");
       for (const el of open) {
         if (target && el.contains(target)) continue;
         el.open = false;
@@ -22,7 +24,7 @@ export function DetailsAutoClose() {
     }
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      const open = document.querySelectorAll<HTMLDetailsElement>("details[open]");
+      const open = document.querySelectorAll<HTMLDetailsElement>("details[open]:not([data-persist])");
       for (const el of open) el.open = false;
     }
     document.addEventListener("mousedown", onDocClick);

@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { DateInput } from "@/components/ui/DateInput";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { Spinner } from "@/components/ui/Spinner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 import {
   createVirtualOfficeAction,
   updateVirtualOfficeAction,
@@ -154,6 +155,7 @@ function VORow({
   pending: boolean;
   historic?: boolean;
 }) {
+  const confirm = useConfirm();
   const pill = STATUS_PILL[vo.status];
   const days = vo.status === "active" ? daysLabel(vo.end_date) : null;
 
@@ -187,44 +189,49 @@ function VORow({
           </button>
           {!historic && vo.status === "active" && (
             <>
-              <form
-                action={(fd) => {
+              <button
+                type="button"
+                disabled={pending}
+                onClick={async () => {
                   onFlash(null);
-                  if (!confirm("Renew this virtual office for the next term?")) return;
+                  const ok = await confirm({
+                    title: "Renew virtual office",
+                    message: "Open a new tenancy for the next term? The current one will be marked expired.",
+                    confirmLabel: "Renew",
+                  });
+                  if (!ok) return;
+                  const fd = new FormData(); fd.set("id", vo.id);
                   start(async () => {
                     try { await renewVirtualOfficeAction(fd); }
                     catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
                   });
                 }}
+                className="text-[11.5px] font-medium text-brand hover:text-brand-dark disabled:opacity-50"
               >
-                <input type="hidden" name="id" value={vo.id} />
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="text-[11.5px] font-medium text-brand hover:text-brand-dark disabled:opacity-50"
-                >
-                  renew
-                </button>
-              </form>
-              <form
-                action={(fd) => {
+                renew
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={async () => {
                   onFlash(null);
-                  if (!confirm("Terminate this virtual office?")) return;
+                  const ok = await confirm({
+                    title: "Terminate virtual office",
+                    message: "This ends the tenancy early. The row stays in history but is no longer active.",
+                    confirmLabel: "Terminate",
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                  const fd = new FormData(); fd.set("id", vo.id);
                   start(async () => {
                     try { await terminateVirtualOfficeAction(fd); }
                     catch (e) { onFlash(e instanceof Error ? e.message : "Failed"); }
                   });
                 }}
+                className="text-[11.5px] text-red-700 hover:underline disabled:opacity-50"
               >
-                <input type="hidden" name="id" value={vo.id} />
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="text-[11.5px] text-red-700 hover:underline disabled:opacity-50"
-                >
-                  terminate
-                </button>
-              </form>
+                terminate
+              </button>
             </>
           )}
         </div>
@@ -246,6 +253,7 @@ export function VOForm({
   onError: (msg: string | null) => void;
 }) {
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
   const [termMonths, setTermMonths] = useState<number>(existing?.term_months ?? 12);
   const [startDate, setStartDate] = useState<string>(existing?.start_date ?? "");
   const [endDate, setEndDate] = useState<string>(existing?.end_date ?? "");
@@ -363,9 +371,15 @@ export function VOForm({
         {mode === "edit" && existing ? (
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               onError(null);
-              if (!confirm("Archive this virtual office record?")) return;
+              const ok = await confirm({
+                title: "Archive virtual office",
+                message: `Archive this record for ${existing.tier.charAt(0).toUpperCase() + existing.tier.slice(1)} · ${existing.term_months}mo? This is a soft delete — nothing is lost, and it stops appearing in views.`,
+                confirmLabel: "Archive",
+                tone: "danger",
+              });
+              if (!ok) return;
               const fd = new FormData();
               fd.set("id", existing.id);
               start(async () => {
