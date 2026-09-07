@@ -46,9 +46,9 @@ export function cadenceDays(svc: ServiceSchedule): number {
 
 export function leadDaysForService(svc: ServiceSchedule): number {
   const c = cadenceDays(svc);
-  if (c >= 300) return 90;
-  if (c >=  60) return 30;
-  return 10;
+  if (c >= 300) return 60;  // annual
+  if (c >=  60) return 20;  // quarterly
+  return 10;                // monthly / short
 }
 
 export function daysUntil(iso: string): number {
@@ -65,6 +65,68 @@ export function renewalTier(expiresAtIso: string | null, svc: ServiceSchedule): 
   if (n < 0) return "overdue";
   if (n <= leadDaysForService(svc)) return "due_soon";
   return "later";
+}
+
+/** Set of service_ids whose reminder should be SUPPRESSED because a case
+ *  for that service on this entity was already opened inside the current
+ *  reminder window. Any case status counts (new / in_progress / done /
+ *  delivered) — the case's existence is the receipt that "we're handling
+ *  this cycle." When the next cycle rolls in, the old case falls outside
+ *  the new window and the reminder re-arms automatically.
+ *
+ *  Feed it every case for the entity — the service_id + created_at + the
+ *  service's schedule fields. Returns a plain string[] so it crosses the
+ *  server/client boundary. */
+export function handledServiceIdsFromCases(
+  cases: Array<{ service_id: string | null; created_at: string; service: ServiceSchedule }>,
+): string[] {
+  const out = new Set<string>();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const c of cases) {
+    if (!c.service_id || !c.service) continue;
+    const next = effectiveExpiryDate(null, c.service);
+    if (!next) continue;
+    const lead = leadDaysForService(c.service);
+    const windowStart = new Date(next + "T00:00:00");
+    windowStart.setDate(windowStart.getDate() - lead);
+    const created = new Date(c.created_at);
+    if (created >= windowStart) out.add(c.service_id);
+  }
+  return [...out];
+}
+
+/** True when today is inside the service's reminder window for its next
+ *  scheduled occurrence — i.e. between (nextOccurrence - leadDays) and
+ *  nextOccurrence itself. Used by the company/client Services card to show
+ *  the simple "⏰ time for this service" line on ongoing subscriptions
+ *  without tracking cycles or spawning cases. */
+export function isInReminderWindow(svc: ServiceSchedule): boolean {
+  if (!svc) return false;
+  const next = effectiveExpiryDate(null, svc);
+  if (!next) return false;
+  const n = daysUntil(next);
+  return n >= 0 && n <= leadDaysForService(svc);
+}
+
+/** Date to reason about for renewal urgency:
+ *  - If `expires_date` is set (one-off, or a stamped subscription cycle), use it.
+ *  - Else, for recurring services (annual_fixed / quarterly_fixed), compute
+ *    the next scheduled occurrence. This is how ongoing subscriptions —
+ *    which never stamp expires_date — still surface 90d/30d before their
+ *    next cycle. Returns null when there is nothing to count toward. */
+export function effectiveExpiryDate(
+  expiresDate: string | null,
+  svc: ServiceSchedule,
+): string | null {
+  if (expiresDate) return expiresDate;
+  if (!svc) return null;
+  if (svc.schedule_kind === "annual_fixed" && svc.annual_month && svc.annual_day) {
+    return nextAnnualOccurrence(svc.annual_month, svc.annual_day);
+  }
+  if (svc.schedule_kind === "quarterly_fixed" && svc.quarterly_day && svc.quarterly_months?.length) {
+    return nextQuarterlyOccurrence(svc.quarterly_day, svc.quarterly_months);
+  }
+  return null;
 }
 
 /* ------- Calendar-fixed next-occurrence helpers ------- */

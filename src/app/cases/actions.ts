@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { CaseStatus, CasePriority } from "@/lib/types";
-import { computeNextExpiry, serviceRepeats, type ServiceSchedule } from "@/lib/renewal";
+import { computeNextExpiry, type ServiceSchedule } from "@/lib/renewal";
 
 async function requireUser() {
   const supabase = createClient();
@@ -48,62 +48,6 @@ async function autoFillExpiresOnDone(
   return iso;
 }
 
-/** When a calendar-fixed case is Delivered, open a fresh sibling case for
- *  the next filing period. deadline = the previous case's expires_at
- *  (which was itself computed from the calendar rule on Done). No-op for
- *  one-off services, and skipped if a successor already exists so that a
- *  re-deliver of the same case doesn't double-spawn. */
-async function spawnNextRecurringCase(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  actorId: string,
-  case_id: string,
-): Promise<void> {
-  const { data: c } = await supabase
-    .from("cases")
-    .select(`client_id, company_id, service_type_id, assigned_to, priority, title, expires_at, service:service_types(${SCHEDULE_SELECT})`)
-    .eq("id", case_id)
-    .single();
-  if (!c) return;
-  const svc = (Array.isArray(c.service) ? c.service[0] : c.service) as ServiceSchedule;
-  if (!serviceRepeats(svc)) return;
-
-  // Skip if a non-delivered successor for the same service+entity already
-  // exists — covers re-deliver, reopen-then-redeliver, and any manual
-  // creation the operator already did for the next cycle.
-  const { data: existing } = await supabase
-    .from("cases")
-    .select("id")
-    .eq("service_type_id", c.service_type_id)
-    .eq(c.client_id ? "client_id" : "company_id", (c.client_id ?? c.company_id) as string)
-    .neq("id", case_id)
-    .is("deleted_at", null)
-    .neq("status", "delivered")
-    .limit(1);
-  if (existing && existing.length > 0) return;
-
-  // The successor is the NEXT cycle, so anchor the calculation one day
-  // past the cycle we just closed. Without this, an annual service whose
-  // expires_at is e.g. 2026-09-30 would spawn a successor also dated
-  // 2026-09-30 instead of 2027-09-30.
-  const anchor = c.expires_at
-    ? new Date(new Date(c.expires_at + "T00:00:00").getTime() + 86_400_000)
-    : new Date();
-  const nextDeadline = computeNextExpiry(svc, anchor);
-  if (!nextDeadline) return;
-
-  const { error } = await supabase.from("cases").insert({
-    client_id: c.client_id,
-    company_id: c.company_id,
-    service_type_id: c.service_type_id,
-    assigned_to: c.assigned_to,
-    priority: c.priority,
-    title: c.title,
-    deadline: nextDeadline,
-    created_by: actorId,
-    updated_by: actorId,
-  });
-  if (error) throw new Error(error.message);
-}
 const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
 
 type CasePayload = {
@@ -243,9 +187,6 @@ export async function setCaseStatusAction(fd: FormData) {
   if (newStatus === "done" && currentStatus !== "done") {
     await autoFillExpiresOnDone(supabase, case_id);
   }
-  if (newStatus === "delivered" && currentStatus !== "delivered") {
-    await spawnNextRecurringCase(supabase, actorId, case_id);
-  }
 
   revalidatePath(`/cases/${case_id}`);
   revalidatePath("/cases");
@@ -293,9 +234,6 @@ export async function addCaseUpdateAction(fd: FormData) {
     if (newStatus === "done" && currentStatus !== "done") {
       await autoFillExpiresOnDone(supabase, case_id);
     }
-    if (newStatus === "delivered" && currentStatus !== "delivered") {
-      await spawnNextRecurringCase(supabase, actorId, case_id);
-    }
   }
 
   revalidatePath(`/cases/${case_id}`);
@@ -329,8 +267,6 @@ export async function deliverCaseAction(fd: FormData) {
     .update({ status: "delivered", updated_by: actorId })
     .eq("id", case_id);
   if (statusError) throw new Error(statusError.message);
-
-  await spawnNextRecurringCase(supabase, actorId, case_id);
 
   revalidatePath(`/cases/${case_id}`);
   revalidatePath("/cases");

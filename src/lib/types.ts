@@ -165,7 +165,13 @@ export type EntityService = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  service?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing"> | null;
+  service?: Pick<
+    ServiceType,
+    | "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing"
+    | "schedule_kind" | "annual_month" | "annual_day"
+    | "quarterly_day" | "quarterly_months"
+    | "validity_amount" | "validity_unit"
+  > | null;
   sponsor?: { id: string; name: string; code: string } | null;
   responsible?: { id: string; name: string; code: string } | null;
 };

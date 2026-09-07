@@ -6,7 +6,7 @@ import { OpsSidebar } from "@/components/app/OpsSidebar";
 import { getT } from "@/lib/i18n/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { renewalTier } from "@/lib/renewal";
+import { effectiveExpiryDate, renewalTier } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { serviceLabel } from "@/lib/service";
 
@@ -133,10 +133,8 @@ export default async function DashboardPage() {
       `)
       .is("deleted_at", null)
       .eq("status", "active")
-      .not("expires_date", "is", null)
-      .lte("expires_date", in90Iso)
-      .order("expires_date", { ascending: true })
-      .limit(100),
+      .order("expires_date", { ascending: true, nullsFirst: false })
+      .limit(500),
     // For the attention panel: all active cases (owner-like only)
     isOwnerLike
       ? supabase
@@ -179,24 +177,30 @@ export default async function DashboardPage() {
   // Renewals side panel: every active subscription expiring in the next
   // 90 days, sorted by soonest. No per-service tier filter — the pill
   // colors already grade urgency for the eye.
+  type ExpSvc = { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null };
   const renewals: Renewal[] = ((expiringSubsRes.data ?? []) as Array<{
-    id: string; expires_date: string;
+    id: string; expires_date: string | null;
     client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
     company: { id: string; name: string }[]      | { id: string; name: string }      | null;
-    service: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
-  }>).map((r) => {
+    service: ExpSvc[] | ExpSvc | null;
+  }>).flatMap((r) => {
     const cli = unwrap(r.client);
     const cmp = unwrap(r.company);
     const svc = unwrap(r.service);
+    // Ongoing subs have no expires_date; fall back to the service's next
+    // scheduled occurrence so annual/quarterly subscriptions surface ahead
+    // of their next cycle without needing a case per company per cycle.
+    const effective = effectiveExpiryDate(r.expires_date, svc);
+    if (!effective || effective > in90Iso) return [];
     const owner = cli?.full_name ?? cmp?.name ?? "?";
     const label = `${owner} — ${svc?.name ?? "Subscription"}`;
     const href  = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : "/renewals";
-    return {
+    return [{
       kind: cli ? ("case_expiry" as const) : ("vo_expiry" as const),
       label,
-      expires_at: r.expires_date,
+      expires_at: effective,
       href,
-    };
+    }];
   });
 
   renewals.sort((a, b) => a.expires_at.localeCompare(b.expires_at));

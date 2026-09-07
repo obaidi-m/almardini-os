@@ -35,7 +35,7 @@ type CompanyOption = { id: string; code: string; name: string };
 
 export function ClientDetail({
   client, partners, linkedCompanies, allCompanies, roles, cases,
-  entityServices = [], catalog = [],
+  entityServices = [], catalog = [], handledServiceIds = [],
 }: {
   client: Client;
   partners: Pick<Partner, "id" | "name" | "code">[];
@@ -45,6 +45,7 @@ export function ClientDetail({
   cases: CaseSummary[];
   entityServices?: EntityService[];
   catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
+  handledServiceIds?: string[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -187,6 +188,7 @@ export function ClientDetail({
             catalog={catalog}
             companies={allCompanies}
             partners={partners.map((p) => ({ id: p.id, code: p.code, name: p.name }))}
+            handledServiceIds={handledServiceIds}
           />
 
           <Card

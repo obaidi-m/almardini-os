@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Company, EntityService, ServiceType } from "@/lib/types";
+import { handledServiceIdsFromCases, type ServiceSchedule } from "@/lib/renewal";
 import { CompanyDetail } from "./CompanyDetail";
 
 type LinkedClient = {
@@ -35,7 +36,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .order("sort_order"),
     supabase
       .from("cases")
-      .select(`id, code, title, status, priority, deadline, expires_at, updated_at,
+      .select(`id, code, title, status, priority, deadline, expires_at, created_at, updated_at,
                client:clients(id, full_name),
                service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)`)
       .eq("company_id", params.id)
@@ -50,7 +51,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .limit(500),
     supabase
       .from("entity_services")
-      .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
+      .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
       .eq("company_id", params.id)
       .is("deleted_at", null)
       .order("status")
@@ -85,19 +86,25 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   const clients = (allClients as Array<{ id: string; code: string; full_name: string }>) ?? [];
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
-  const cases = ((casesRaw as unknown as Array<{
+  const casesFull = ((casesRaw as unknown as Array<{
     id: string; code: string; title: string | null;
     status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority;
-    deadline: string | null; expires_at: string | null; updated_at: string;
+    deadline: string | null; expires_at: string | null; created_at: string; updated_at: string;
     client: { id: string; full_name: string } | { id: string; full_name: string }[] | null;
     service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | null;
   }>) ?? []).map((row) => ({
-    id: row.id, code: row.code, title: row.title,
-    status: row.status, priority: row.priority,
-    deadline: row.deadline, expires_at: row.expires_at, updated_at: row.updated_at,
+    ...row,
     client: unwrap(row.client),
     service: unwrap(row.service),
   }));
+  const cases = casesFull.map(({ created_at: _created_at, ...rest }) => rest);
+  const handledServiceIds = handledServiceIdsFromCases(
+    casesFull.map((c) => ({
+      service_id: c.service?.id ?? null,
+      created_at: c.created_at,
+      service: c.service as ServiceSchedule,
+    })),
+  );
 
   return (
     <div className="max-w-[1200px]">
@@ -146,6 +153,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
           responsible: Array.isArray(r.responsible) ? r.responsible[0] ?? null : r.responsible ?? null,
         }))}
         catalog={(catalogRaw as Array<Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">>) ?? []}
+        handledServiceIds={handledServiceIds}
       />
     </div>
   );

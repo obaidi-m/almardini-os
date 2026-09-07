@@ -45,7 +45,7 @@ type PartnerOpt = { id: string; code: string; name: string };
 
 export function CompanyDetail({
   company, linkedClients, allClients, roles, cases, partners = [],
-  entityServices = [], catalog = [],
+  entityServices = [], catalog = [], handledServiceIds = [],
 }: {
   company: Company;
   linkedClients: LinkedClient[];
@@ -55,6 +55,7 @@ export function CompanyDetail({
   partners?: PartnerOpt[];
   entityServices?: EntityService[];
   catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
+  handledServiceIds?: string[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -197,6 +198,7 @@ export function CompanyDetail({
             services={entityServices}
             catalog={catalog}
             partners={partners}
+            handledServiceIds={handledServiceIds}
           />
 
           <Card

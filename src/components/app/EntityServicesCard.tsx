@@ -5,6 +5,7 @@ import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/type
 import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { isInReminderWindow } from "@/lib/renewal";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -24,13 +25,14 @@ type PartnerOpt = { id: string; code: string; name: string };
 type Owner = { kind: "client"; id: string } | { kind: "company"; id: string };
 
 export function EntityServicesCard({
-  owner, services, catalog, companies = [], partners = [],
+  owner, services, catalog, companies = [], partners = [], handledServiceIds = [],
 }: {
   owner: Owner;
   services: EntityService[];
   catalog: CatalogService[];
   companies?: CompanyOpt[];
   partners?: PartnerOpt[];
+  handledServiceIds?: string[];
 }) {
   const { t } = useT();
   const [creating, setCreating] = useState(false);
@@ -76,7 +78,11 @@ export function EntityServicesCard({
         <ul className="divide-y divide-[var(--border)] -mx-1">
           {[...active, ...other].map((row) => (
             <li key={row.id}>
-              <ServiceRow row={row} onEdit={() => setEditing(row)} />
+              <ServiceRow
+                row={row}
+                handled={handledServiceIds.includes(row.service_id)}
+                onEdit={() => setEditing(row)}
+              />
             </li>
           ))}
         </ul>
@@ -122,7 +128,7 @@ export function EntityServicesCard({
 
 /* ============ Row ============ */
 
-function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void }) {
+function ServiceRow({ row, handled, onEdit }: { row: EntityService; handled: boolean; onEdit: () => void }) {
   const { t } = useT();
   const [pending, start] = useTransition();
   const confirm = useConfirm();
@@ -156,6 +162,11 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
             </>
           )}
         </div>
+        {row.status === "active" && !handled && isInReminderWindow(svc ?? null) && (
+          <div className="text-[11.5px] font-medium text-amber-700 mt-0.5">
+            {t("services.row.due_now")}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <button

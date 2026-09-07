@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { daysUntil, renewalTier, type ServiceSchedule } from "@/lib/renewal";
+import { daysUntil, effectiveExpiryDate, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
@@ -80,27 +80,31 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
     `)
     .is("deleted_at", null)
     .eq("status", "active")
-    .not("expires_date", "is", null)
-    .order("expires_date", { ascending: true });
+    .order("expires_date", { ascending: true, nullsFirst: false });
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
   type SvcFull = NonNullable<ServiceSchedule> & { id: string; code: string | null; name: string | null };
   const rows: Row[] = ((subsRes ?? []) as Array<{
-    id: string; expires_date: string; tier: string | null; term_months: number | null; status: string;
+    id: string; expires_date: string | null; tier: string | null; term_months: number | null; status: string;
     client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
     company: { id: string; name: string }[]      | { id: string; name: string }      | null;
     service: SvcFull[] | SvcFull | null;
-  }>).map((r) => {
+  }>).flatMap((r) => {
     const cli = unwrap(r.client);
     const cmp = unwrap(r.company);
     const svc = unwrap(r.service);
+    // Ongoing subs never stamp expires_date; fall back to the service's next
+    // scheduled occurrence so annual/quarterly subscriptions surface 90d/30d
+    // ahead without needing a case per company per cycle.
+    const effective = effectiveExpiryDate(r.expires_date, svc);
+    if (!effective) return [];
     const ownerKind: "person" | "company" = cli ? "person" : "company";
     const owner = cli?.full_name ?? cmp?.name ?? "?";
     const ownerHref = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : null;
 
-    const tier = renewalTier(r.expires_date, svc);
+    const tier = renewalTier(effective, svc);
     const bucket: Row["bucket"] =
       tier === "overdue" ? "overdue" : tier === "due_soon" ? "renew_soon" : "later";
 
@@ -112,18 +116,18 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
         ? `valid ${svc.validity_amount}${svc.validity_unit[0]}`
         : "";
 
-    return {
+    return [{
       key: r.id,
       ownerKind,
       code: svc?.code ?? "",
       title: svc?.name ?? "Subscription",
       owner, ownerHref,
       href: ownerHref ?? "/",
-      expires_at: r.expires_date,
-      daysLeft: daysUntil(r.expires_date),
+      expires_at: effective,
+      daysLeft: daysUntil(effective),
       bucket,
       badge,
-    };
+    }];
   });
 
   const bucketOrder: Record<Row["bucket"], number> = { overdue: 0, renew_soon: 1, later: 2 };

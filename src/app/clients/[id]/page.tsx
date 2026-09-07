@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Client, EntityService, Partner, ServiceType } from "@/lib/types";
+import { handledServiceIdsFromCases, type ServiceSchedule } from "@/lib/renewal";
 import { ClientDetail } from "./ClientDetail";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
@@ -33,14 +34,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       .order("sort_order"),
     supabase
       .from("cases")
-      .select("id, code, title, status, priority, expires_at, service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+      .select("id, code, title, status, priority, expires_at, created_at, service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
       .eq("client_id", params.id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50),
     supabase
       .from("entity_services")
-      .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
+      .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
       .eq("client_id", params.id)
       .is("deleted_at", null)
       .order("status")
@@ -74,6 +75,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     company: Array.isArray(l.company) ? l.company[0] ?? null : l.company,
   }));
   const companies = (allCompanies as Array<{ id: string; code: string; name: string }>) ?? [];
+
+  const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
+  const handledServiceIds = handledServiceIdsFromCases(
+    ((caseRows as unknown as Array<{ created_at: string; service: unknown }>) ?? []).map((c) => {
+      const svc = unwrap(c.service as { id: string } | { id: string }[] | null) as (ServiceSchedule & { id?: string }) | null;
+      return {
+        service_id: svc?.id ?? null,
+        created_at: c.created_at,
+        service: svc as ServiceSchedule,
+      };
+    }),
+  );
 
   return (
     <div className="max-w-[1200px]">
@@ -125,6 +138,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           responsible: Array.isArray(r.responsible) ? r.responsible[0] ?? null : r.responsible ?? null,
         }))}
         catalog={(catalogRaw as Array<Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">>) ?? []}
+        handledServiceIds={handledServiceIds}
       />
     </div>
   );
