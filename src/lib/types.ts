@@ -177,6 +177,9 @@ export type ServiceType = {
   validity_amount: number | null;
   validity_unit: "days" | "months" | "years" | null;
   has_deliverable: boolean;
+  applies_to: "person" | "company" | "either";
+  tracks_expiry: boolean;
+  is_ongoing: boolean;
   is_active: boolean;
   sort_order: number;
   created_at: string;

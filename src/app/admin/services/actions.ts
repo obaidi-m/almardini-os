@@ -82,6 +82,14 @@ function parseSchedule(fd: FormData): ScheduleFields {
   return zero;
 }
 
+const APPLIES_TO = ["person", "company", "either"] as const;
+type AppliesTo = (typeof APPLIES_TO)[number];
+
+function parseAppliesTo(fd: FormData): AppliesTo {
+  const raw = String(fd.get("applies_to") || "either");
+  return (APPLIES_TO as readonly string[]).includes(raw) ? (raw as AppliesTo) : "either";
+}
+
 export async function createService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
 
@@ -91,6 +99,9 @@ export async function createService(formData: FormData) {
   const duration = String(formData.get("duration") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;
   const has_deliverable = formData.getAll("has_deliverable").pop() === "true";
+  const applies_to = parseAppliesTo(formData);
+  const tracks_expiry = String(formData.get("tracks_expiry") || "false") === "true";
+  const is_ongoing = String(formData.get("is_ongoing") || "false") === "true";
   const schedule = parseSchedule(formData);
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
@@ -99,7 +110,12 @@ export async function createService(formData: FormData) {
 
   const { data, error } = await supabase
     .from("service_types")
-    .insert({ code, name, category_id, duration, description, ...schedule, validity_amount, validity_unit, has_deliverable, created_by: actorId })
+    .insert({
+      code, name, category_id, duration, description,
+      applies_to, tracks_expiry, is_ongoing,
+      ...schedule, validity_amount, validity_unit, has_deliverable,
+      created_by: actorId,
+    })
     .select("id, name, code")
     .single();
   if (error) throw new Error(error.message);
@@ -120,6 +136,9 @@ export async function updateService(formData: FormData) {
     category_id: String(formData.get("category_id") || ""),
     duration: String(formData.get("duration") || "").trim() || null,
     description: String(formData.get("description") || "").trim() || null,
+    applies_to: parseAppliesTo(formData),
+    tracks_expiry: String(formData.get("tracks_expiry") || "false") === "true",
+    is_ongoing: String(formData.get("is_ongoing") || "false") === "true",
     ...schedule,
     validity_amount,
     validity_unit,

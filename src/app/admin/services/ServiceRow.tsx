@@ -5,9 +5,19 @@ import type { ServiceCategory, ServiceType } from "@/lib/types";
 import { ScheduleFields } from "./ScheduleFields";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 
+type Tracking = "none" | "expiry" | "ongoing";
+
+function initialTracking(s: ServiceType): Tracking {
+  if (s.is_ongoing) return "ongoing";
+  if (s.tracks_expiry) return "expiry";
+  return "none";
+}
+
 export function ServiceRow({ service, categories }: { service: ServiceType; categories: ServiceCategory[] }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
+  const [tracking, setTracking] = useState<Tracking>(initialTracking(service));
+  const [appliesTo, setAppliesTo] = useState<"person" | "company" | "either">(service.applies_to ?? "either");
   const confirm = useConfirm();
 
   if (editing) {
@@ -19,6 +29,9 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
             className="grid grid-cols-6 gap-3 items-end"
           >
             <input type="hidden" name="id" value={service.id} />
+            <input type="hidden" name="applies_to" value={appliesTo} />
+            <input type="hidden" name="tracks_expiry" value={tracking === "expiry" ? "true" : "false"} />
+            <input type="hidden" name="is_ongoing" value={tracking === "ongoing" ? "true" : "false"} />
             <Field label="Code (optional)">
               <input name="code" defaultValue={service.code ?? ""}
                 className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm uppercase" />
@@ -71,6 +84,46 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
                 (uncheck for services with no hand-off to the client)
               </span>
             </div>
+            <div className="col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
+              <div>
+                <div className="text-[10.5px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">Who is it for?</div>
+                <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
+                  {(["person", "company", "either"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAppliesTo(v)}
+                      className={`px-3 py-1 text-[12.5px] rounded-md capitalize ${
+                        appliesTo === v ? "bg-brand text-white font-medium" : "text-[var(--muted)] hover:text-ink"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">Type of tracking</div>
+                <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
+                  {([
+                    ["none", "One-off"],
+                    ["expiry", "Has an end date"],
+                    ["ongoing", "Ongoing"],
+                  ] as const).map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setTracking(v)}
+                      className={`px-3 py-1 text-[12.5px] rounded-md ${
+                        tracking === v ? "bg-brand text-white font-medium" : "text-[var(--muted)] hover:text-ink"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <div className="col-span-6">
               <ScheduleFields
                 initialKind={service.schedule_kind}
@@ -96,8 +149,23 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
     <tr className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]">
       <td className="px-5 py-3 font-mono text-[12px] text-[var(--muted)] tabular-nums">{service.code}</td>
       <td className="px-5 py-3">
-        <div className="font-medium text-ink flex items-center gap-1.5">
+        <div className="font-medium text-ink flex items-center gap-1.5 flex-wrap">
           {service.name}
+          {service.applies_to && service.applies_to !== "either" && (
+            <span className="text-[10px] font-medium text-[var(--muted)] bg-[var(--surface-muted)] border border-[var(--border)] px-1 py-0 rounded capitalize">
+              {service.applies_to}
+            </span>
+          )}
+          {service.tracks_expiry && (
+            <span className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0 rounded">
+              has expiry
+            </span>
+          )}
+          {service.is_ongoing && (
+            <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1 py-0 rounded">
+              ongoing
+            </span>
+          )}
           {service.has_deliverable === false && (
             <span className="text-[10px] font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1 py-0 rounded" title="Marks services with no physical/digital hand-off to the client">
               no deliverable
