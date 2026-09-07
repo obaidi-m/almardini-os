@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
+import { ExpiryPill } from "@/components/app/ExpiryPill";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -36,14 +37,6 @@ function daysUntil(iso: string): number {
   const d = new Date(iso + "T00:00:00");
   const t = new Date(); t.setHours(0, 0, 0, 0);
   return Math.floor((d.getTime() - t.getTime()) / 86_400_000);
-}
-function daysLabel(iso: string): { text: string; tone: string } {
-  const n = daysUntil(iso);
-  if (n < 0)   return { text: `${-n}d overdue`, tone: "text-red-700 font-semibold" };
-  if (n === 0) return { text: "today",          tone: "text-red-700 font-semibold" };
-  if (n <= 30) return { text: `in ${n}d`,       tone: "text-red-700 font-semibold" };
-  if (n <= 90) return { text: `in ${n}d`,       tone: "text-amber-700 font-semibold" };
-  return           { text: `in ${n}d`,          tone: "text-[var(--muted)]" };
 }
 function fmtDate(v: string | null | undefined): string {
   if (!v) return "—";
@@ -198,7 +191,6 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
         ) : (
           rows.map((vo) => {
             const p = STATUS_PILL[vo.status];
-            const days = vo.status === "active" ? daysLabel(vo.end_date) : null;
             return (
               <div
                 key={vo.id}
@@ -227,14 +219,10 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                 <div className="text-[var(--muted)]">{fmtDate(vo.start_date)}</div>
                 <div>{fmtDate(vo.end_date)}</div>
                 <div className="whitespace-nowrap">
-                  {vo.status === "active" && days ? (
-                    <span className={days.tone}>{days.text}</span>
-                  ) : vo.status === "expired" ? (
-                    <span className="text-[var(--muted)]">
-                      {(() => { const n = daysUntil(vo.end_date); return n < 0 ? `expired ${-n}d ago` : "expired"; })()}
-                    </span>
-                  ) : (
+                  {vo.status === "terminated" ? (
                     <span className="text-[var(--muted)]">—</span>
+                  ) : (
+                    <ExpiryPill expires={vo.end_date} />
                   )}
                 </div>
                 <div className="min-w-0">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { daysUntil, renewalTier, type ServiceSchedule } from "@/lib/renewal";
+import { ExpiryPill } from "@/components/app/ExpiryPill";
 
 type Filter = "all" | "renew_soon" | "overdue" | "later";
 type SearchParams = { filter?: string };
@@ -221,10 +222,10 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
                     <span className="text-[var(--muted)]">{r.owner}</span>
                   )}
                 </div>
-                <div className={`text-[12px] tabular-nums ${toneClass(r.bucket)}`}>
-                  {daysText(r.daysLeft)}
+                <div className="whitespace-nowrap">
+                  <ExpiryPill expires={r.expires_at} />
                 </div>
-                <div className={`text-[12px] font-mono ${toneClass(r.bucket)}`}>
+                <div className="text-[12px] font-mono text-[var(--muted)]">
                   {fmtDate(r.expires_at)}
                 </div>
               </div>

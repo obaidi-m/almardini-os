@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { renewalTier } from "@/lib/renewal";
+import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { serviceLabel } from "@/lib/service";
 import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
@@ -178,31 +179,28 @@ export default async function DashboardPage() {
   const counts: Record<CaseStatus, number> = { new: 0, in_progress: 0, done: 0, delivered: 0 };
   for (const r of (countsRes.data ?? []) as { status: CaseStatus }[]) counts[r.status] = (counts[r.status] ?? 0) + 1;
 
+  // Renewals side panel: every active subscription expiring in the next
+  // 90 days, sorted by soonest. No per-service tier filter — the pill
+  // colors already grade urgency for the eye.
   const renewals: Renewal[] = ((expiringSubsRes.data ?? []) as Array<{
     id: string; expires_date: string;
     client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
     company: { id: string; name: string }[]      | { id: string; name: string }      | null;
-    service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
-  }>)
-    .filter((r) => {
-      const svc = unwrap(r.service);
-      const tier = renewalTier(r.expires_date, svc);
-      return tier === "due_soon" || tier === "overdue";
-    })
-    .map((r) => {
-      const cli = unwrap(r.client);
-      const cmp = unwrap(r.company);
-      const svc = unwrap(r.service);
-      const owner = cli?.full_name ?? cmp?.name ?? "?";
-      const label = `${svc?.name ?? "Subscription"} — ${owner}`;
-      const href  = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : "/renewals";
-      return {
-        kind: cli ? ("case_expiry" as const) : ("vo_expiry" as const),
-        label,
-        expires_at: r.expires_date,
-        href,
-      };
-    });
+    service: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
+  }>).map((r) => {
+    const cli = unwrap(r.client);
+    const cmp = unwrap(r.company);
+    const svc = unwrap(r.service);
+    const owner = cli?.full_name ?? cmp?.name ?? "?";
+    const label = `${owner} — ${svc?.name ?? "Subscription"}`;
+    const href  = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : "/renewals";
+    return {
+      kind: cli ? ("case_expiry" as const) : ("vo_expiry" as const),
+      label,
+      expires_at: r.expires_date,
+      href,
+    };
+  });
 
   renewals.sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
@@ -395,6 +393,45 @@ export default async function DashboardPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+function RenewalsPanel({ renewals }: { renewals: Renewal[] }) {
+  const shown = renewals.slice(0, 8);
+  const extra = renewals.length - shown.length;
+  return (
+    <section className="bg-white border border-[var(--border)] rounded-lg overflow-hidden">
+      <div className="px-4 pt-3 pb-2 flex items-baseline justify-between">
+        <h3 className="text-[13px] font-semibold text-ink">Renewals · next 90 days</h3>
+        <span className="text-[11px] text-[var(--muted)] tabular-nums">{renewals.length}</span>
+      </div>
+      {renewals.length === 0 ? (
+        <div className="px-4 pb-4 text-[12px] text-[var(--muted)]">Nothing expiring in the next 90 days.</div>
+      ) : (
+        <>
+          <ul className="divide-y divide-[var(--border)]">
+            {shown.map((r) => (
+              <li key={r.href + r.expires_at + r.label} className="px-4 py-2">
+                <Link href={r.href} className="grid grid-cols-[1fr_auto] gap-2 items-center group">
+                  <span className="text-[12.5px] text-ink truncate group-hover:text-brand-dark">
+                    {r.label}
+                  </span>
+                  <ExpiryPill expires={r.expires_at} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {extra > 0 && (
+            <Link
+              href="/renewals"
+              className="block px-4 py-2 text-[11.5px] text-[var(--muted)] hover:text-ink border-t border-[var(--border)]"
+            >
+              View all {renewals.length} →
+            </Link>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

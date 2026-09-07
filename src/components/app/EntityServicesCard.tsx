@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/types";
 import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { ExpiryPill } from "@/components/app/ExpiryPill";
 import {
   createEntityServiceAction,
   updateEntityServiceAction,
@@ -193,12 +194,11 @@ function DateLine({ row }: { row: EntityService }) {
     const parts: string[] = [];
     if (row.issued_date || row.started_date) parts.push(fmt(row.issued_date ?? row.started_date));
     if (row.expires_date) parts.push(`→ ${fmt(row.expires_date)}`);
-    const daysLeft = daysUntil(row.expires_date);
     return (
       <>
         {parts.join(" ")}
-        {daysLeft !== null && row.status === "active" && (
-          <> · in {daysLeft}d</>
+        {row.status === "active" && row.expires_date && (
+          <> · <ExpiryPill expires={row.expires_date} /></>
         )}
       </>
     );
@@ -478,12 +478,3 @@ function fmt(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-function daysUntil(v: string | null): number | null {
-  if (!v) return null;
-  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const target = new Date(`${v}T00:00:00Z`).getTime();
-  const today = new Date();
-  const utcMidnight = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  return Math.round((target - utcMidnight) / 86400000);
-}
