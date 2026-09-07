@@ -3,9 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { CaseForm } from "../CaseForm";
 import { createCaseAction } from "../actions";
 import { serviceLabel } from "@/lib/service";
+import { getT } from "@/lib/i18n/server";
 
 export default async function NewCasePage({ searchParams }: { searchParams: { client?: string; client_id?: string; company_id?: string } }) {
   const supabase = createClient();
+  const { t } = await getT();
 
   const [{ data: clients }, { data: companies }, { data: services }, { data: users }] = await Promise.all([
     supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name"),
@@ -24,8 +26,8 @@ export default async function NewCasePage({ searchParams }: { searchParams: { cl
 
   return (
     <div className="max-w-2xl">
-      <Link href="/cases" className="text-[12.5px] text-[var(--muted)] hover:text-ink">← Cases</Link>
-      <h1 className="text-[26px] font-semibold text-ink tracking-tight mt-2">New case</h1>
+      <Link href="/cases" className="text-[12.5px] text-[var(--muted)] hover:text-ink">← {t("nav.cases")}</Link>
+      <h1 className="text-[26px] font-semibold text-ink tracking-tight mt-2">{t("action.new_case")}</h1>
       <p className="text-[13px] text-[var(--muted)] mb-8">A CAS-xxxx code will be assigned automatically. Status starts at New.</p>
 
       <CaseForm

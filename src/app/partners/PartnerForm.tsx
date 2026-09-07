@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import type { Partner } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
 
 type Mode = "create" | "edit";
 
@@ -17,6 +18,7 @@ export function PartnerForm({
   onCancel?: () => void;
   submitLabel?: string;
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,69 +30,69 @@ export function PartnerForm({
           try {
             await action(fd);
           } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed");
+            setError(e instanceof Error ? e.message : t("partner.err.failed"));
           }
         });
       }}
     >
       {mode === "edit" && partner?.id && <input type="hidden" name="id" value={partner.id} />}
 
-      <Section title="Identity">
-        <Row label="Name" required>
+      <Section title={t("partner.section.identity")}>
+        <Row label={t("partner.form.name")} required>
           <input
             name="name"
             defaultValue={partner?.name ?? ""}
             required
             autoFocus={mode === "create"}
-            placeholder="e.g. Bali Visa Consultants"
+            placeholder={t("partner.name.placeholder")}
             className={cellInput}
           />
         </Row>
 
-        <Row label="Type" required>
+        <Row label={t("partner.form.type")} required>
           <select name="type" defaultValue={partner?.type ?? "referrer"} className={cellInput + " bg-transparent"}>
-            <option value="referrer">Referrer — sends us clients</option>
-            <option value="agent">Agent — we act as back office</option>
-            <option value="both">Both</option>
+            <option value="referrer">{t("partner.type.referrer_long")}</option>
+            <option value="agent">{t("partner.type.agent_long")}</option>
+            <option value="both">{t("partner.type.both")}</option>
           </select>
         </Row>
       </Section>
 
-      <Section title="Contact">
-        <Row label="Contact person">
+      <Section title={t("partner.section.contact")}>
+        <Row label={t("partner.form.contact_person")}>
           <input
             name="contact_person"
             defaultValue={partner?.contact_person ?? ""}
-            placeholder="e.g. Andi Wijaya"
+            placeholder={t("partner.contact_person.placeholder")}
             className={cellInput}
           />
         </Row>
-        <Row label="Phone">
+        <Row label={t("partner.form.phone")}>
           <input
             name="phone"
             defaultValue={partner?.phone ?? ""}
-            placeholder="+62 812 3456 7890"
+            placeholder={t("partner.phone.placeholder")}
             className={cellInput}
           />
         </Row>
-        <Row label="Email">
+        <Row label={t("partner.form.email")}>
           <input
             name="email"
             type="email"
             defaultValue={partner?.email ?? ""}
-            placeholder="name@example.com"
+            placeholder={t("partner.email.placeholder")}
             className={cellInput}
           />
         </Row>
       </Section>
 
-      <Section title="Notes" last>
-        <Row label="Notes" align="start">
+      <Section title={t("partner.section.notes")} last>
+        <Row label={t("partner.form.notes")} align="start">
           <textarea
             name="notes"
             defaultValue={partner?.notes ?? ""}
             rows={3}
-            placeholder="Anything worth remembering — commission terms, quirks, history…"
+            placeholder={t("partner.notes.placeholder")}
             className={cellInput + " resize-y"}
           />
         </Row>
@@ -105,11 +107,11 @@ export function PartnerForm({
       <div className="flex items-center justify-end gap-2 pt-5">
         {onCancel && (
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md hover:bg-[var(--surface-muted)]">
-            Cancel
+            {t("action.cancel")}
           </button>
         )}
         <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
-          {pending ? "Saving…" : submitLabel ?? (mode === "create" ? "Create partner" : "Save changes")}
+          {pending ? t("partner.saving") : submitLabel ?? (mode === "create" ? t("partner.form.create") : t("action.save_changes"))}
         </button>
       </div>
     </form>

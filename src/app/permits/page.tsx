@@ -3,16 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all",         label: "All" },
-  { key: "renew_soon",  label: "Renew soon (≤90d)" },
-  { key: "active",      label: "Active" },
-  { key: "expired",     label: "Expired" },
-  { key: "terminated",  label: "Terminated" },
+const FILTER_KEYS: { key: Filter; labelKey: MessageKey }[] = [
+  { key: "all",         labelKey: "page.permits.filter.all" },
+  { key: "renew_soon",  labelKey: "page.permits.filter.renew_soon" },
+  { key: "active",      labelKey: "page.permits.filter.active" },
+  { key: "expired",     labelKey: "page.permits.filter.expired" },
+  { key: "terminated",  labelKey: "page.permits.filter.terminated" },
 ];
 
 type DisplayStatus = "active" | "expired" | "terminated";
@@ -43,19 +45,20 @@ function fmtDate(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-const COLUMNS: ColumnDef[] = [
-  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
-  { header: "Holder",  defaultWidth: 300, minWidth: 160 },
-  { header: "Kind",    defaultWidth: 100 },
-  { header: "Sponsor", defaultWidth: 220, minWidth: 120 },
-  { header: "Expires", defaultWidth: 100 },
-  { header: "Days",    defaultWidth: 120 },
-  { header: "Status",  defaultWidth: 100 },
-];
 
 export default async function PermitsListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
-  const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const { t } = await getT();
+  const filter: Filter = (FILTER_KEYS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const COLUMNS: ColumnDef[] = [
+    { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+    { header: t("page.permits.col.holder"),  defaultWidth: 300, minWidth: 160 },
+    { header: t("page.permits.col.kind"),    defaultWidth: 100 },
+    { header: t("page.permits.col.sponsor"), defaultWidth: 220, minWidth: 120 },
+    { header: t("page.permits.col.expires"), defaultWidth: 100 },
+    { header: t("page.permits.col.days"),    defaultWidth: 120 },
+    { header: t("page.permits.col.status"),  defaultWidth: 100 },
+  ];
 
   // Read every person-owned subscription from the unified entity_services
   // store, then filter/status-derive in memory. Permits are a subset of
@@ -136,16 +139,15 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     <div>
       <div className="flex items-start justify-between gap-6 mb-5">
         <div>
-          <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">Permits</h1>
+          <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">{t("nav.permits")}</h1>
           <p className="text-[13.5px] text-[var(--muted)] mt-1">
-            KITAS, IMTA, work permits and other issued documents. Add or renew
-            from the client&apos;s page.
+            {t("page.permits.subtitle")}
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {FILTERS.map((f) => {
+        {FILTER_KEYS.map((f) => {
           const active = f.key === filter;
           return (
             <Link
@@ -157,7 +159,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
                   : "bg-white text-[var(--text)] border-[var(--border)] hover:border-ink/30"
               }`}
             >
-              {f.label}
+              {t(f.labelKey)}
               <span className={`text-[11px] ${active ? "text-white/70" : "text-[var(--muted)]"}`}>
                 {counts[f.key]}
               </span>
@@ -168,7 +170,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
 
       <ResizableTable storageKey="permits-cols-v1" columns={COLUMNS}>
         {rows.length === 0 ? (
-          <div className="py-16 text-center text-[13px] text-[var(--muted)]">No permits match this filter.</div>
+          <div className="py-16 text-center text-[13px] text-[var(--muted)]">{t("page.permits.empty_filter")}</div>
         ) : (
           rows.map((p) => {
             const pill = STATUS_PILL[p.status];

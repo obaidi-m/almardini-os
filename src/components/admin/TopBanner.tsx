@@ -2,6 +2,7 @@ import Image from "next/image";
 import fs from "node:fs";
 import path from "node:path";
 import { LiveSearchBox } from "@/components/app/LiveSearchBox";
+import { getT } from "@/lib/i18n/server";
 
 function findLogo(): string | null {
   const dir = path.join(process.cwd(), "public");
@@ -16,8 +17,9 @@ function findLogo(): string | null {
   return null;
 }
 
-export function TopBanner() {
+export async function TopBanner() {
   const logo = findLogo();
+  const { t } = await getT();
 
   return (
     <header className="bg-brand border-b-[2px] border-gold sticky top-0 z-30 h-[64px]">
@@ -25,7 +27,7 @@ export function TopBanner() {
         {logo ? (
           <Image
             src={logo}
-            alt="Almardini International Group"
+            alt={t("banner.logo_alt")}
             width={200}
             height={48}
             priority
@@ -38,10 +40,10 @@ export function TopBanner() {
         )}
         <div className="hidden md:flex items-baseline gap-2 min-w-0">
           <span className="text-white font-medium text-[17px] leading-none tracking-tight">
-            Operations
+            {t("banner.operations")}
           </span>
           <span className="text-gold/90 text-[10px] font-semibold tracking-[.18em] uppercase">
-            Almardini · Indonesia
+            {t("banner.almardini_indonesia")}
           </span>
         </div>
 
@@ -49,7 +51,7 @@ export function TopBanner() {
         <div className="ml-auto w-full max-w-[520px]">
           <LiveSearchBox
             variant="onBrand"
-            placeholder="Search anything — clients, companies, cases, partners, notes…"
+            placeholder={t("banner.search_placeholder")}
           />
         </div>
       </div>

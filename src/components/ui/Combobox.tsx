@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 export type ComboOption = {
   id: string;
@@ -32,6 +33,7 @@ export function Combobox({
   disabled?: boolean;
   onChange?: (id: string) => void;
 }) {
+  const { t } = useT();
   const [value, setValue] = useState<string>(defaultValue ?? "");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -140,7 +142,7 @@ export function Combobox({
               value={q}
               onChange={(e) => { setQ(e.target.value); setActiveIdx(-1); }}
               onKeyDown={onKeyDown}
-              placeholder="Type to search…"
+              placeholder={t("combobox.search_placeholder")}
               className="w-full px-2 py-1.5 text-[13px] bg-[var(--surface-2)] rounded border-0 focus:outline-none focus:bg-white focus:ring-1 focus:ring-brand/30"
             />
           </div>
@@ -156,7 +158,7 @@ export function Combobox({
               />
             )}
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-[12.5px] text-[var(--muted)]">No matches.</div>
+              <div className="px-3 py-3 text-[12.5px] text-[var(--muted)]">{t("combobox.no_matches")}</div>
             ) : (
               filtered.map((opt, i) => {
                 const idx = allowEmpty ? i + 1 : i;

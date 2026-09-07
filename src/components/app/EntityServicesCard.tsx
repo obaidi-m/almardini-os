@@ -5,6 +5,8 @@ import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/type
 import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { useT } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   createEntityServiceAction,
   updateEntityServiceAction,
@@ -30,6 +32,7 @@ export function EntityServicesCard({
   companies?: CompanyOpt[];
   partners?: PartnerOpt[];
 }) {
+  const { t } = useT();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<EntityService | null>(null);
 
@@ -53,21 +56,21 @@ export function EntityServicesCard({
     <section className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(15,31,29,0.06),0_8px_24px_-6px_rgba(15,31,29,0.10)] p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-serif text-[15px] text-ink leading-none">Services</h3>
-          <span className="text-[11.5px] text-[var(--muted)] font-medium">{active.length} active</span>
+          <h3 className="font-serif text-[15px] text-ink leading-none">{t("services.title")}</h3>
+          <span className="text-[11.5px] text-[var(--muted)] font-medium">{t("services.n_active", { n: active.length })}</span>
         </div>
         <button
           type="button"
           onClick={() => setCreating(true)}
           className="text-[12px] font-medium text-brand hover:text-brand-dark"
         >
-          + Add
+          {t("services.add")}
         </button>
       </div>
 
       {services.length === 0 ? (
         <p className="text-[12.5px] text-[var(--muted)]">
-          Nothing subscribed yet.
+          {t("services.empty")}
         </p>
       ) : (
         <ul className="divide-y divide-[var(--border)] -mx-1">
@@ -82,7 +85,7 @@ export function EntityServicesCard({
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title="Add service"
+        title={t("services.modal.add")}
         size="lg"
       >
         <ServiceForm
@@ -98,7 +101,7 @@ export function EntityServicesCard({
       <Modal
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title="Edit service"
+        title={t("services.modal.edit")}
         size="lg"
       >
         {editing && (
@@ -120,10 +123,11 @@ export function EntityServicesCard({
 /* ============ Row ============ */
 
 function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const confirm = useConfirm();
   const svc = row.service;
-  const label = svc?.name ?? "Service";
+  const label = svc?.name ?? t("services.label.service");
 
   return (
     <div className="px-1 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-start text-[13.5px]">
@@ -137,7 +141,7 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
           )}
           {row.term_months && (
             <span className="text-[10.5px] text-[var(--muted)]">
-              {row.term_months}mo term
+              {t("services.row.mo_term", { n: row.term_months })}
             </span>
           )}
           <StatusPill status={row.status} />
@@ -145,7 +149,7 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
         <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
           <DateLine row={row} />
           {row.responsible && (
-            <> · PJ:{" "}
+            <> · {t("services.row.pj_prefix")}{" "}
               <Link href={`/partners/${row.responsible.id}`} className="hover:text-brand">
                 {row.responsible.name}
               </Link>
@@ -159,16 +163,16 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
           onClick={onEdit}
           className="text-[11.5px] text-[var(--muted)] hover:text-ink"
         >
-          edit
+          {t("services.row.edit")}
         </button>
         <button
           type="button"
           disabled={pending}
           onClick={async () => {
             const ok = await confirm({
-              title: "Delete subscription",
-              message: `Delete this ${row.service?.name ?? "service"}?`,
-              confirmLabel: "Delete",
+              title: t("services.delete.title"),
+              message: t("services.delete.message", { name: row.service?.name ?? t("services.label.service") }),
+              confirmLabel: t("action.delete"),
               tone: "danger",
             });
             if (!ok) return;
@@ -177,7 +181,7 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
           }}
           className="text-[11.5px] text-[var(--muted)] hover:text-red-700"
         >
-          delete
+          {t("services.row.delete")}
         </button>
       </div>
     </div>
@@ -185,10 +189,11 @@ function ServiceRow({ row, onEdit }: { row: EntityService; onEdit: () => void })
 }
 
 function DateLine({ row }: { row: EntityService }) {
+  const { t } = useT();
   const svc = row.service;
   if (svc?.is_ongoing) {
-    if (row.started_date) return <>since {fmt(row.started_date)}</>;
-    return <>ongoing</>;
+    if (row.started_date) return <>{t("services.row.since")} {fmt(row.started_date)}</>;
+    return <>{t("services.row.ongoing")}</>;
   }
   if (svc?.tracks_expiry) {
     const parts: string[] = [];
@@ -207,6 +212,7 @@ function DateLine({ row }: { row: EntityService }) {
 }
 
 function StatusPill({ status }: { status: EntityServiceStatus }) {
+  const { t } = useT();
   const styles: Record<EntityServiceStatus, string> = {
     active:     "bg-[#DCFCE7] text-[#166534]",
     expired:    "bg-[#FEF3C7] text-[#92400E]",
@@ -216,7 +222,7 @@ function StatusPill({ status }: { status: EntityServiceStatus }) {
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0 rounded-full ${styles[status]}`}>
       <span className="w-1 h-1 rounded-full bg-current" />
-      {status}
+      {t(`services.status.${status}` as MessageKey)}
     </span>
   );
 }
@@ -234,6 +240,7 @@ function ServiceForm({
   initial?: EntityService;
   onDone: () => void;
 }) {
+  const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -248,8 +255,9 @@ function ServiceForm({
   if (catalog.length === 0) {
     return (
       <p className="text-[13px] text-[var(--muted)]">
-        No services available for this{" "}
-        {owner.kind === "client" ? "person" : "company"}. Add one under{" "}
+        {owner.kind === "client"
+          ? t("services.form.no_available_person")
+          : t("services.form.no_available_company")}{" "}
         <Link href="/admin/services" className="text-brand hover:underline">
           /admin/services
         </Link>
@@ -283,7 +291,7 @@ function ServiceForm({
     >
       {/* Service picker (locked on edit — you don't retype the service) */}
       <div>
-        <Label>Service</Label>
+        <Label>{t("services.label.service")}</Label>
         {mode === "create" ? (
           <select
             value={serviceId}
@@ -306,7 +314,7 @@ function ServiceForm({
       {svc?.tracks_expiry && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>{svc.applies_to === "company" ? "Start date" : "Issued date"}</Label>
+            <Label>{svc.applies_to === "company" ? t("services.label.start_date") : t("services.label.issued_date")}</Label>
             <input
               type="date"
               name={svc.applies_to === "company" ? "started_date" : "issued_date"}
@@ -319,7 +327,7 @@ function ServiceForm({
             />
           </div>
           <div>
-            <Label>End date</Label>
+            <Label>{t("services.label.end_date")}</Label>
             <input
               type="date"
               name="expires_date"
@@ -333,7 +341,7 @@ function ServiceForm({
 
       {svc?.is_ongoing && (
         <div>
-          <Label>Subscribed since (optional)</Label>
+          <Label>{t("services.label.subscribed_since")}</Label>
           <input
             type="date"
             name="started_date"
@@ -349,16 +357,16 @@ function ServiceForm({
         svc.name.toLowerCase().includes("office") && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Tier</Label>
+            <Label>{t("services.label.tier")}</Label>
             <select name="tier" defaultValue={initial?.tier ?? "silver"} className={input}>
-              <option value="silver">Silver</option>
-              <option value="gold">Gold</option>
-              <option value="platinum">Platinum</option>
-              <option value="bronze">Bronze</option>
+              <option value="silver">{t("services.tier.silver")}</option>
+              <option value="gold">{t("services.tier.gold")}</option>
+              <option value="platinum">{t("services.tier.platinum")}</option>
+              <option value="bronze">{t("services.tier.bronze")}</option>
             </select>
           </div>
           <div>
-            <Label>Term (months)</Label>
+            <Label>{t("services.label.term_months")}</Label>
             <input
               type="number"
               name="term_months"
@@ -372,19 +380,19 @@ function ServiceForm({
 
       {/* Common fields */}
       <div>
-        <Label>Status</Label>
+        <Label>{t("services.label.status")}</Label>
         <select name="status" defaultValue={initial?.status ?? "active"} className={input}>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="terminated">Terminated</option>
-          <option value="paused">Paused</option>
+          <option value="active">{t("services.status.active")}</option>
+          <option value="expired">{t("services.status.expired")}</option>
+          <option value="terminated">{t("services.status.terminated")}</option>
+          <option value="paused">{t("services.status.paused")}</option>
         </select>
       </div>
 
       {/* Sponsor only makes sense on person subs (KITAS under a PT). */}
       {owner.kind === "client" && (
         <div>
-          <Label>Sponsor company (optional)</Label>
+          <Label>{t("services.label.sponsor_optional")}</Label>
           <select
             name="sponsor_company_id"
             defaultValue={initial?.sponsor_company_id ?? ""}
@@ -399,7 +407,7 @@ function ServiceForm({
       )}
 
       <div>
-        <Label>Responsible partner (optional)</Label>
+        <Label>{t("services.label.responsible_optional")}</Label>
         <select
           name="responsible_partner_id"
           defaultValue={initial?.responsible_partner_id ?? ""}
@@ -413,7 +421,7 @@ function ServiceForm({
       </div>
 
       <div>
-        <Label>OneDrive folder (optional)</Label>
+        <Label>{t("services.label.drive_optional")}</Label>
         <input
           type="url"
           name="drive_folder_url"
@@ -424,7 +432,7 @@ function ServiceForm({
       </div>
 
       <div>
-        <Label>Notes (optional)</Label>
+        <Label>{t("services.label.notes_optional")}</Label>
         <textarea
           name="notes"
           defaultValue={initial?.notes ?? ""}
@@ -445,14 +453,14 @@ function ServiceForm({
           onClick={onDone}
           className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink"
         >
-          Cancel
+          {t("action.cancel")}
         </button>
         <button
           type="submit"
           disabled={pending}
           className="px-3 py-1.5 text-[13px] font-medium bg-ink text-[var(--bg)] rounded-lg hover:opacity-90 disabled:opacity-50"
         >
-          {mode === "create" ? "Add" : "Save"}
+          {mode === "create" ? t("services.form.add") : t("services.form.save")}
         </button>
       </div>
     </form>
