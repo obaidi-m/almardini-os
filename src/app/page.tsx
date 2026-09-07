@@ -63,10 +63,8 @@ export default async function DashboardPage() {
 
   // Windows
   const today = new Date();
-  const in30 = new Date(); in30.setDate(in30.getDate() + 30);
   const in90 = new Date(); in90.setDate(in90.getDate() + 90);
   const todayIso = today.toISOString().slice(0, 10);
-  const in30Iso = in30.toISOString().slice(0, 10);
   const in90Iso = in90.toISOString().slice(0, 10);
 
   await expireOverdueVirtualOffices(supabase);
@@ -76,10 +74,9 @@ export default async function DashboardPage() {
     readyToDeliverRes,
     countsRes,
     recentCasesRes,
-    expiringCasesRes,
+    expiringSubsRes,
     attentionCasesRes,
     latestUpdatesRes,
-    expiringVOsRes,
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -124,19 +121,24 @@ export default async function DashboardPage() {
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(8),
-    // For the non-owner "Renewals" side panel: pull upcoming expiries and
-    // let the per-service lead-time rule filter which ones surface. We pull
-    // a 90-day window (the widest lead) and drop anything outside its own
-    // service's window client-side.
+    // "Renewals" side panel: read active subscriptions in the next 90 days,
+    // then apply the per-service lead rule client-side. Sourced from the
+    // unified entity_services table so closed cases and duplicated VO rows
+    // don't inflate the count.
     supabase
-      .from("cases")
-      .select("id, code, title, expires_at, client:clients(id, full_name), service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+      .from("entity_services")
+      .select(`
+        id, expires_date,
+        client:clients(id, full_name),
+        company:companies!entity_services_company_id_fkey(id, name),
+        service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)
+      `)
       .is("deleted_at", null)
-      .not("expires_at", "is", null)
-      .gte("expires_at", todayIso)
-      .lte("expires_at", in90Iso)
-      .order("expires_at", { ascending: true })
-      .limit(50),
+      .eq("status", "active")
+      .not("expires_date", "is", null)
+      .lte("expires_date", in90Iso)
+      .order("expires_date", { ascending: true })
+      .limit(100),
     // For the attention panel: all active cases (owner-like only)
     isOwnerLike
       ? supabase
@@ -154,16 +156,6 @@ export default async function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(2000)
       : Promise.resolve({ data: [] as unknown[], error: null }),
-    // VOs coming due in 90 days — feeds the Renewals side panel alongside
-    // case expiries.
-    supabase
-      .from("virtual_offices")
-      .select("id, tier, end_date, company:companies(id, name)")
-      .is("deleted_at", null)
-      .eq("status", "active")
-      .lte("end_date", in90Iso)
-      .order("end_date", { ascending: true })
-      .limit(50),
   ]);
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -186,41 +178,32 @@ export default async function DashboardPage() {
   const counts: Record<CaseStatus, number> = { new: 0, in_progress: 0, done: 0, delivered: 0 };
   for (const r of (countsRes.data ?? []) as { status: CaseStatus }[]) counts[r.status] = (counts[r.status] ?? 0) + 1;
 
-  const renewals: Renewal[] = ((expiringCasesRes.data ?? []) as Array<{
-    id: string; code: string; title: string | null; expires_at: string;
-    client: { full_name: string }[] | { full_name: string } | null;
+  const renewals: Renewal[] = ((expiringSubsRes.data ?? []) as Array<{
+    id: string; expires_date: string;
+    client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
+    company: { id: string; name: string }[]      | { id: string; name: string }      | null;
     service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null;
   }>)
     .filter((r) => {
       const svc = unwrap(r.service);
-      const tier = renewalTier(r.expires_at, svc);
+      const tier = renewalTier(r.expires_date, svc);
       return tier === "due_soon" || tier === "overdue";
     })
     .map((r) => {
       const cli = unwrap(r.client);
+      const cmp = unwrap(r.company);
+      const svc = unwrap(r.service);
+      const owner = cli?.full_name ?? cmp?.name ?? "?";
+      const label = `${svc?.name ?? "Subscription"} — ${owner}`;
+      const href  = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : "/renewals";
       return {
-        kind: "case_expiry" as const,
-        label: `${r.code} — ${r.title || cli?.full_name || "case"}`,
-        expires_at: r.expires_at,
-        href: `/cases/${r.id}`,
+        kind: cli ? ("case_expiry" as const) : ("vo_expiry" as const),
+        label,
+        expires_at: r.expires_date,
+        href,
       };
     });
 
-  const voRenewals: Renewal[] = ((expiringVOsRes.data ?? []) as Array<{
-    id: string; tier: string; end_date: string;
-    company: { id: string; name: string }[] | { id: string; name: string } | null;
-  }>).map((v) => {
-    const cmp = unwrap(v.company);
-    const tier = v.tier.charAt(0).toUpperCase() + v.tier.slice(1);
-    return {
-      kind: "vo_expiry" as const,
-      label: `${cmp?.name ?? "?"} — Virtual office (${tier})`,
-      expires_at: v.end_date,
-      href: cmp ? `/companies/${cmp.id}` : "/virtual-offices",
-    };
-  });
-
-  renewals.push(...voRenewals);
   renewals.sort((a, b) => a.expires_at.localeCompare(b.expires_at));
 
   // Compute attention buckets for Admin + Owner

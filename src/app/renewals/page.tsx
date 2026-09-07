@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
-import { daysUntil, leadDaysForService, renewalTier, type ServiceSchedule } from "@/lib/renewal";
-import { serviceLabel } from "@/lib/service";
-import type { VirtualOfficeTier } from "@/lib/types";
-import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
+import { daysUntil, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 
 type Filter = "all" | "renew_soon" | "overdue" | "later";
 type SearchParams = { filter?: string };
@@ -18,7 +15,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 type Row = {
   key: string;
-  kind: "case" | "office";
+  ownerKind: "person" | "company";
   code: string;
   title: string;
   owner: string;
@@ -27,19 +24,15 @@ type Row = {
   expires_at: string;
   daysLeft: number;
   bucket: "overdue" | "renew_soon" | "later";
-  badge: string; // e.g. "annual", "quarterly", "silver 12mo"
+  badge: string;
 };
 
 const KIND_PILL = {
-  case:   { bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", dot: "bg-[#F97316]" },
-  office: { bg: "bg-[#E0F2FE]", text: "text-[#075985]", dot: "bg-[#0EA5E9]" },
+  person:  { bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", dot: "bg-[#F97316]" },
+  company: { bg: "bg-[#E0F2FE]", text: "text-[#075985]", dot: "bg-[#0EA5E9]" },
 } as const;
 
-const TIER_LABEL: Record<VirtualOfficeTier, string> = {
-  bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum",
-};
-
-const COLS = "36px 90px 1.6fr 1.3fr 100px 100px";
+const COLS = "36px 100px 1.6fr 1.3fr 100px 100px";
 
 function fmtDate(v: string): string {
   const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -63,85 +56,67 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
   const { t } = await getT();
   const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
 
-  await expireOverdueVirtualOffices(supabase);
-
-  const [casesRes, vosRes] = await Promise.all([
-    supabase
-      .from("cases")
-      .select("id, code, title, expires_at, client:clients(id, full_name), company:companies(id, name), service:service_types(id, code, name, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
-      .is("deleted_at", null)
-      .not("expires_at", "is", null)
-      .order("expires_at", { ascending: true }),
-    supabase
-      .from("virtual_offices")
-      .select("id, tier, term_months, end_date, company:companies(id, name)")
-      .is("deleted_at", null)
-      .eq("status", "active")
-      .order("end_date", { ascending: true }),
-  ]);
+  // Single source of truth: entity_services rows with an expiry.
+  // Active subscriptions only — expired / terminated / paused live elsewhere.
+  const { data: subsRes } = await supabase
+    .from("entity_services")
+    .select(`
+      id, expires_date, tier, term_months, status,
+      client:clients(id, full_name),
+      company:companies!entity_services_company_id_fkey(id, name),
+      service:service_types(
+        id, code, name, schedule_kind, annual_month, annual_day,
+        quarterly_day, quarterly_months, validity_amount, validity_unit
+      )
+    `)
+    .is("deleted_at", null)
+    .eq("status", "active")
+    .not("expires_date", "is", null)
+    .order("expires_date", { ascending: true });
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  const rows: Row[] = [];
-
   type SvcFull = NonNullable<ServiceSchedule> & { id: string; code: string | null; name: string | null };
-  for (const c of (casesRes.data ?? []) as Array<{
-    id: string; code: string; title: string | null; expires_at: string;
-    client: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
-    company: { id: string; name: string }[] | { id: string; name: string } | null;
+  const rows: Row[] = ((subsRes ?? []) as Array<{
+    id: string; expires_date: string; tier: string | null; term_months: number | null; status: string;
+    client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
+    company: { id: string; name: string }[]      | { id: string; name: string }      | null;
     service: SvcFull[] | SvcFull | null;
-  }>) {
-    const cli = unwrap(c.client);
-    const cmp = unwrap(c.company);
-    const svc = unwrap(c.service);
+  }>).map((r) => {
+    const cli = unwrap(r.client);
+    const cmp = unwrap(r.company);
+    const svc = unwrap(r.service);
+    const ownerKind: "person" | "company" = cli ? "person" : "company";
     const owner = cli?.full_name ?? cmp?.name ?? "?";
     const ownerHref = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : null;
-    const tier = renewalTier(c.expires_at, svc);
-    const bucket: Row["bucket"] = tier === "overdue" ? "overdue" : tier === "due_soon" ? "renew_soon" : "later";
+
+    const tier = renewalTier(r.expires_date, svc);
+    const bucket: Row["bucket"] =
+      tier === "overdue" ? "overdue" : tier === "due_soon" ? "renew_soon" : "later";
+
     const badge =
-      svc?.schedule_kind === "annual_fixed"    ? "annual"
+      svc?.schedule_kind === "annual_fixed"      ? "annual"
       : svc?.schedule_kind === "quarterly_fixed" ? "quarterly"
+      : r.tier && r.term_months                  ? `${r.tier} · ${r.term_months}mo`
       : (svc?.validity_amount && svc?.validity_unit)
         ? `valid ${svc.validity_amount}${svc.validity_unit[0]}`
         : "";
-    rows.push({
-      key: `case:${c.id}`,
-      kind: "case",
-      code: c.code,
-      title: c.title || (svc ? serviceLabel(svc) : null) || "Case",
+
+    return {
+      key: r.id,
+      ownerKind,
+      code: svc?.code ?? "",
+      title: svc?.name ?? "Subscription",
       owner, ownerHref,
-      href: `/cases/${c.id}`,
-      expires_at: c.expires_at,
-      daysLeft: daysUntil(c.expires_at),
+      href: ownerHref ?? "/",
+      expires_at: r.expires_date,
+      daysLeft: daysUntil(r.expires_date),
       bucket,
       badge,
-    });
-  }
+    };
+  });
 
-  for (const vo of (vosRes.data ?? []) as Array<{
-    id: string; tier: VirtualOfficeTier; term_months: number; end_date: string;
-    company: { id: string; name: string }[] | { id: string; name: string } | null;
-  }>) {
-    const cmp = unwrap(vo.company);
-    const n = daysUntil(vo.end_date);
-    const bucket: Row["bucket"] = n < 0 ? "overdue" : n <= 90 ? "renew_soon" : "later";
-    rows.push({
-      key: `vo:${vo.id}`,
-      kind: "office",
-      code: "VO",
-      title: `Virtual office — ${TIER_LABEL[vo.tier]}`,
-      owner: cmp?.name ?? "?",
-      ownerHref: cmp ? `/companies/${cmp.id}` : null,
-      href: cmp ? `/companies/${cmp.id}` : "/virtual-offices",
-      expires_at: vo.end_date,
-      daysLeft: n,
-      bucket,
-      badge: `${TIER_LABEL[vo.tier].toLowerCase()} · ${vo.term_months}mo`,
-    });
-  }
-
-  // Sort: overdue first, then renew_soon, then later — inside each by daysLeft ascending.
   const bucketOrder: Record<Row["bucket"], number> = { overdue: 0, renew_soon: 1, later: 2 };
   rows.sort((a, b) => bucketOrder[a.bucket] - bucketOrder[b.bucket] || a.daysLeft - b.daysLeft);
 
@@ -165,7 +140,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
           {t("page.renewals.title")}
         </h1>
         <p className="text-[13.5px] text-[var(--muted)] mt-1">
-          Cases with a computed expiry and every active virtual office in one place.
+          Every active subscription with an end date — one row per person or company.
         </p>
       </div>
 
@@ -199,9 +174,9 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
-          <div>Type</div>
-          <div>Item</div>
           <div>Owner</div>
+          <div>Service</div>
+          <div>Owner name</div>
           <div>Days</div>
           <div>Expires</div>
         </div>
@@ -212,7 +187,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
           </div>
         ) : (
           visible.map((r) => {
-            const pill = KIND_PILL[r.kind];
+            const pill = KIND_PILL[r.ownerKind];
             return (
               <div
                 key={r.key}
@@ -225,7 +200,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
                 <div>
                   <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full ${pill.bg} ${pill.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
-                    {r.kind}
+                    {r.ownerKind}
                   </span>
                 </div>
                 <div className="min-w-0">
@@ -233,8 +208,8 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
                     {r.title}
                   </Link>
                   <div className="text-[11.5px] text-[var(--muted)] truncate">
-                    {r.code !== "VO" && <span className="font-mono">{r.code}</span>}
-                    {r.badge && <>{r.code !== "VO" && " · "}<span>{r.badge}</span></>}
+                    {r.code && <span className="font-mono">{r.code}</span>}
+                    {r.badge && <>{r.code && " · "}<span>{r.badge}</span></>}
                   </div>
                 </div>
                 <div className="min-w-0">
@@ -260,3 +235,4 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
     </div>
   );
 }
+
