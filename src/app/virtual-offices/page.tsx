@@ -3,16 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all",         label: "All" },
-  { key: "renew_soon",  label: "Renew soon (≤90d)" },
-  { key: "active",      label: "Active" },
-  { key: "expired",     label: "Expired" },
-  { key: "terminated",  label: "Terminated" },
+const FILTER_KEYS: { key: Filter; labelKey: MessageKey }[] = [
+  { key: "all",         labelKey: "page.permits.filter.all" },
+  { key: "renew_soon",  labelKey: "page.permits.filter.renew_soon" },
+  { key: "active",      labelKey: "page.permits.filter.active" },
+  { key: "expired",     labelKey: "page.permits.filter.expired" },
+  { key: "terminated",  labelKey: "page.permits.filter.terminated" },
 ];
 
 type DisplayStatus = "active" | "expired" | "terminated";
@@ -48,21 +50,21 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-const COLUMNS: ColumnDef[] = [
-  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
-  { header: "Company", defaultWidth: 240, minWidth: 140 },
-  { header: "Tier",    defaultWidth: 80 },
-  { header: "Term",    defaultWidth: 70 },
-  { header: "Start",   defaultWidth: 100 },
-  { header: "End",     defaultWidth: 100 },
-  { header: "Days",    defaultWidth: 120 },
-  { header: "PJ",      defaultWidth: 140, minWidth: 100 },
-  { header: "Status",  defaultWidth: 100 },
-];
-
 export default async function VirtualOfficesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
-  const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const { t } = await getT();
+  const filter: Filter = (FILTER_KEYS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const COLUMNS: ColumnDef[] = [
+    { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+    { header: t("page.vo.col.company"), defaultWidth: 240, minWidth: 140 },
+    { header: t("page.vo.col.tier"),    defaultWidth: 80 },
+    { header: t("page.vo.col.term"),    defaultWidth: 70 },
+    { header: t("page.vo.col.start"),   defaultWidth: 100 },
+    { header: t("page.vo.col.end"),     defaultWidth: 100 },
+    { header: t("page.vo.col.days"),    defaultWidth: 120 },
+    { header: t("page.vo.col.pj"),      defaultWidth: 140, minWidth: 100 },
+    { header: t("page.vo.col.status"),  defaultWidth: 100 },
+  ];
 
   // Read every "virtual office"–shaped subscription from entity_services.
   // The catalog entry drives what we match — anything named like a virtual
@@ -145,17 +147,16 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
       <div className="flex items-start justify-between gap-6 mb-5">
         <div>
           <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">
-            Virtual offices
+            {t("nav.virtual_offices")}
           </h1>
           <p className="text-[13.5px] text-[var(--muted)] mt-1">
-            Rental tenancies across every company. Add or renew from the
-            company&apos;s page.
+            {t("page.vo.subtitle")}
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {FILTERS.map((f) => {
+        {FILTER_KEYS.map((f) => {
           const active = f.key === filter;
           const n = counts[f.key];
           return (
@@ -168,7 +169,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                   : "bg-white text-[var(--text)] border-[var(--border)] hover:border-ink/30"
               }`}
             >
-              {f.label}
+              {t(f.labelKey)}
               <span className={`text-[11px] ${active ? "text-white/70" : "text-[var(--muted)]"}`}>
                 {n}
               </span>
@@ -180,7 +181,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
       <ResizableTable storageKey="vo-cols-v1" columns={COLUMNS}>
         {rows.length === 0 ? (
           <div className="py-16 text-center text-[13px] text-[var(--muted)]">
-            No virtual offices match this filter.
+            {t("page.vo.empty_filter")}
           </div>
         ) : (
           rows.map((vo) => {
@@ -231,7 +232,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                 <div>
                   <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full ${p.bg} ${p.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
-                    {vo.status}
+                    {t(`services.status.${vo.status}` as MessageKey)}
                   </span>
                 </div>
               </div>

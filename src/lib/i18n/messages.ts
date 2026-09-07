@@ -53,7 +53,7 @@ const en = {
   "page.partners.title": "Partners",
   "page.partners.subtitle": "Referrers and agents we work with.",
   "page.renewals.title": "Renewals",
-  "page.renewals.subtitle": "Passports, case-level expiries, and company licenses coming due.",
+  "page.renewals.subtitle": "Every active subscription with an end date — one row per person or company.",
 
   // Section headers
   "section.identity": "Identity",
@@ -501,6 +501,36 @@ const en = {
   "page.permits.col.days": "Days",
   "page.permits.col.status": "Status",
 
+  // Virtual offices page
+  "page.vo.subtitle": "Rental tenancies across every company. Add or renew from the company's page.",
+  "page.vo.empty_filter": "No virtual offices match this filter.",
+  "page.vo.col.company": "Company",
+  "page.vo.col.tier": "Tier",
+  "page.vo.col.term": "Term",
+  "page.vo.col.start": "Start",
+  "page.vo.col.end": "End",
+  "page.vo.col.days": "Days",
+  "page.vo.col.pj": "PJ",
+  "page.vo.col.status": "Status",
+
+  // Renewals page
+  "page.renewals.filter.all": "All",
+  "page.renewals.filter.renew_soon": "Renew soon",
+  "page.renewals.filter.overdue": "Overdue",
+  "page.renewals.filter.later": "Later",
+  "page.renewals.col.owner": "Owner",
+  "page.renewals.col.service": "Service",
+  "page.renewals.col.owner_name": "Owner name",
+  "page.renewals.col.days": "Days",
+  "page.renewals.col.expires": "Expires",
+  "page.renewals.owner.person": "person",
+  "page.renewals.owner.company": "company",
+
+  // Expiry pill (used on every list with a date)
+  "expiry.expired": "expired {n}d",
+  "expiry.today": "today",
+  "expiry.in_n": "in {n}d",
+
   // Services card
   "services.title": "Services",
   "services.n_active": "{n} active",
@@ -605,7 +635,7 @@ const id: Messages = {
   "page.partners.title": "Mitra",
   "page.partners.subtitle": "Pemberi referensi dan agen yang bekerja sama.",
   "page.renewals.title": "Perpanjangan",
-  "page.renewals.subtitle": "Paspor, kedaluwarsa kasus, dan izin perusahaan yang akan berakhir.",
+  "page.renewals.subtitle": "Setiap langganan aktif dengan tanggal berakhir — satu baris per orang atau perusahaan.",
 
   "section.identity": "Identitas",
   "section.passport": "Paspor",
@@ -1020,6 +1050,33 @@ const id: Messages = {
   "page.permits.col.expires": "Berakhir",
   "page.permits.col.days": "Sisa hari",
   "page.permits.col.status": "Status",
+
+  "page.vo.subtitle": "Sewa kantor virtual di semua perusahaan. Tambah atau perpanjang dari halaman perusahaan.",
+  "page.vo.empty_filter": "Tidak ada kantor virtual yang cocok dengan filter ini.",
+  "page.vo.col.company": "Perusahaan",
+  "page.vo.col.tier": "Tingkat",
+  "page.vo.col.term": "Jangka",
+  "page.vo.col.start": "Mulai",
+  "page.vo.col.end": "Berakhir",
+  "page.vo.col.days": "Sisa hari",
+  "page.vo.col.pj": "PJ",
+  "page.vo.col.status": "Status",
+
+  "page.renewals.filter.all": "Semua",
+  "page.renewals.filter.renew_soon": "Segera perpanjangan",
+  "page.renewals.filter.overdue": "Terlambat",
+  "page.renewals.filter.later": "Nanti",
+  "page.renewals.col.owner": "Pemilik",
+  "page.renewals.col.service": "Layanan",
+  "page.renewals.col.owner_name": "Nama pemilik",
+  "page.renewals.col.days": "Sisa hari",
+  "page.renewals.col.expires": "Berakhir",
+  "page.renewals.owner.person": "orang",
+  "page.renewals.owner.company": "perusahaan",
+
+  "expiry.expired": "berakhir {n}h",
+  "expiry.today": "hari ini",
+  "expiry.in_n": "{n}h lagi",
 
   "services.title": "Layanan",
   "services.n_active": "{n} aktif",

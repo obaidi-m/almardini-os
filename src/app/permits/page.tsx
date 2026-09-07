@@ -218,7 +218,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
                 <div>
                   <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full ${pill.bg} ${pill.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
-                    {p.status}
+                    {t(`services.status.${p.status}` as MessageKey)}
                   </span>
                 </div>
               </div>

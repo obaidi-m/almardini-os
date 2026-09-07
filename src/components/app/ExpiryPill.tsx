@@ -1,3 +1,6 @@
+"use client";
+import { useT } from "@/lib/i18n/client";
+
 /** Single source of truth for expiry urgency in the app. Colors and
  *  thresholds live here so a subscription expiring next week reads the
  *  same in the Services card, the /permits table, /virtual-offices,
@@ -36,28 +39,26 @@ const STYLES: Record<Bucket, string> = {
   later:   "bg-[var(--surface-2)] text-[var(--muted)]",
 };
 
-const LABELS: Record<Bucket, (n: number) => string> = {
-  expired: (n) => `expired ${-n}d`,
-  urgent:  (n) => (n === 0 ? "today" : `in ${n}d`),
-  soon:    (n) => `in ${n}d`,
-  later:   (n) => `in ${n}d`,
-};
-
 export function ExpiryPill({
   expires, className = "",
 }: {
   expires: string | null | undefined;
   className?: string;
 }) {
+  const { t } = useT();
   const days = expiryDaysUntil(expires);
   const bucket = expiryBucket(days);
   if (days === null || bucket === null) return null;
+  const label =
+    bucket === "expired" ? t("expiry.expired", { n: -days })
+    : days === 0        ? t("expiry.today")
+    :                     t("expiry.in_n", { n: days });
   return (
     <span
       className={`inline-flex items-center text-[10.5px] font-medium px-1.5 py-0 rounded-full whitespace-nowrap ${STYLES[bucket]} ${className}`}
       title={expires ?? undefined}
     >
-      {LABELS[bucket](days)}
+      {label}
     </span>
   );
 }

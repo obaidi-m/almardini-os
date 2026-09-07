@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { daysUntil, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
@@ -8,11 +9,11 @@ import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable"
 type Filter = "all" | "renew_soon" | "overdue" | "later";
 type SearchParams = { filter?: string };
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all",         label: "All" },
-  { key: "renew_soon",  label: "Renew soon" },
-  { key: "overdue",     label: "Overdue" },
-  { key: "later",       label: "Later" },
+const FILTER_KEYS: { key: Filter; labelKey: MessageKey }[] = [
+  { key: "all",         labelKey: "page.renewals.filter.all" },
+  { key: "renew_soon",  labelKey: "page.renewals.filter.renew_soon" },
+  { key: "overdue",     labelKey: "page.renewals.filter.overdue" },
+  { key: "later",       labelKey: "page.renewals.filter.later" },
 ];
 
 type Row = {
@@ -34,15 +35,6 @@ const KIND_PILL = {
   company: { bg: "bg-[#E0F2FE]", text: "text-[#075985]", dot: "bg-[#0EA5E9]" },
 } as const;
 
-const COLUMNS: ColumnDef[] = [
-  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
-  { header: "Owner",       defaultWidth: 100 },
-  { header: "Service",     defaultWidth: 320, minWidth: 160 },
-  { header: "Owner name",  defaultWidth: 260, minWidth: 140 },
-  { header: "Days",        defaultWidth: 100 },
-  { header: "Expires",     defaultWidth: 100 },
-];
-
 function fmtDate(v: string): string {
   const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
@@ -63,7 +55,15 @@ function daysText(n: number): string {
 export default async function RenewalsPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { t } = await getT();
-  const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const filter: Filter = (FILTER_KEYS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
+  const COLUMNS: ColumnDef[] = [
+    { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+    { header: t("page.renewals.col.owner"),       defaultWidth: 100 },
+    { header: t("page.renewals.col.service"),     defaultWidth: 320, minWidth: 160 },
+    { header: t("page.renewals.col.owner_name"),  defaultWidth: 260, minWidth: 140 },
+    { header: t("page.renewals.col.days"),        defaultWidth: 100 },
+    { header: t("page.renewals.col.expires"),     defaultWidth: 100 },
+  ];
 
   // Single source of truth: entity_services rows with an expiry.
   // Active subscriptions only — expired / terminated / paused live elsewhere.
@@ -149,12 +149,12 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
           {t("page.renewals.title")}
         </h1>
         <p className="text-[13.5px] text-[var(--muted)] mt-1">
-          Every active subscription with an end date — one row per person or company.
+          {t("page.renewals.subtitle")}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {FILTERS.map((f) => {
+        {FILTER_KEYS.map((f) => {
           const active = f.key === filter;
           return (
             <Link
@@ -166,7 +166,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
                   : "bg-white text-[var(--text)] border-[var(--border)] hover:border-ink/30"
               }`}
             >
-              {f.label}
+              {t(f.labelKey)}
               <span className={`text-[11px] ${active ? "text-white/70" : "text-[var(--muted)]"}`}>
                 {counts[f.key]}
               </span>
@@ -195,7 +195,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
                 <div>
                   <span className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full ${pill.bg} ${pill.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
-                    {r.ownerKind}
+                    {t(`page.renewals.owner.${r.ownerKind}` as MessageKey)}
                   </span>
                 </div>
                 <div className="min-w-0">
