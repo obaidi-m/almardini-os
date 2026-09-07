@@ -73,7 +73,7 @@ export function VirtualOfficeCard({
     <div className="bg-white border border-[var(--border)] rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="font-serif text-[15px] text-ink">Virtual office</h3>
+          <h3 className="font-serif text-[15px] text-ink">Services</h3>
           {active.length > 0 && (
             <span className="text-[11px] text-[var(--muted)]">
               {active.length} active

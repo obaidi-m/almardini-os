@@ -29,24 +29,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="bg-brand text-white p-14 flex flex-col justify-between relative overflow-hidden">
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full border-2 border-white/90 flex items-center justify-center font-arabic text-4xl font-bold pb-1 relative">
-            الم
-            <span className="absolute top-3 right-4 w-2 h-2 bg-gold rounded-sm rotate-12" />
-            <span className="absolute top-5 right-6 w-1.5 h-1.5 bg-gold rounded-sm" />
-          </div>
-          <div>
-            <div className="font-arabic text-3xl text-gold font-bold">المارديني</div>
-            <div className="font-arabic text-sm text-gold">للخدمات العامة</div>
-            <div className="text-[11px] tracking-widest mt-1 font-medium">
-              ALMARDINI INTERNATIONAL GROUP
-            </div>
-          </div>
+        <div>
+          <img
+            src="/logo.jpeg"
+            alt="Almardini International Group"
+            className="h-32 w-auto object-contain"
+          />
         </div>
 
         <div>
           <h2 className="font-serif text-4xl leading-tight max-w-md">
-            The internal control room for every case, client, and payment.
+            The operating system for the business.
           </h2>
           <p className="text-white/70 text-sm mt-4">Jakarta · Bali · Batam</p>
         </div>

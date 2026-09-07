@@ -5,7 +5,6 @@ import type { Company, CaseStatus, CasePriority, VirtualOffice } from "@/lib/typ
 import { VirtualOfficeCard } from "@/components/app/VirtualOfficeCard";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { ActiveServicesList } from "@/components/app/ActiveServices";
 import { serviceLabel } from "@/lib/service";
 import { CompanyForm } from "../CompanyForm";
 import {
@@ -188,16 +187,6 @@ export function CompanyDetail({
               allClients={allClients}
               roles={roles}
               roleLabel={roleLabel}
-            />
-          </Card>
-
-          <Card title="Active services" padded>
-            <ActiveServicesList
-              cases={cases.map((c) => ({
-                id: c.id, code: c.code, title: c.title, status: c.status,
-                expires_at: c.expires_at,
-                service: c.service,
-              }))}
             />
           </Card>
 
