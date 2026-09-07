@@ -188,3 +188,28 @@ export type ServiceType = {
 };
 
 export const DEFAULT_QUARTERLY_MONTHS = [1, 4, 7, 10];
+
+export type EntityServiceStatus = "active" | "expired" | "terminated" | "paused";
+
+export type EntityService = {
+  id: string;
+  service_id: string;
+  client_id: string | null;
+  company_id: string | null;
+  status: EntityServiceStatus;
+  started_date: string | null;
+  issued_date: string | null;
+  expires_date: string | null;
+  tier: string | null;
+  term_months: number | null;
+  sponsor_company_id: string | null;
+  responsible_partner_id: string | null;
+  drive_folder_url: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  service?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing"> | null;
+  sponsor?: { id: string; name: string; code: string } | null;
+  responsible?: { id: string; name: string; code: string } | null;
+};

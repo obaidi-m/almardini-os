@@ -245,9 +245,58 @@ export async function deleteCategory(formData: FormData) {
   revalidatePath("/admin/services");
 }
 
+export type ServiceDeleteCheck = {
+  ok: boolean;
+  reason?: "cases_block" | "needs_cascade";
+  subscription_count: number;
+  case_count: number;
+  message: string;
+};
+
+async function countServiceReferences(supabase: ReturnType<typeof createClient>, id: string) {
+  const [{ count: subs }, { count: cases }] = await Promise.all([
+    supabase
+      .from("entity_services")
+      .select("id", { count: "exact", head: true })
+      .eq("service_id", id)
+      .is("deleted_at", null),
+    supabase
+      .from("cases")
+      .select("id", { count: "exact", head: true })
+      .eq("service_type_id", id)
+      .is("deleted_at", null),
+  ]);
+  return { subs: subs ?? 0, cases: cases ?? 0 };
+}
+
+export async function checkServiceDeletable(id: string): Promise<ServiceDeleteCheck> {
+  const { supabase } = await requireOwner();
+  const { subs, cases } = await countServiceReferences(supabase, id);
+  if (cases > 0) {
+    return {
+      ok: false,
+      reason: "cases_block",
+      subscription_count: subs,
+      case_count: cases,
+      message: `${cases} case${cases === 1 ? "" : "s"} still reference this service. Archive it instead (reversible), or reassign / delete those cases first.`,
+    };
+  }
+  if (subs > 0) {
+    return {
+      ok: false,
+      reason: "needs_cascade",
+      subscription_count: subs,
+      case_count: 0,
+      message: `${subs} subscription${subs === 1 ? "" : "s"} use this service. Delete them too?`,
+    };
+  }
+  return { ok: true, subscription_count: 0, case_count: 0, message: "Safe to delete." };
+}
+
 export async function deleteService(formData: FormData) {
   const { supabase, actorId } = await requireOwner();
   const id = String(formData.get("id"));
+  const cascade = formData.get("cascade") === "true";
 
   const { data: existing } = await supabase
     .from("service_types")
@@ -256,12 +305,34 @@ export async function deleteService(formData: FormData) {
     .single();
   if (!existing) throw new Error("Service not found");
 
+  const { subs, cases } = await countServiceReferences(supabase, id);
+  if (cases > 0) {
+    throw new Error(
+      `Cannot delete: ${cases} case${cases === 1 ? "" : "s"} still reference this service. Archive it instead.`,
+    );
+  }
+  if (subs > 0 && !cascade) {
+    throw new Error(
+      `Cannot delete: ${subs} subscription${subs === 1 ? "" : "s"} use this service. Confirm cascade to remove them too.`,
+    );
+  }
+
+  if (subs > 0 && cascade) {
+    const { error: subErr } = await supabase
+      .from("entity_services")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("service_id", id)
+      .is("deleted_at", null);
+    if (subErr) throw new Error(subErr.message);
+  }
+
   const { error } = await supabase.from("service_types").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
   await log(actorId, "deleted", null, `Deleted service "${existing.name}" (${existing.code})`, {
     deleted_id: existing.id,
     code: existing.code,
+    cascaded_subscriptions: subs,
   });
   revalidatePath("/admin/services");
 }

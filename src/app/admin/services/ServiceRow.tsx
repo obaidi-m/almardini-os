@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { updateService, toggleService, deleteService } from "./actions";
+import { updateService, toggleService, deleteService, checkServiceDeletable } from "./actions";
 import type { ServiceCategory, ServiceType } from "@/lib/types";
 import { ScheduleFields } from "./ScheduleFields";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
@@ -204,14 +204,45 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
           type="button"
           disabled={pending}
           onClick={async () => {
+            const check = await checkServiceDeletable(service.id);
+
+            if (check.ok) {
+              const ok = await confirm({
+                title: "Delete service",
+                message: `Delete "${service.name}" permanently? This cannot be undone.`,
+                confirmLabel: "Delete",
+                tone: "danger",
+              });
+              if (!ok) return;
+              const fd = new FormData();
+              fd.set("id", service.id);
+              start(async () => { await deleteService(fd); });
+              return;
+            }
+
+            if (check.reason === "cases_block") {
+              await confirm({
+                title: "Cannot delete",
+                message: check.message,
+                confirmLabel: "OK",
+                tone: "default",
+              });
+              return;
+            }
+
+            // needs_cascade: subscriptions exist but no cases — offer to
+            // soft-delete the subscriptions and then remove the service.
             const ok = await confirm({
-              title: "Delete service",
-              message: `Delete "${service.name}" permanently? This cannot be undone.`,
-              confirmLabel: "Delete",
+              title: "Delete service + its subscriptions?",
+              message:
+                `${check.message} This soft-deletes ${check.subscription_count} subscription${check.subscription_count === 1 ? "" : "s"} and then removes the service. This cannot be undone.`,
+              confirmLabel: "Delete both",
               tone: "danger",
             });
             if (!ok) return;
-            const fd = new FormData(); fd.set("id", service.id);
+            const fd = new FormData();
+            fd.set("id", service.id);
+            fd.set("cascade", "true");
             start(async () => { await deleteService(fd); });
           }}
           className="text-[12px] font-medium text-red-700 hover:underline"

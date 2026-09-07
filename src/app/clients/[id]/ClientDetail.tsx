@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Client, Partner, CaseStatus, CasePriority, Permit } from "@/lib/types";
-import { PermitCard } from "@/components/app/PermitCard";
+import type { Client, Partner, CaseStatus, CasePriority, Permit, EntityService, ServiceType } from "@/lib/types";
+import { EntityServicesCard } from "@/components/app/EntityServicesCard";
 import { serviceLabel } from "@/lib/service";
 import { ClientForm } from "../ClientForm";
 import { updateClientAction, softDeleteClientAction, restoreClientAction } from "../actions";
@@ -35,6 +35,7 @@ type CompanyOption = { id: string; code: string; name: string };
 
 export function ClientDetail({
   client, partners, linkedCompanies, allCompanies, roles, cases, permits = [],
+  entityServices = [], catalog = [],
 }: {
   client: Client;
   partners: Pick<Partner, "id" | "name" | "code">[];
@@ -43,6 +44,8 @@ export function ClientDetail({
   roles: Role[];
   cases: CaseSummary[];
   permits?: Permit[];
+  entityServices?: EntityService[];
+  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -179,9 +182,10 @@ export function ClientDetail({
             />
           </Card>
 
-          <PermitCard
-            clientId={client.id}
-            permits={permits}
+          <EntityServicesCard
+            owner={{ kind: "client", id: client.id }}
+            services={entityServices}
+            catalog={catalog}
             companies={allCompanies}
             partners={partners.map((p) => ({ id: p.id, code: p.code, name: p.name }))}
           />

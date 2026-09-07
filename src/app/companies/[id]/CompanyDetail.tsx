@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Company, CaseStatus, CasePriority, VirtualOffice } from "@/lib/types";
-import { VirtualOfficeCard } from "@/components/app/VirtualOfficeCard";
+import type { Company, CaseStatus, CasePriority, VirtualOffice, EntityService, ServiceType } from "@/lib/types";
+import { EntityServicesCard } from "@/components/app/EntityServicesCard";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { serviceLabel } from "@/lib/service";
@@ -45,6 +45,7 @@ type PartnerOpt = { id: string; code: string; name: string };
 
 export function CompanyDetail({
   company, linkedClients, allClients, roles, cases, virtualOffices, partners = [],
+  entityServices = [], catalog = [],
 }: {
   company: Company;
   linkedClients: LinkedClient[];
@@ -53,6 +54,8 @@ export function CompanyDetail({
   cases: CompanyCase[];
   virtualOffices: VirtualOffice[];
   partners?: PartnerOpt[];
+  entityServices?: EntityService[];
+  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
 }) {
   const { t } = useT();
   const confirm = useConfirm();
@@ -190,7 +193,12 @@ export function CompanyDetail({
             />
           </Card>
 
-          <VirtualOfficeCard companyId={company.id} offices={virtualOffices} partners={partners} />
+          <EntityServicesCard
+            owner={{ kind: "company", id: company.id }}
+            services={entityServices}
+            catalog={catalog}
+            partners={partners}
+          />
 
           <Card
             title={t("section.cases")}

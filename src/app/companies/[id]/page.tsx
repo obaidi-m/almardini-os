@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Company, VirtualOffice } from "@/lib/types";
+import type { Company, EntityService, ServiceType, VirtualOffice } from "@/lib/types";
 import { CompanyDetail } from "./CompanyDetail";
 import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
@@ -15,7 +15,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
 
   await expireOverdueVirtualOffices(supabase);
 
-  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }, { data: partnersData }] = await Promise.all([
+  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }, { data: partnersData }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
     supabase
       .from("companies")
       .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, introduced_by_partner_id, deleted_at, created_at, updated_at, introduced_by:partners!companies_introduced_by_fk(id, name, code)")
@@ -57,6 +57,19 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .is("deleted_at", null)
       .order("name")
       .limit(500),
+    supabase
+      .from("entity_services")
+      .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
+      .eq("company_id", params.id)
+      .is("deleted_at", null)
+      .order("status")
+      .order("expires_date", { ascending: true }),
+    supabase
+      .from("service_types")
+      .select("id, code, name, applies_to, tracks_expiry, is_ongoing")
+      .eq("is_active", true)
+      .in("applies_to", ["company", "either"])
+      .order("name"),
   ]);
 
   if (error) {
@@ -135,6 +148,17 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
           responsible: Array.isArray(v.responsible) ? v.responsible[0] ?? null : v.responsible ?? null,
         }))}
         partners={(partnersData as Array<{ id: string; code: string; name: string }>) ?? []}
+        entityServices={((entityServicesRaw as unknown as Array<EntityService & {
+          service: EntityService["service"] | EntityService["service"][];
+          sponsor: EntityService["sponsor"] | EntityService["sponsor"][];
+          responsible: EntityService["responsible"] | EntityService["responsible"][];
+        }>) ?? []).map((r) => ({
+          ...r,
+          service: Array.isArray(r.service) ? r.service[0] ?? null : r.service ?? null,
+          sponsor: Array.isArray(r.sponsor) ? r.sponsor[0] ?? null : r.sponsor ?? null,
+          responsible: Array.isArray(r.responsible) ? r.responsible[0] ?? null : r.responsible ?? null,
+        }))}
+        catalog={(catalogRaw as Array<Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">>) ?? []}
       />
     </div>
   );
