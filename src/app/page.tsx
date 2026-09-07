@@ -380,6 +380,7 @@ export default async function DashboardPage() {
                 <AttentionPanel attention={attention} empty={attentionEmpty} t={t} />
               </div>
               <div className="space-y-8">
+                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
                 <Panel title={t("section.quick_actions")}>
                   <div className="grid grid-cols-2 gap-2">
                     <QuickAction href="/clients/new" label={t("action.new_client")} />
@@ -388,7 +389,6 @@ export default async function DashboardPage() {
                     <QuickAction href="/partners/new" label={t("action.new_partner")} />
                   </div>
                 </Panel>
-                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
               </div>
             </div>
           ) : (
@@ -436,6 +436,7 @@ export default async function DashboardPage() {
                   )}
                 </Panel>
 
+                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
                 <Panel title={t("section.quick_actions")}>
                   <div className="grid grid-cols-2 gap-2">
                     <QuickAction href="/clients/new" label={t("action.new_client")} />
@@ -444,7 +445,6 @@ export default async function DashboardPage() {
                     <QuickAction href="/partners/new" label={t("action.new_partner")} />
                   </div>
                 </Panel>
-                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
               </div>
             </div>
           )}
@@ -494,22 +494,40 @@ function RenewalsPanel({ renewals }: { renewals: Renewal[] }) {
 }
 
 function FocusPanel({ rows, t }: { rows: { key: string; owner: string; service: string; href: string; nextDate: string }[]; t: Tr }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const daysLeft = (iso: string) => Math.floor((new Date(iso + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
+  const pillClass = (n: number) =>
+    n <= 7  ? "bg-red-100 text-red-800"
+  : n <= 20 ? "bg-amber-100 text-amber-800"
+  :           "bg-white text-[var(--muted)] border border-[var(--border)]";
   return (
-    <Panel title={`${t("dash.focus.title")} (${rows.length})`}>
-      <ul className="divide-y divide-[var(--border)]">
-        {rows.map((r) => (
-          <li key={r.key} className="py-2">
-            <Link href={r.href} className="grid grid-cols-[1fr_auto] gap-2 items-baseline hover:text-brand-dark">
-              <span className="min-w-0">
-                <span className="text-[13px] text-ink truncate block">{r.service}</span>
-                <span className="text-[11.5px] text-[var(--muted)] truncate block">{r.owner}</span>
-              </span>
-              <span className="text-[11.5px] text-[var(--muted)] shrink-0 font-mono">{fmtDate(r.nextDate)}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[11px] uppercase tracking-widest text-amber-800 font-semibold flex items-center gap-1.5">
+          <span aria-hidden>⏰</span>
+          {t("dash.focus.title")} ({rows.length})
+        </h2>
+      </div>
+      <div className="border border-amber-300 rounded-lg bg-amber-50 p-2">
+        <ul className="divide-y divide-amber-200">
+          {rows.map((r) => {
+            const n = daysLeft(r.nextDate);
+            const label = n < 0 ? t("dash.focus.overdue", { n: -n }) : n === 0 ? t("dash.focus.today") : t("dash.focus.in", { n });
+            return (
+              <li key={r.key}>
+                <Link href={r.href} className="grid grid-cols-[1fr_auto] gap-2 items-center px-2 py-2 rounded hover:bg-amber-100/60 transition-colors">
+                  <span className="min-w-0">
+                    <span className="text-[13.5px] font-semibold text-ink truncate block">{r.service}</span>
+                    <span className="text-[11.5px] text-[var(--muted)] truncate block">{r.owner}</span>
+                  </span>
+                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${pillClass(n)}`}>{label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 }
 
