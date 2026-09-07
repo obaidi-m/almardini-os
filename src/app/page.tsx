@@ -6,7 +6,7 @@ import { OpsSidebar } from "@/components/app/OpsSidebar";
 import { getT } from "@/lib/i18n/server";
 import type { CaseStatus, CasePriority } from "@/lib/types";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { effectiveExpiryDate, renewalTier } from "@/lib/renewal";
+import { effectiveExpiryDate, handledServiceIdsFromCases, isInReminderWindow, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { serviceLabel } from "@/lib/service";
 
@@ -67,6 +67,9 @@ export default async function DashboardPage() {
   const todayIso = today.toISOString().slice(0, 10);
   const in90Iso = in90.toISOString().slice(0, 10);
 
+  const focusFromIso = new Date(); focusFromIso.setDate(focusFromIso.getDate() - 400);
+  const focusFromIsoStr = focusFromIso.toISOString().slice(0, 10);
+
   const [
     myCasesRes,
     readyToDeliverRes,
@@ -75,6 +78,7 @@ export default async function DashboardPage() {
     expiringSubsRes,
     attentionCasesRes,
     latestUpdatesRes,
+    focusCasesRes,
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -152,6 +156,15 @@ export default async function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(2000)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    // Recent cases (any status) for the Focus panel's handled check —
+    // a case for (owner, service) created inside the current window
+    // silently suppresses the corresponding focus row.
+    supabase
+      .from("cases")
+      .select("client_id, company_id, service_type_id, created_at, service:service_types(id, schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit)")
+      .is("deleted_at", null)
+      .gte("created_at", focusFromIsoStr)
+      .limit(2000),
   ]);
 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -204,6 +217,48 @@ export default async function DashboardPage() {
   });
 
   renewals.sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+
+  // Focus panel: entity_services whose next cycle is inside the reminder
+  // window AND that don't yet have a case created inside that same window.
+  // Same rule as the Services card on the entity page — dashboard version.
+  type FocusSvc = { id: string; code?: string | null; name?: string | null; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null };
+  const handledKeys = new Set<string>();
+  for (const c of ((focusCasesRes.data ?? []) as Array<{
+    client_id: string | null; company_id: string | null; service_type_id: string | null; created_at: string;
+    service: FocusSvc[] | FocusSvc | null;
+  }>)) {
+    const svc = unwrap(c.service) as ServiceSchedule;
+    const ownerId = c.client_id ?? c.company_id;
+    if (!svc || !c.service_type_id || !ownerId) continue;
+    const [handled] = handledServiceIdsFromCases([{ service_id: c.service_type_id, created_at: c.created_at, service: svc }]);
+    if (handled) handledKeys.add(`${ownerId}::${handled}`);
+  }
+
+  type FocusRow = { key: string; owner: string; service: string; href: string; nextDate: string };
+  const focusRows: FocusRow[] = ((expiringSubsRes.data ?? []) as Array<{
+    id: string; expires_date: string | null;
+    client:  { id: string; full_name: string }[] | { id: string; full_name: string } | null;
+    company: { id: string; name: string }[]      | { id: string; name: string }      | null;
+    service: FocusSvc[] | (FocusSvc & { code?: string | null; name?: string | null }) | null;
+  }>).flatMap((r) => {
+    const svc = unwrap(r.service);
+    if (!svc || !isInReminderWindow(svc as ServiceSchedule)) return [];
+    const cli = unwrap(r.client);
+    const cmp = unwrap(r.company);
+    const ownerId = cli?.id ?? cmp?.id;
+    if (!ownerId || !svc.id) return [];
+    if (handledKeys.has(`${ownerId}::${svc.id}`)) return [];
+    const nextDate = effectiveExpiryDate(r.expires_date, svc as ServiceSchedule);
+    if (!nextDate) return [];
+    return [{
+      key: r.id,
+      owner: cli?.full_name ?? cmp?.name ?? "?",
+      service: svc.name ?? "Service",
+      href: cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : "/",
+      nextDate,
+    }];
+  });
+  focusRows.sort((a, b) => a.nextDate.localeCompare(b.nextDate));
 
   // Compute attention buckets for Admin + Owner
   type AttentionCase = {
@@ -324,7 +379,7 @@ export default async function DashboardPage() {
               <div>
                 <AttentionPanel attention={attention} empty={attentionEmpty} t={t} />
               </div>
-              <div>
+              <div className="space-y-8">
                 <Panel title={t("section.quick_actions")}>
                   <div className="grid grid-cols-2 gap-2">
                     <QuickAction href="/clients/new" label={t("action.new_client")} />
@@ -333,6 +388,7 @@ export default async function DashboardPage() {
                     <QuickAction href="/partners/new" label={t("action.new_partner")} />
                   </div>
                 </Panel>
+                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
               </div>
             </div>
           ) : (
@@ -388,6 +444,7 @@ export default async function DashboardPage() {
                     <QuickAction href="/partners/new" label={t("action.new_partner")} />
                   </div>
                 </Panel>
+                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
               </div>
             </div>
           )}
@@ -433,6 +490,26 @@ function RenewalsPanel({ renewals }: { renewals: Renewal[] }) {
         </>
       )}
     </section>
+  );
+}
+
+function FocusPanel({ rows, t }: { rows: { key: string; owner: string; service: string; href: string; nextDate: string }[]; t: Tr }) {
+  return (
+    <Panel title={`${t("dash.focus.title")} (${rows.length})`}>
+      <ul className="divide-y divide-[var(--border)]">
+        {rows.map((r) => (
+          <li key={r.key} className="py-2">
+            <Link href={r.href} className="grid grid-cols-[1fr_auto] gap-2 items-baseline hover:text-brand-dark">
+              <span className="min-w-0">
+                <span className="text-[13px] text-ink truncate block">{r.service}</span>
+                <span className="text-[11.5px] text-[var(--muted)] truncate block">{r.owner}</span>
+              </span>
+              <span className="text-[11.5px] text-[var(--muted)] shrink-0 font-mono">{fmtDate(r.nextDate)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
