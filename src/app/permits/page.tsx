@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { Permit, PermitStatus } from "@/lib/types";
-import { NewPermitButton } from "./NewButton";
-import { expireOverduePermits } from "@/lib/permits";
+import type { EntityServiceStatus } from "@/lib/types";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -15,16 +13,21 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "terminated",  label: "Terminated" },
 ];
 
-const STATUS_PILL: Record<PermitStatus, { bg: string; text: string; dot: string }> = {
+type DisplayStatus = "active" | "expired" | "terminated";
+
+const STATUS_PILL: Record<DisplayStatus, { bg: string; text: string; dot: string }> = {
   active:     { bg: "bg-[#DCFCE7]",           text: "text-[#166534]",       dot: "bg-[#22C55E]" },
   expired:    { bg: "bg-[#FEE2E2]",           text: "text-[#991B1B]",       dot: "bg-[#EF4444]" },
   terminated: { bg: "bg-[var(--surface-2)]",  text: "text-[var(--muted)]",  dot: "bg-[var(--muted)]" },
 };
 
-type Row = Permit & {
-  client: { id: string; full_name: string; code: string } | null;
+type Row = {
+  id: string;
+  kind: string; // service name (KITAS, KITAP, IMTA…)
+  expires_date: string;
+  status: DisplayStatus;
+  client:  { id: string; full_name: string; code: string } | null;
   sponsor: { id: string; name: string; code: string } | null;
-  responsible: { id: string; name: string; code: string } | null;
 };
 
 function daysUntil(iso: string): number {
@@ -52,19 +55,22 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
   const supabase = createClient();
   const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
 
-  await expireOverduePermits(supabase);
-
-  const [{ data, error }, { data: clientsRaw }, { data: companiesRaw }, { data: partnersRaw }] = await Promise.all([
-    supabase
-      .from("permits")
-      .select("id, client_id, kind, reference_no, issued_date, expires_date, status, sponsor_company_id, responsible_partner_id, notes, drive_folder_url, created_at, updated_at, deleted_at, client:clients(id, full_name, code), sponsor:companies(id, name, code), responsible:partners!permits_responsible_partner_id_fkey(id, name, code)")
-      .is("deleted_at", null)
-      .order("expires_date", { ascending: true })
-      .limit(1000),
-    supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name").limit(1000),
-    supabase.from("companies").select("id, code, name").is("deleted_at", null).order("name").limit(1000),
-    supabase.from("partners").select("id, code, name").is("deleted_at", null).order("name").limit(1000),
-  ]);
+  // Read every person-owned subscription from the unified entity_services
+  // store, then filter/status-derive in memory. Permits are a subset of
+  // subscriptions — the ones whose catalog entry is applies_to = 'person'.
+  const { data, error } = await supabase
+    .from("entity_services")
+    .select(`
+      id, expires_date, status,
+      client:clients(id, full_name, code),
+      sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code),
+      service:service_types!inner(id, name, applies_to)
+    `)
+    .is("deleted_at", null)
+    .eq("service.applies_to", "person")
+    .not("client_id", "is", null)
+    .order("expires_date", { ascending: true })
+    .limit(1000);
 
   if (error) {
     return (
@@ -74,18 +80,32 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     );
   }
 
-  const unwrap = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
+  const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
+    Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  const all: Row[] = (data as unknown as Array<Permit & {
-    client: { id: string; full_name: string; code: string } | { id: string; full_name: string; code: string }[] | null;
-    sponsor: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
-    responsible: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
-  }>).map((r) => ({
-    ...r,
-    client: unwrap(r.client),
-    sponsor: unwrap(r.sponsor),
-    responsible: unwrap(r.responsible),
-  }));
+  // Fold status into the three display buckets we support here — paused
+  // gets treated as active for permit purposes, since the doc is still
+  // valid on paper.
+  const displayStatus = (s: EntityServiceStatus): DisplayStatus =>
+    s === "expired" ? "expired" : s === "terminated" ? "terminated" : "active";
+
+  const all: Row[] = ((data ?? []) as Array<{
+    id: string;
+    expires_date: string | null;
+    status: EntityServiceStatus;
+    client:  { id: string; full_name: string; code: string }[] | { id: string; full_name: string; code: string } | null;
+    sponsor: { id: string; name: string; code: string }[]      | { id: string; name: string; code: string }      | null;
+    service: { id: string; name: string; applies_to: string }[] | { id: string; name: string; applies_to: string } | null;
+  }>)
+    .filter((r) => r.expires_date !== null) // permits list is expiry-tracked ones only
+    .map((r) => ({
+      id: r.id,
+      kind: unwrap(r.service)?.name ?? "Permit",
+      expires_date: r.expires_date as string,
+      status: displayStatus(r.status),
+      client: unwrap(r.client),
+      sponsor: unwrap(r.sponsor),
+    }));
 
   const today = new Date().toISOString().slice(0, 10);
   const counts = {
@@ -106,10 +126,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     }
   });
 
-  const clients = (clientsRaw as Array<{ id: string; code: string; full_name: string }>) ?? [];
-  const companies = (companiesRaw as Array<{ id: string; code: string; name: string }>) ?? [];
-  const partners = (partnersRaw as Array<{ id: string; code: string; name: string }>) ?? [];
-
   function hrefWith(f: Filter): string {
     return f === "all" ? "/permits" : `/permits?filter=${f}`;
   }
@@ -120,10 +136,10 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
         <div>
           <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">Permits</h1>
           <p className="text-[13.5px] text-[var(--muted)] mt-1">
-            KITAS, IMTA, work permits and other issued documents.
+            KITAS, IMTA, work permits and other issued documents. Add or renew
+            from the client&apos;s page.
           </p>
         </div>
-        <NewPermitButton clients={clients} companies={companies} partners={partners} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">

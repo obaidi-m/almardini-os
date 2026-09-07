@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { VirtualOffice, VirtualOfficeTier, VirtualOfficeStatus } from "@/lib/types";
-import { NewVirtualOfficeButton } from "./NewButton";
-import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
+import type { EntityServiceStatus } from "@/lib/types";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -15,20 +13,21 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "terminated",  label: "Terminated" },
 ];
 
-const TIER_LABEL: Record<VirtualOfficeTier, string> = {
-  bronze: "Bronze",
-  silver: "Silver",
-  gold: "Gold",
-  platinum: "Platinum",
-};
+type DisplayStatus = "active" | "expired" | "terminated";
 
-const STATUS_PILL: Record<VirtualOfficeStatus, { bg: string; text: string; dot: string }> = {
+const STATUS_PILL: Record<DisplayStatus, { bg: string; text: string; dot: string }> = {
   active:     { bg: "bg-[#DCFCE7]",           text: "text-[#166534]",       dot: "bg-[#22C55E]" },
   expired:    { bg: "bg-[#FEE2E2]",           text: "text-[#991B1B]",       dot: "bg-[#EF4444]" },
   terminated: { bg: "bg-[var(--surface-2)]",  text: "text-[var(--muted)]",  dot: "bg-[var(--muted)]" },
 };
 
-type Row = VirtualOffice & {
+type Row = {
+  id: string;
+  tier: string;
+  term_months: number | null;
+  start_date: string | null;
+  end_date: string;
+  status: DisplayStatus;
   company: { id: string; code: string; name: string } | null;
   responsible: { id: string; name: string; code: string } | null;
 };
@@ -51,6 +50,9 @@ function fmtDate(v: string | null | undefined): string {
   const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
 
 const COLS = "36px minmax(200px, 1fr) 80px 70px 100px 100px 120px 130px 100px";
 
@@ -58,28 +60,22 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
   const supabase = createClient();
   const filter: Filter = (FILTERS.find((f) => f.key === searchParams.filter)?.key ?? "all") as Filter;
 
-  await expireOverdueVirtualOffices(supabase);
-
-  const [{ data, error }, { data: companiesRaw }, { data: partnersRaw }] = await Promise.all([
-    supabase
-      .from("virtual_offices")
-      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, responsible_partner_id, created_at, updated_at, deleted_at, company:companies(id, code, name), responsible:partners!virtual_offices_responsible_partner_fk(id, name, code)")
-      .is("deleted_at", null)
-      .order("end_date", { ascending: true })
-      .limit(1000),
-    supabase
-      .from("companies")
-      .select("id, code, name")
-      .is("deleted_at", null)
-      .order("name")
-      .limit(1000),
-    supabase
-      .from("partners")
-      .select("id, code, name")
-      .is("deleted_at", null)
-      .order("name")
-      .limit(1000),
-  ]);
+  // Read every "virtual office"–shaped subscription from entity_services.
+  // The catalog entry drives what we match — anything named like a virtual
+  // office is in.
+  const { data, error } = await supabase
+    .from("entity_services")
+    .select(`
+      id, expires_date, started_date, tier, term_months, status,
+      company:companies!entity_services_company_id_fkey(id, code, name),
+      responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code),
+      service:service_types!inner(id, name, applies_to)
+    `)
+    .is("deleted_at", null)
+    .not("company_id", "is", null)
+    .ilike("service.name", "%virtual office%")
+    .order("expires_date", { ascending: true })
+    .limit(1000);
 
   if (error) {
     return (
@@ -92,14 +88,30 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  const all: Row[] = (data as unknown as Array<VirtualOffice & {
-    company: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
-    responsible: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
-  }>).map((r) => ({
-    ...r,
-    company: unwrap(r.company),
-    responsible: unwrap(r.responsible),
-  }));
+  const displayStatus = (s: EntityServiceStatus): DisplayStatus =>
+    s === "expired" ? "expired" : s === "terminated" ? "terminated" : "active";
+
+  const all: Row[] = ((data ?? []) as Array<{
+    id: string;
+    expires_date: string | null;
+    started_date: string | null;
+    tier: string | null;
+    term_months: number | null;
+    status: EntityServiceStatus;
+    company:     { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
+    responsible: { id: string; name: string; code: string }[] | { id: string; name: string; code: string } | null;
+  }>)
+    .filter((r) => r.expires_date !== null)
+    .map((r) => ({
+      id: r.id,
+      tier: titleCase(r.tier ?? "silver"),
+      term_months: r.term_months,
+      start_date: r.started_date,
+      end_date: r.expires_date as string,
+      status: displayStatus(r.status),
+      company: unwrap(r.company),
+      responsible: unwrap(r.responsible),
+    }));
 
   const today = new Date().toISOString().slice(0, 10);
   const counts = {
@@ -120,9 +132,6 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
     }
   });
 
-  const companies = (companiesRaw as Array<{ id: string; code: string; name: string }>) ?? [];
-  const partners = (partnersRaw as Array<{ id: string; code: string; name: string }>) ?? [];
-
   function hrefWith(f: Filter): string {
     return f === "all" ? "/virtual-offices" : `/virtual-offices?filter=${f}`;
   }
@@ -135,10 +144,10 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
             Virtual offices
           </h1>
           <p className="text-[13.5px] text-[var(--muted)] mt-1">
-            Rental tenancies across every company.
+            Rental tenancies across every company. Add or renew from the
+            company&apos;s page.
           </p>
         </div>
-        <NewVirtualOfficeButton companies={companies} partners={partners} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -213,8 +222,8 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
                     <span className="text-[var(--muted)]">—</span>
                   )}
                 </div>
-                <div>{TIER_LABEL[vo.tier]}</div>
-                <div className="text-[var(--muted)]">{vo.term_months}mo</div>
+                <div>{vo.tier}</div>
+                <div className="text-[var(--muted)]">{vo.term_months ? `${vo.term_months}mo` : "—"}</div>
                 <div className="text-[var(--muted)]">{fmtDate(vo.start_date)}</div>
                 <div>{fmtDate(vo.end_date)}</div>
                 <div className="whitespace-nowrap">
