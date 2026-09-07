@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Client } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
 type SearchParams = { show?: string; sort?: string; nationality?: string; channel?: string };
@@ -237,19 +238,17 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {/* Dense table — flanked by strong top/bottom lines so it reads as a table */}
-      <div className="border-y border-[var(--border-strong)]">
-        {/* Header */}
-        <div className="grid grid-cols-[36px_90px_2fr_1fr_1fr] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
-          <HeadCell icon={<IconUser />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconPassport />} label={t("col.passport")} />
-          <HeadCell icon={<IconPhone />} label={t("field.phone")} />
-        </div>
-
+      {/* Dense resizable table */}
+      <ResizableTable
+        storageKey="clients-cols-v1"
+        columns={[
+          { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+          { header: <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />, defaultWidth: 90 },
+          { header: <HeadCell icon={<IconUser />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />, defaultWidth: 460, minWidth: 200 },
+          { header: <HeadCell icon={<IconPassport />} label={t("col.passport")} />, defaultWidth: 220, minWidth: 120 },
+          { header: <HeadCell icon={<IconPhone />} label={t("field.phone")} />, defaultWidth: 220, minWidth: 120 },
+        ] satisfies ColumnDef[]}
+      >
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {activeFilterCount > 0 ? (
@@ -272,9 +271,10 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
           rows.map((c) => (
             <div
               key={c.id}
-              className={`group grid grid-cols-[36px_90px_2fr_1fr_1fr] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${
+              className={`group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${
                 c.deleted_at ? "opacity-55" : ""
               }`}
+              style={{ gridTemplateColumns: "var(--rt-cols)" }}
             >
               <div className="flex items-center justify-center">
                 <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
@@ -306,7 +306,7 @@ export default async function ClientsListPage({ searchParams }: { searchParams: 
             </div>
           ))
         )}
-      </div>
+      </ResizableTable>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
         {t("list.count.clients", { n: rows.length })}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -42,7 +43,15 @@ function fmtDate(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-const COLS = "36px minmax(200px, 1.4fr) 90px minmax(140px, 1fr) 100px 120px 100px";
+const COLUMNS: ColumnDef[] = [
+  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+  { header: "Holder",  defaultWidth: 300, minWidth: 160 },
+  { header: "Kind",    defaultWidth: 100 },
+  { header: "Sponsor", defaultWidth: 220, minWidth: 120 },
+  { header: "Expires", defaultWidth: 100 },
+  { header: "Days",    defaultWidth: 120 },
+  { header: "Status",  defaultWidth: 100 },
+];
 
 export default async function PermitsListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
@@ -157,22 +166,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
         })}
       </div>
 
-      <div className="border-y border-[var(--border-strong)]">
-        <div
-          className="grid gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30"
-          style={{ gridTemplateColumns: COLS }}
-        >
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <div>Holder</div>
-          <div>Kind</div>
-          <div>Sponsor</div>
-          <div>Expires</div>
-          <div>Days</div>
-          <div>Status</div>
-        </div>
-
+      <ResizableTable storageKey="permits-cols-v1" columns={COLUMNS}>
         {rows.length === 0 ? (
           <div className="py-16 text-center text-[13px] text-[var(--muted)]">No permits match this filter.</div>
         ) : (
@@ -182,7 +176,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
               <div
                 key={p.id}
                 className="group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors"
-                style={{ gridTemplateColumns: COLS }}
+                style={{ gridTemplateColumns: "var(--rt-cols)" }}
               >
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
@@ -229,7 +223,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
             );
           })
         )}
-      </div>
+      </ResizableTable>
     </div>
   );
 }

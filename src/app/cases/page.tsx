@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ServiceFilter } from "./ServiceFilter";
 import { serviceLabel } from "@/lib/service";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
 type SearchParams = { status?: string; mine?: string; sort?: string; service?: string; show?: string };
@@ -237,20 +238,19 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
         <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{error.message}</div>
       )}
 
-      <div className="border-y border-[var(--border-strong)]">
-        <div className="grid grid-cols-[36px_100px_1.6fr_1fr_120px_1fr_90px_100px] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: "code_asc" })} sortHint={sort === "code_asc" ? "↑" : undefined} />
-          <HeadCell icon={<IconUser />} label={t("cases.col.client_title")} />
-          <HeadCell icon={<IconDoc />} label={t("cases.col.service")} />
-          <HeadCell icon={<IconDot />} label={t("cases.col.status")} />
-          <HeadCell icon={<IconUser />} label={t("cases.col.assignee")} />
-          <HeadCell icon={<IconFlag />} label={t("cases.col.priority")} href={hrefWith({ sort: "priority" })} sortHint={sort === "priority" ? "↓" : undefined} />
-          <HeadCell icon={<IconClock />} label={t("cases.col.deadline")} href={hrefWith({ sort: "deadline_asc" })} sortHint={sort === "deadline_asc" ? "↑" : undefined} />
-        </div>
-
+      <ResizableTable
+        storageKey="cases-cols-v1"
+        columns={[
+          { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+          { header: <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: "code_asc" })} sortHint={sort === "code_asc" ? "↑" : undefined} />, defaultWidth: 100 },
+          { header: <HeadCell icon={<IconUser />} label={t("cases.col.client_title")} />, defaultWidth: 260, minWidth: 140 },
+          { header: <HeadCell icon={<IconDoc />} label={t("cases.col.service")} />, defaultWidth: 180, minWidth: 120 },
+          { header: <HeadCell icon={<IconDot />} label={t("cases.col.status")} />, defaultWidth: 120 },
+          { header: <HeadCell icon={<IconUser />} label={t("cases.col.assignee")} />, defaultWidth: 160, minWidth: 100 },
+          { header: <HeadCell icon={<IconFlag />} label={t("cases.col.priority")} href={hrefWith({ sort: "priority" })} sortHint={sort === "priority" ? "↓" : undefined} />, defaultWidth: 90 },
+          { header: <HeadCell icon={<IconClock />} label={t("cases.col.deadline")} href={hrefWith({ sort: "deadline_asc" })} sortHint={sort === "deadline_asc" ? "↑" : undefined} />, defaultWidth: 100 },
+        ] satisfies ColumnDef[]}
+      >
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {status || mineOnly || serviceIds.length > 0 ? (
@@ -268,7 +268,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
             const overdue = c.deadline && c.deadline < today && c.status !== "delivered";
             const sp = STATUS_PILL[c.status];
             return (
-              <div key={c.id} className={`group grid grid-cols-[36px_100px_1.6fr_1fr_120px_1fr_90px_100px] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`}>
+              <div key={c.id} className={`group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`} style={{ gridTemplateColumns: "var(--rt-cols)" }}>
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
                 </div>
@@ -315,7 +315,7 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
             );
           })
         )}
-      </div>
+      </ResizableTable>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
         {t("list.count.cases", { n: rows.length })}

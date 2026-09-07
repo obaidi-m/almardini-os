@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { daysUntil, renewalTier, type ServiceSchedule } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type Filter = "all" | "renew_soon" | "overdue" | "later";
 type SearchParams = { filter?: string };
@@ -33,7 +34,14 @@ const KIND_PILL = {
   company: { bg: "bg-[#E0F2FE]", text: "text-[#075985]", dot: "bg-[#0EA5E9]" },
 } as const;
 
-const COLS = "36px 100px 1.6fr 1.3fr 100px 100px";
+const COLUMNS: ColumnDef[] = [
+  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+  { header: "Owner",       defaultWidth: 100 },
+  { header: "Service",     defaultWidth: 320, minWidth: 160 },
+  { header: "Owner name",  defaultWidth: 260, minWidth: 140 },
+  { header: "Days",        defaultWidth: 100 },
+  { header: "Expires",     defaultWidth: 100 },
+];
 
 function fmtDate(v: string): string {
   const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -167,21 +175,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
         })}
       </div>
 
-      <div className="border-y border-[var(--border-strong)]">
-        <div
-          className="grid gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30"
-          style={{ gridTemplateColumns: COLS }}
-        >
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <div>Owner</div>
-          <div>Service</div>
-          <div>Owner name</div>
-          <div>Days</div>
-          <div>Expires</div>
-        </div>
-
+      <ResizableTable storageKey="renewals-cols-v1" columns={COLUMNS}>
         {visible.length === 0 ? (
           <div className="py-16 text-center text-[13px] text-[var(--muted)]">
             {t("renewals.empty")}
@@ -193,7 +187,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
               <div
                 key={r.key}
                 className="group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors"
-                style={{ gridTemplateColumns: COLS }}
+                style={{ gridTemplateColumns: "var(--rt-cols)" }}
               >
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
@@ -232,7 +226,7 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
             );
           })
         )}
-      </div>
+      </ResizableTable>
     </div>
   );
 }

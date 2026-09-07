@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -47,7 +48,17 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-const COLS = "36px minmax(200px, 1fr) 80px 70px 100px 100px 120px 130px 100px";
+const COLUMNS: ColumnDef[] = [
+  { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+  { header: "Company", defaultWidth: 240, minWidth: 140 },
+  { header: "Tier",    defaultWidth: 80 },
+  { header: "Term",    defaultWidth: 70 },
+  { header: "Start",   defaultWidth: 100 },
+  { header: "End",     defaultWidth: 100 },
+  { header: "Days",    defaultWidth: 120 },
+  { header: "PJ",      defaultWidth: 140, minWidth: 100 },
+  { header: "Status",  defaultWidth: 100 },
+];
 
 export default async function VirtualOfficesListPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
@@ -166,24 +177,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
         })}
       </div>
 
-      <div className="border-y border-[var(--border-strong)]">
-        <div
-          className="grid gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30"
-          style={{ gridTemplateColumns: COLS }}
-        >
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <div>Company</div>
-          <div>Tier</div>
-          <div>Term</div>
-          <div>Start</div>
-          <div>End</div>
-          <div>Days</div>
-          <div>PJ</div>
-          <div>Status</div>
-        </div>
-
+      <ResizableTable storageKey="vo-cols-v1" columns={COLUMNS}>
         {rows.length === 0 ? (
           <div className="py-16 text-center text-[13px] text-[var(--muted)]">
             No virtual offices match this filter.
@@ -195,7 +189,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
               <div
                 key={vo.id}
                 className="group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors"
-                style={{ gridTemplateColumns: COLS }}
+                style={{ gridTemplateColumns: "var(--rt-cols)" }}
               >
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
@@ -244,7 +238,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
             );
           })
         )}
-      </div>
+      </ResizableTable>
     </div>
   );
 }

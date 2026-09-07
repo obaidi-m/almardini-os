@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Company } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
 type SearchParams = { show?: string; sort?: string };
@@ -114,24 +115,23 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
         <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{error.message}</div>
       )}
 
-      <div className="border-y border-[var(--border-strong)]">
-        <div className="grid grid-cols-[36px_100px_1.8fr_1.1fr_1fr] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
-          <div className="flex items-center justify-center">
-            <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
-          </div>
-          <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
-          <HeadCell icon={<IconBuilding />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconDoc />} label={t("field.nib")} />
-          <HeadCell icon={<IconCal />} label={t("col.incorporated")} />
-        </div>
-
+      <ResizableTable
+        storageKey="companies-cols-v1"
+        columns={[
+          { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
+          { header: <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />, defaultWidth: 100 },
+          { header: <HeadCell icon={<IconBuilding />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />, defaultWidth: 420, minWidth: 200 },
+          { header: <HeadCell icon={<IconDoc />} label={t("field.nib")} />, defaultWidth: 240, minWidth: 120 },
+          { header: <HeadCell icon={<IconCal />} label={t("col.incorporated")} />, defaultWidth: 200, minWidth: 120 },
+        ] satisfies ColumnDef[]}
+      >
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
             {t("empty.no_companies")} <Link href="/companies/new" className="text-brand hover:text-brand-dark font-medium">{t("empty.add_first")}</Link>
           </div>
         ) : (
           rows.map((c) => (
-            <div key={c.id} className={`group grid grid-cols-[36px_100px_1.8fr_1.1fr_1fr] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`}>
+            <div key={c.id} className={`group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`} style={{ gridTemplateColumns: "var(--rt-cols)" }}>
               <div className="flex items-center justify-center">
                 <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
               </div>
@@ -152,7 +152,7 @@ export default async function CompaniesListPage({ searchParams }: { searchParams
             </div>
           ))
         )}
-      </div>
+      </ResizableTable>
 
       <div className="mt-3 text-[11.5px] text-[var(--muted)] px-1">
         {t("list.count.companies", { n: rows.length })}
