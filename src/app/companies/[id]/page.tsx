@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Company, EntityService, ServiceType, VirtualOffice } from "@/lib/types";
+import type { Company, EntityService, ServiceType } from "@/lib/types";
 import { CompanyDetail } from "./CompanyDetail";
-import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 type LinkedClient = {
   role: string;
@@ -13,9 +12,7 @@ type LinkedClient = {
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  await expireOverdueVirtualOffices(supabase);
-
-  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: vosRaw }, { data: partnersData }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
+  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: partnersData }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
     supabase
       .from("companies")
       .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, introduced_by_partner_id, deleted_at, created_at, updated_at, introduced_by:partners!companies_introduced_by_fk(id, name, code)")
@@ -45,12 +42,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50),
-    supabase
-      .from("virtual_offices")
-      .select("id, company_id, tier, term_months, start_date, end_date, pic_name, pic_phone, status, notes, drive_folder_url, responsible_partner_id, created_at, updated_at, deleted_at, responsible:partners!virtual_offices_responsible_partner_fk(id, name, code)")
-      .eq("company_id", params.id)
-      .is("deleted_at", null)
-      .order("end_date", { ascending: false }),
     supabase
       .from("partners")
       .select("id, code, name")
@@ -143,10 +134,6 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         allClients={clients}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
         cases={cases}
-        virtualOffices={((vosRaw as unknown as Array<VirtualOffice & { responsible?: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null }>) ?? []).map((v) => ({
-          ...v,
-          responsible: Array.isArray(v.responsible) ? v.responsible[0] ?? null : v.responsible ?? null,
-        }))}
         partners={(partnersData as Array<{ id: string; code: string; name: string }>) ?? []}
         entityServices={((entityServicesRaw as unknown as Array<EntityService & {
           service: EntityService["service"] | EntityService["service"][];

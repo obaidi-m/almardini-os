@@ -9,7 +9,6 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { renewalTier } from "@/lib/renewal";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { serviceLabel } from "@/lib/service";
-import { expireOverdueVirtualOffices } from "@/lib/virtual-offices";
 
 const STATUS_COLORS: Record<CaseStatus, string> = {
   new: "bg-yellow-100 text-yellow-800",
@@ -67,8 +66,6 @@ export default async function DashboardPage() {
   const in90 = new Date(); in90.setDate(in90.getDate() + 90);
   const todayIso = today.toISOString().slice(0, 10);
   const in90Iso = in90.toISOString().slice(0, 10);
-
-  await expireOverdueVirtualOffices(supabase);
 
   const [
     myCasesRes,

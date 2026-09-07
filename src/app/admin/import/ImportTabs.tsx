@@ -4,18 +4,14 @@ import * as XLSX from "xlsx";
 import {
   bulkImportCompanies,
   bulkImportClients,
-  bulkImportVirtualOffices,
-  bulkImportPermits,
   bulkOpenCases,
   type CompanyImportRow,
   type ClientImportRow,
-  type VirtualOfficeImportRow,
-  type PermitImportRow,
   type ImportSummary,
 } from "./actions";
 import type { CasePriority } from "@/lib/types";
 
-type Mode = "companies" | "clients" | "virtual_offices" | "permits" | "open_cases";
+type Mode = "companies" | "clients" | "open_cases";
 
 type Service = { id: string; code: string; name: string };
 type Company = { id: string; code: string; name: string };
@@ -25,43 +21,6 @@ type User    = { id: string; full_name: string };
 const COMPANY_COLS: (keyof CompanyImportRow)[] = [
   "name", "nib", "incorporation_date", "address", "drive_folder_url", "notes",
 ];
-const VO_COLS: (keyof VirtualOfficeImportRow)[] = [
-  "company_name", "tier", "term_months", "start_date", "end_date", "status",
-  // Optional. Matched to an existing partner by name (case-insensitive).
-  // Leave blank if there's no person responsible or the partner isn't in
-  // the system yet — the row still imports.
-  "responsible_partner_name",
-  "notes",
-];
-const VO_EXAMPLE: Record<string, string> = {
-  company_name: "PT Example Group",
-  tier: "silver",
-  term_months: "12",
-  start_date: "2025-10-15",
-  end_date: "2026-10-14",
-  status: "active",
-  responsible_partner_name: "",
-  notes: "",
-};
-const PERMIT_COLS: (keyof PermitImportRow)[] = [
-  // Pick ONE of client_code or client_name per row. code is unambiguous.
-  "client_code", "client_name",
-  "kind", "reference_no", "issued_date", "expires_date", "status",
-  "sponsor_company_name", "responsible_partner_name",
-  "notes",
-];
-const PERMIT_EXAMPLE: Record<string, string> = {
-  client_code: "CLI-0123",
-  client_name: "",
-  kind: "KITAS",
-  reference_no: "2C1XX0000...",
-  issued_date: "2024-06-25",
-  expires_date: "2025-06-25",
-  status: "active",
-  sponsor_company_name: "PT Example Group",
-  responsible_partner_name: "",
-  notes: "",
-};
 
 const CLIENT_COLS: (keyof ClientImportRow)[] = [
   "full_name", "nationality", "passport_no", "date_of_birth", "place_of_birth",
@@ -109,14 +68,10 @@ export function ImportTabs({
       <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
         <TabButton active={mode === "companies"}  onClick={() => setMode("companies")}>Import companies</TabButton>
         <TabButton active={mode === "clients"}    onClick={() => setMode("clients")}>Import clients</TabButton>
-        <TabButton active={mode === "virtual_offices"} onClick={() => setMode("virtual_offices")}>Import virtual offices</TabButton>
-        <TabButton active={mode === "permits"} onClick={() => setMode("permits")}>Import permits</TabButton>
         <TabButton active={mode === "open_cases"} onClick={() => setMode("open_cases")}>Bulk open cases</TabButton>
       </div>
       {mode === "companies"       && <CompaniesImport />}
       {mode === "clients"         && <ClientsImport />}
-      {mode === "virtual_offices" && <VirtualOfficesImport />}
-      {mode === "permits"         && <PermitsImport />}
       {mode === "open_cases"      && <BulkOpenCases services={services} companies={companies} clients={clients} users={users} />}
     </div>
   );
@@ -147,32 +102,6 @@ function CompaniesImport() {
       templateName="companies-template.xlsx"
       previewLabel={(r) => r.name || "(missing name)"}
       submit={bulkImportCompanies}
-    />
-  );
-}
-
-function VirtualOfficesImport() {
-  return (
-    <ImportPanel<VirtualOfficeImportRow>
-      columns={VO_COLS as string[]}
-      example={VO_EXAMPLE}
-      requiredCol="company_name"
-      templateName="virtual-offices-template.xlsx"
-      previewLabel={(r) => r.company_name || "(missing company_name)"}
-      submit={bulkImportVirtualOffices}
-    />
-  );
-}
-
-function PermitsImport() {
-  return (
-    <ImportPanel<PermitImportRow>
-      columns={PERMIT_COLS as string[]}
-      example={PERMIT_EXAMPLE}
-      requiredCol="kind"
-      templateName="permits-template.xlsx"
-      previewLabel={(r) => `${r.client_code || r.client_name || "(missing client)"} · ${r.kind || "(missing kind)"}`}
-      submit={bulkImportPermits}
     />
   );
 }

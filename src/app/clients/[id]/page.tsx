@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Client, EntityService, Partner, Permit, ServiceType } from "@/lib/types";
+import type { Client, EntityService, Partner, ServiceType } from "@/lib/types";
 import { ClientDetail } from "./ClientDetail";
-import { expireOverduePermits } from "@/lib/permits";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  await expireOverduePermits(supabase);
 
-  const [{ data: client, error }, { data: partners }, { data: companyLinks }, { data: allCompanies }, { data: rolesList }, { data: caseRows }, { data: permitsRaw }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
+  const [{ data: client, error }, { data: partners }, { data: companyLinks }, { data: allCompanies }, { data: rolesList }, { data: caseRows }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
     supabase
       .from("clients")
       .select(
@@ -40,12 +38,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50),
-    supabase
-      .from("permits")
-      .select("id, client_id, kind, reference_no, issued_date, expires_date, status, sponsor_company_id, responsible_partner_id, notes, drive_folder_url, created_at, updated_at, deleted_at, sponsor:companies(id, name, code), responsible:partners!permits_responsible_partner_id_fkey(id, name, code)")
-      .eq("client_id", params.id)
-      .is("deleted_at", null)
-      .order("expires_date", { ascending: false }),
     supabase
       .from("entity_services")
       .select("id, service_id, client_id, company_id, status, started_date, issued_date, expires_date, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, notes, created_at, updated_at, deleted_at, service:service_types(id, code, name, applies_to, tracks_expiry, is_ongoing), sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code), responsible:partners!entity_services_responsible_partner_id_fkey(id, name, code)")
@@ -122,14 +114,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         allCompanies={companies}
         roles={(rolesList as Array<{ code: string; label_en: string; label_id: string | null; sort_order: number }>) ?? []}
         cases={(caseRows as unknown as Array<{ id: string; code: string; title: string | null; status: import("@/lib/types").CaseStatus; priority: import("@/lib/types").CasePriority; expires_at: string | null; service: { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null }[] | { id: string; code: string; name: string; schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null; annual_month: number | null; annual_day: number | null; quarterly_day: number | null; quarterly_months: number[] | null; validity_amount: number | null; validity_unit: string | null } | null }>) ?? []}
-        permits={((permitsRaw as unknown as Array<Permit & {
-          sponsor: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
-          responsible: { id: string; name: string; code: string } | { id: string; name: string; code: string }[] | null;
-        }>) ?? []).map((p) => ({
-          ...p,
-          sponsor: Array.isArray(p.sponsor) ? p.sponsor[0] ?? null : p.sponsor ?? null,
-          responsible: Array.isArray(p.responsible) ? p.responsible[0] ?? null : p.responsible ?? null,
-        }))}
         entityServices={((entityServicesRaw as unknown as Array<EntityService & {
           service: EntityService["service"] | EntityService["service"][];
           sponsor: EntityService["sponsor"] | EntityService["sponsor"][];

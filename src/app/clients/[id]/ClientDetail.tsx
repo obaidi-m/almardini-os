@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Client, Partner, CaseStatus, CasePriority, Permit, EntityService, ServiceType } from "@/lib/types";
+import type { Client, Partner, CaseStatus, CasePriority, EntityService, ServiceType } from "@/lib/types";
 import { EntityServicesCard } from "@/components/app/EntityServicesCard";
 import { serviceLabel } from "@/lib/service";
 import { ClientForm } from "../ClientForm";
@@ -34,7 +34,7 @@ type LinkedCompany = { role: string; company: { id: string; code: string; name: 
 type CompanyOption = { id: string; code: string; name: string };
 
 export function ClientDetail({
-  client, partners, linkedCompanies, allCompanies, roles, cases, permits = [],
+  client, partners, linkedCompanies, allCompanies, roles, cases,
   entityServices = [], catalog = [],
 }: {
   client: Client;
@@ -43,7 +43,6 @@ export function ClientDetail({
   allCompanies: CompanyOption[];
   roles: Role[];
   cases: CaseSummary[];
-  permits?: Permit[];
   entityServices?: EntityService[];
   catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
 }) {

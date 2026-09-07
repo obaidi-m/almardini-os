@@ -74,50 +74,6 @@ export type Company = {
 /** Company roles are stored in the `company_roles` table, editable from
  *  the admin panel. See /admin/company-roles. Reads happen per-page. */
 
-export type PermitStatus = "active" | "expired" | "terminated";
-
-export type Permit = {
-  id: string;
-  client_id: string;
-  kind: string;
-  reference_no: string | null;
-  issued_date: string | null;
-  expires_date: string;
-  status: PermitStatus;
-  sponsor_company_id: string | null;
-  responsible_partner_id: string | null;
-  notes: string | null;
-  drive_folder_url: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  sponsor?: { id: string; name: string; code: string } | null;
-  responsible?: { id: string; name: string; code: string } | null;
-  client?: { id: string; full_name: string; code: string } | null;
-};
-
-export type VirtualOfficeTier = "bronze" | "silver" | "gold" | "platinum";
-export type VirtualOfficeStatus = "active" | "expired" | "terminated";
-
-export type VirtualOffice = {
-  id: string;
-  company_id: string;
-  tier: VirtualOfficeTier;
-  term_months: number;
-  start_date: string | null;
-  end_date: string;
-  pic_name: string | null;
-  pic_phone: string | null;
-  status: VirtualOfficeStatus;
-  notes: string | null;
-  drive_folder_url: string | null;
-  responsible_partner_id: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  responsible?: { id: string; name: string; code: string } | null;
-};
-
 export type CaseStatus = "new" | "in_progress" | "done" | "delivered";
 export type CasePriority = "low" | "normal" | "high" | "urgent";
 export type RecurringInterval = "quarterly" | "annually";

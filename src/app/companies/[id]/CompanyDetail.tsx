@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Company, CaseStatus, CasePriority, VirtualOffice, EntityService, ServiceType } from "@/lib/types";
+import type { Company, CaseStatus, CasePriority, EntityService, ServiceType } from "@/lib/types";
 import { EntityServicesCard } from "@/components/app/EntityServicesCard";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -44,7 +44,7 @@ const STATUS_PILL: Record<CaseStatus, { bg: string; text: string; dot: string }>
 type PartnerOpt = { id: string; code: string; name: string };
 
 export function CompanyDetail({
-  company, linkedClients, allClients, roles, cases, virtualOffices, partners = [],
+  company, linkedClients, allClients, roles, cases, partners = [],
   entityServices = [], catalog = [],
 }: {
   company: Company;
@@ -52,7 +52,6 @@ export function CompanyDetail({
   allClients: ClientOption[];
   roles: Role[];
   cases: CompanyCase[];
-  virtualOffices: VirtualOffice[];
   partners?: PartnerOpt[];
   entityServices?: EntityService[];
   catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];

@@ -40,11 +40,17 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
       .order("created_at", { ascending: false })
       .limit(50),
     supabase
-      .from("virtual_offices")
-      .select("id, tier, term_months, start_date, end_date, status, company:companies(id, code, name)")
+      .from("entity_services")
+      .select(`
+        id, tier, term_months, started_date, expires_date, status,
+        company:companies!entity_services_company_id_fkey(id, code, name),
+        service:service_types!inner(id, name)
+      `)
       .eq("responsible_partner_id", params.id)
+      .not("company_id", "is", null)
+      .ilike("service.name", "%virtual office%")
       .is("deleted_at", null)
-      .order("end_date", { ascending: false })
+      .order("expires_date", { ascending: false })
       .limit(200),
     supabase
       .from("cases")
@@ -73,20 +79,20 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
   const unwrapCo = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
   type VORaw = {
     id: string;
-    tier: "bronze" | "silver" | "gold" | "platinum";
-    term_months: number;
-    start_date: string | null;
-    end_date: string;
-    status: "active" | "expired" | "terminated";
+    tier: string | null;
+    term_months: number | null;
+    started_date: string | null;
+    expires_date: string | null;
+    status: "active" | "expired" | "terminated" | "paused";
     company: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
   };
   const managedOffices = ((managedVOs as VORaw[]) ?? []).map((v) => ({
     id: v.id,
-    tier: v.tier,
-    term_months: v.term_months,
-    start_date: v.start_date,
-    end_date: v.end_date,
-    status: v.status,
+    tier: (v.tier ?? "silver") as "bronze" | "silver" | "gold" | "platinum",
+    term_months: v.term_months ?? 12,
+    start_date: v.started_date,
+    end_date: v.expires_date ?? "",
+    status: (v.status === "paused" ? "active" : v.status) as "active" | "expired" | "terminated",
     company: unwrapCo(v.company),
   }));
 
