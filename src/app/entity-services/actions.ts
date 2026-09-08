@@ -96,6 +96,76 @@ export async function updateEntityServiceAction(fd: FormData) {
   if (data?.company_id) revalidatePath(`/companies/${data.company_id}`);
 }
 
+/** Roll a subscription or permit into its next cycle. Two writes in order:
+ *  the old row is marked `expired` (kept as historical record), and a fresh
+ *  row is inserted with `active` status carrying the new dates. The service
+ *  itself, tier, sponsor, responsible partner, folder link are all copied so
+ *  the operator only types what changed (the new expiry) and optionally a
+ *  cycle-specific note.
+ *
+ *  Payload:
+ *    id            — the old row (required)
+ *    started_date  — when the new cycle begins (defaults to old expiry)
+ *    expires_date  — when the new cycle ends (required)
+ *    notes         — optional, for the new cycle only. Not copied. */
+export async function renewEntityServiceAction(fd: FormData) {
+  const { supabase, actorId } = await requireUser();
+  const id = s(fd, "id");
+  if (!id) throw new Error("Missing id.");
+  const newExpiry = d(fd, "expires_date");
+  if (!newExpiry) throw new Error("New expiry date is required.");
+
+  const { data: old, error: fetchError } = await supabase
+    .from("entity_services")
+    .select(
+      "id, service_id, client_id, company_id, tier, term_months, sponsor_company_id, responsible_partner_id, drive_folder_url, expires_date, status",
+    )
+    .eq("id", id)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+  if (!old) throw new Error("Row not found.");
+  if (old.status !== "active") {
+    throw new Error("Only active rows can be renewed.");
+  }
+
+  const newStart = d(fd, "started_date") ?? old.expires_date ?? new Date().toISOString().slice(0, 10);
+
+  const { error: expireError } = await supabase
+    .from("entity_services")
+    .update({ status: "expired" as const })
+    .eq("id", id);
+  if (expireError) throw new Error(expireError.message);
+
+  const { error: insertError } = await supabase.from("entity_services").insert({
+    service_id: old.service_id,
+    client_id:  old.client_id,
+    company_id: old.company_id,
+    status: "active" as const,
+    started_date: newStart,
+    expires_date: newExpiry,
+    tier: old.tier,
+    term_months: old.term_months,
+    sponsor_company_id: old.sponsor_company_id,
+    responsible_partner_id: old.responsible_partner_id,
+    drive_folder_url: old.drive_folder_url,
+    notes: s(fd, "notes"),
+    created_by: actorId,
+  });
+  if (insertError) {
+    // Try to roll the old row back so we don't strand it as `expired` with
+    // no successor. Best-effort — if this fails too the operator will see a
+    // stale expired row they can fix manually.
+    await supabase
+      .from("entity_services")
+      .update({ status: "active" as const })
+      .eq("id", id);
+    throw new Error(insertError.message);
+  }
+
+  if (old.client_id)  revalidatePath(`/clients/${old.client_id}`);
+  if (old.company_id) revalidatePath(`/companies/${old.company_id}`);
+}
+
 export async function deleteEntityServiceAction(fd: FormData) {
   const { supabase } = await requireUser();
   const id = s(fd, "id");

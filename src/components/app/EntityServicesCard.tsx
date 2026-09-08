@@ -12,6 +12,7 @@ import {
   createEntityServiceAction,
   updateEntityServiceAction,
   deleteEntityServiceAction,
+  renewEntityServiceAction,
 } from "@/app/entity-services/actions";
 
 type CatalogService = Pick<
@@ -56,6 +57,18 @@ export function EntityServicesCard({
   const { t } = useT();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<EntityService | null>(null);
+  const [renewing, setRenewing] = useState<EntityService | null>(null);
+  const [showPast, setShowPast] = useState(false);
+
+  // Count past cycles per (service_id) so an active row can hint
+  // "3rd cycle since …" without hitting the DB again.
+  const pastCountByService = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of services) {
+      if (r.status !== "active") m.set(r.service_id, (m.get(r.service_id) ?? 0) + 1);
+    }
+    return m;
+  }, [services]);
 
   // Filter catalog to what can apply to this owner AND fits the card's
   // real-world concept — subscriptions for companies, permits for people.
@@ -107,17 +120,50 @@ export function EntityServicesCard({
           {t(emptyKey)}
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--border)] -mx-1">
-          {[...active, ...other].map((row) => (
-            <li key={row.id}>
-              <ServiceRow
-                row={row}
-                handled={handledServiceIds.includes(row.service_id)}
-                onEdit={() => setEditing(row)}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-[var(--border)] -mx-1">
+            {active.map((row) => (
+              <li key={row.id}>
+                <ServiceRow
+                  row={row}
+                  handled={handledServiceIds.includes(row.service_id)}
+                  cycleNumber={(pastCountByService.get(row.service_id) ?? 0) + 1}
+                  onEdit={() => setEditing(row)}
+                  onRenew={() => setRenewing(row)}
+                />
+              </li>
+            ))}
+          </ul>
+
+          {other.length > 0 && (
+            <div className="mt-2 border-t border-[var(--border)] pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPast((v) => !v)}
+                className="text-[11.5px] text-[var(--muted)] hover:text-ink"
+              >
+                {showPast
+                  ? `Hide past (${other.length})`
+                  : `Show past (${other.length})`}
+              </button>
+              {showPast && (
+                <ul className="divide-y divide-[var(--border)] -mx-1 mt-1 opacity-70">
+                  {other.map((row) => (
+                    <li key={row.id}>
+                      <ServiceRow
+                        row={row}
+                        handled={false}
+                        cycleNumber={null}
+                        onEdit={() => setEditing(row)}
+                        onRenew={null}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       <Modal
@@ -154,18 +200,41 @@ export function EntityServicesCard({
           />
         )}
       </Modal>
+
+      <Modal
+        open={renewing !== null}
+        onClose={() => setRenewing(null)}
+        title={`Renew ${renewing?.service?.name ?? ""}`}
+        size="md"
+      >
+        {renewing && (
+          <RenewForm row={renewing} onDone={() => setRenewing(null)} />
+        )}
+      </Modal>
     </section>
   );
 }
 
 /* ============ Row ============ */
 
-function ServiceRow({ row, handled, onEdit }: { row: EntityService; handled: boolean; onEdit: () => void }) {
+function ServiceRow({
+  row, handled, cycleNumber, onEdit, onRenew,
+}: {
+  row: EntityService;
+  handled: boolean;
+  cycleNumber: number | null;
+  onEdit: () => void;
+  onRenew: (() => void) | null;
+}) {
   const { t } = useT();
   const [pending, start] = useTransition();
   const confirm = useConfirm();
   const svc = row.service;
   const label = svc?.name ?? t("services.label.service");
+  const canRenew =
+    onRenew !== null &&
+    row.status === "active" &&
+    !!svc?.tracks_expiry;
 
   return (
     <div className="px-1 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-start text-[13.5px]">
@@ -193,6 +262,9 @@ function ServiceRow({ row, handled, onEdit }: { row: EntityService; handled: boo
               </Link>
             </>
           )}
+          {cycleNumber && cycleNumber > 1 && (
+            <> · <span title="Cycles including renewals">cycle {cycleNumber}</span></>
+          )}
         </div>
         {row.status === "active" && !handled && isInReminderWindow(svc ?? null) && (
           <div className="text-[11.5px] font-medium text-amber-700 mt-0.5">
@@ -201,6 +273,15 @@ function ServiceRow({ row, handled, onEdit }: { row: EntityService; handled: boo
         )}
       </div>
       <div className="flex items-center gap-2">
+        {canRenew && (
+          <button
+            type="button"
+            onClick={() => onRenew!()}
+            className="text-[11.5px] font-medium text-brand hover:text-brand-dark"
+          >
+            Renew
+          </button>
+        )}
         <button
           type="button"
           onClick={onEdit}
@@ -508,6 +589,123 @@ function ServiceForm({
       </div>
     </form>
   );
+}
+
+/* ============ Renew form ============ */
+
+// Small modal for rolling the current cycle. Pre-fills the new dates from
+// the service's validity so the operator only types when the govt-issued
+// date differs (KITAS/KITAP). One button, no fancy fields.
+function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) {
+  const svc = row.service;
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const defaultStart = row.expires_date ?? todayIso;
+  const validityDays =
+    svc?.validity_amount && svc?.validity_unit
+      ? svc.validity_unit === "years"
+        ? svc.validity_amount * 365
+        : svc.validity_unit === "months"
+        ? svc.validity_amount * 30
+        : svc.validity_amount
+      : null;
+  const defaultExpiry = validityDays
+    ? addDaysIso(defaultStart, validityDays)
+    : "";
+
+  const [newStart, setNewStart]   = useState<string>(defaultStart);
+  const [newExpiry, setNewExpiry] = useState<string>(defaultExpiry);
+  const [notes, setNotes]         = useState<string>("");
+
+  return (
+    <form
+      action={(fd) => {
+        setError(null);
+        fd.set("id", row.id);
+        fd.set("started_date", newStart);
+        fd.set("expires_date", newExpiry);
+        if (notes.trim()) fd.set("notes", notes.trim());
+        start(async () => {
+          try {
+            await renewEntityServiceAction(fd);
+            onDone();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to renew");
+          }
+        });
+      }}
+      className="space-y-3"
+    >
+      <div className="text-[12.5px] text-[var(--muted)]">
+        Current expiry: <span className="text-ink font-medium">{fmt(row.expires_date)}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Renews on</Label>
+          <input
+            type="date"
+            value={newStart}
+            onChange={(e) => setNewStart(e.target.value)}
+            className={input}
+            required
+          />
+        </div>
+        <div>
+          <Label>New expiry</Label>
+          <input
+            type="date"
+            value={newExpiry}
+            onChange={(e) => setNewExpiry(e.target.value)}
+            className={input}
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label>Notes for this cycle (optional)</Label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          placeholder="e.g. issued at Kanim Denpasar"
+          className={input}
+        />
+      </div>
+
+      {error && <div className="text-[12px] text-red-700">{error}</div>}
+
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onDone}
+          className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-md hover:bg-[var(--surface-muted)]"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className="px-3 py-1.5 text-sm bg-brand text-white rounded-md hover:bg-brand-dark disabled:opacity-50"
+        >
+          {pending ? "Renewing…" : "Renew"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 /* ============ helpers ============ */
