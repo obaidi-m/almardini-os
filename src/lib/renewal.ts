@@ -215,3 +215,44 @@ export const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+/** Plain-English one-liner describing what a service does. Used by the
+ *  admin service form as a live-preview sanity check ("this reads back
+ *  wrong → your settings are wrong") and by the /admin/services list
+ *  column so the whole catalog is self-documenting. */
+export function describeSchedule(svc: {
+  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | "rolling" | null;
+  annual_month?: number | null;
+  annual_day?: number | null;
+  quarterly_day?: number | null;
+  quarterly_months?: number[] | null;
+  validity_amount?: number | null;
+  validity_unit?: string | null;
+}): string {
+  const validity =
+    svc.validity_amount && svc.validity_unit
+      ? `${svc.validity_amount} ${svc.validity_unit}`
+      : null;
+
+  if (svc.schedule_kind === "annual_fixed" && svc.annual_month && svc.annual_day) {
+    return `Every year on ${MONTH_LABELS[svc.annual_month - 1]} ${svc.annual_day}.`;
+  }
+  if (svc.schedule_kind === "quarterly_fixed" && svc.quarterly_day && svc.quarterly_months?.length) {
+    const months = svc.quarterly_months
+      .slice()
+      .sort((a, b) => a - b)
+      .map((m) => MONTH_LABELS[m - 1])
+      .join(" / ");
+    return `On day ${svc.quarterly_day} in ${months}.`;
+  }
+  if (svc.schedule_kind === "rolling") {
+    return validity
+      ? `Rolling ${validity} subscription; renews from each customer's expiry.`
+      : `Rolling subscription (term not set).`;
+  }
+  // one_off (or unset)
+  if (validity) {
+    return `One-off; output has a shelf life of ${validity}.`;
+  }
+  return `One-off. No expiry tracked.`;
+}

@@ -2,19 +2,19 @@
 import { useState, useTransition } from "react";
 import { createService } from "./actions";
 import type { ServiceCategory } from "@/lib/types";
-import { ScheduleFields } from "./ScheduleFields";
-
-type Tracking = "none" | "expiry" | "ongoing";
+import { RepeatBlock } from "./RepeatBlock";
 
 export function NewServiceForm({ categories }: { categories: ServiceCategory[] }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
-  const [tracking, setTracking] = useState<Tracking>("none");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // Bump the form key on success so RepeatBlock's internal state fully resets
+  // (uncontrolled hooks don't reset from form.reset()).
+  const [formKey, setFormKey] = useState(0);
 
   return (
     <form
+      key={formKey}
       action={(fd) => {
         setError(null);
         setOk(false);
@@ -22,26 +22,21 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
           try {
             await createService(fd);
             setOk(true);
-            (document.getElementById("new-service-form") as HTMLFormElement)?.reset();
-            setTracking("none");
-            setShowAdvanced(false);
+            setFormKey((k) => k + 1);
           } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to add service");
           }
         });
       }}
-      id="new-service-form"
       className="space-y-5"
     >
-      {/* Row 1: name + category */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Row 1: name + code + category */}
+      <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_2fr] gap-4">
         <Field label="Service name">
-          <input
-            name="name"
-            required
-            placeholder="Investor KITAS"
-            className={input}
-          />
+          <input name="name" required placeholder="Investor KITAS" className={input} />
+        </Field>
+        <Field label="Code (optional)">
+          <input name="code" placeholder="E28A" className={`${input} uppercase`} />
         </Field>
         <Field label="Category">
           <select name="category_id" required className={input}>
@@ -53,7 +48,7 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
         </Field>
       </div>
 
-      {/* Row 2: applies_to (segmented) */}
+      {/* Row 2: applies_to */}
       <Field label="Who is it for?">
         <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
           {(["person", "company", "either"] as const).map((v) => (
@@ -73,42 +68,8 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
         </div>
       </Field>
 
-      {/* Row 3: tracking */}
-      <Field label="Type of tracking">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <TrackingOption
-            value="none"
-            current={tracking}
-            onSelect={setTracking}
-            title="One-off"
-            hint="Delivered once, no state to track."
-          />
-          <TrackingOption
-            value="expiry"
-            current={tracking}
-            onSelect={setTracking}
-            title="Has an end date"
-            hint="Virtual office, KITAS, KITAP…"
-          />
-          <TrackingOption
-            value="ongoing"
-            current={tracking}
-            onSelect={setTracking}
-            title="Ongoing subscription"
-            hint="Monthly / quarterly / annual reporting."
-          />
-        </div>
-        <input
-          type="hidden"
-          name="tracks_expiry"
-          value={tracking === "expiry" ? "true" : "false"}
-        />
-        <input
-          type="hidden"
-          name="is_ongoing"
-          value={tracking === "ongoing" ? "true" : "false"}
-        />
-      </Field>
+      {/* Row 3: the one control that used to be three */}
+      <RepeatBlock />
 
       {/* Description */}
       <Field label="Description (optional)">
@@ -118,75 +79,6 @@ export function NewServiceForm({ categories }: { categories: ServiceCategory[] }
           className={input}
         />
       </Field>
-
-      {/* Advanced (kept, hidden by default) */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="text-[12px] font-medium text-[var(--muted)] hover:text-ink"
-        >
-          {showAdvanced ? "− Hide advanced" : "+ Show advanced (code, schedule, deliverable, validity)"}
-        </button>
-
-        {showAdvanced && (
-          <div className="mt-4 pt-4 border-t border-[var(--border)] space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Code (optional)">
-                <input
-                  name="code"
-                  placeholder="E28A"
-                  className={`${input} uppercase`}
-                />
-              </Field>
-              <Field label="Duration (optional, free text)">
-                <input
-                  name="duration"
-                  placeholder="2 years, or leave blank"
-                  className={input}
-                />
-              </Field>
-            </div>
-
-            <ScheduleFields />
-
-            <Field label="Validity (leave blank if not time-bound)">
-              <div className="flex gap-2">
-                <input
-                  name="validity_amount"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="e.g. 12"
-                  className="w-24 px-3 py-2 border border-[var(--border)] rounded-md text-sm tabular-nums focus:outline-brand focus:border-brand"
-                />
-                <select
-                  name="validity_unit"
-                  defaultValue=""
-                  className={`flex-1 ${input}`}
-                >
-                  <option value="">— no expiry —</option>
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
-                </select>
-              </div>
-            </Field>
-
-            <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
-              <input type="hidden" name="has_deliverable" value="false" />
-              <input
-                type="checkbox"
-                name="has_deliverable"
-                value="true"
-                defaultChecked
-                className="w-4 h-4"
-              />
-              Has deliverable
-            </label>
-          </div>
-        )}
-      </div>
 
       <div className="flex items-center justify-between pt-2">
         <div className="text-[12px] min-h-[18px]">
@@ -216,33 +108,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </label>
       {children}
     </div>
-  );
-}
-
-function TrackingOption({
-  value, current, onSelect, title, hint,
-}: {
-  value: Tracking;
-  current: Tracking;
-  onSelect: (v: Tracking) => void;
-  title: string;
-  hint: string;
-}) {
-  const active = current === value;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(value)}
-      className={`text-left rounded-lg border p-3 transition-colors ${
-        active
-          ? "border-brand bg-brand/5"
-          : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--muted)]"
-      }`}
-    >
-      <div className={`text-[13px] font-medium ${active ? "text-brand-dark" : "text-ink"}`}>
-        {title}
-      </div>
-      <div className="text-[11.5px] text-[var(--muted)] mt-0.5">{hint}</div>
-    </button>
   );
 }

@@ -2,21 +2,13 @@
 import { useState, useTransition } from "react";
 import { updateService, toggleService, deleteService, checkServiceDeletable } from "./actions";
 import type { ServiceCategory, ServiceType } from "@/lib/types";
-import { ScheduleFields } from "./ScheduleFields";
+import { RepeatBlock } from "./RepeatBlock";
+import { describeSchedule } from "@/lib/renewal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
-
-type Tracking = "none" | "expiry" | "ongoing";
-
-function initialTracking(s: ServiceType): Tracking {
-  if (s.is_ongoing) return "ongoing";
-  if (s.tracks_expiry) return "expiry";
-  return "none";
-}
 
 export function ServiceRow({ service, categories }: { service: ServiceType; categories: ServiceCategory[] }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
-  const [tracking, setTracking] = useState<Tracking>(initialTracking(service));
   const [appliesTo, setAppliesTo] = useState<"person" | "company" | "either">(service.applies_to ?? "either");
   const confirm = useConfirm();
 
@@ -26,45 +18,61 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
         <td colSpan={4} className="px-5 py-4">
           <form
             action={(fd) => start(async () => { await updateService(fd); setEditing(false); })}
-            className="grid grid-cols-6 gap-3 items-end"
+            className="space-y-4"
           >
             <input type="hidden" name="id" value={service.id} />
             <input type="hidden" name="applies_to" value={appliesTo} />
-            <input type="hidden" name="tracks_expiry" value={tracking === "expiry" ? "true" : "false"} />
-            <input type="hidden" name="is_ongoing" value={tracking === "ongoing" ? "true" : "false"} />
-            <Field label="Code (optional)">
-              <input name="code" defaultValue={service.code ?? ""}
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm uppercase" />
-            </Field>
-            <Field label="Name">
-              <input name="name" defaultValue={service.name} required
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-            </Field>
-            <Field label="Category">
-              <select name="category_id" defaultValue={service.category_id}
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Duration">
-              <input name="duration" defaultValue={service.duration ?? ""}
-                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-            </Field>
-            <Field label="Validity">
-              <div className="flex gap-2">
-                <input name="validity_amount" type="number" min="1" step="1"
-                  defaultValue={service.validity_amount ?? ""} placeholder="—"
-                  className="w-20 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm tabular-nums" />
-                <select name="validity_unit" defaultValue={service.validity_unit ?? ""}
-                  className="flex-1 px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
-                  <option value="">— no expiry —</option>
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
+
+            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_2fr] gap-3">
+              <Field label="Name">
+                <input name="name" defaultValue={service.name} required
+                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
+              </Field>
+              <Field label="Code (optional)">
+                <input name="code" defaultValue={service.code ?? ""}
+                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm uppercase" />
+              </Field>
+              <Field label="Category">
+                <select name="category_id" defaultValue={service.category_id}
+                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]">
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+              </Field>
+            </div>
+
+            <Field label="Who is it for?">
+              <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
+                {(["person", "company", "either"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setAppliesTo(v)}
+                    className={`px-3 py-1 text-[12.5px] rounded-md capitalize ${
+                      appliesTo === v ? "bg-brand text-white font-medium" : "text-[var(--muted)] hover:text-ink"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
               </div>
             </Field>
-            <div className="flex gap-2 justify-end">
+
+            <RepeatBlock
+              initialKind={service.schedule_kind}
+              annualMonth={service.annual_month}
+              annualDay={service.annual_day}
+              quarterlyDay={service.quarterly_day}
+              quarterlyMonths={service.quarterly_months}
+              validityAmount={service.validity_amount}
+              validityUnit={service.validity_unit}
+            />
+
+            <Field label="Description (optional)">
+              <input name="description" defaultValue={service.description ?? ""}
+                className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
+            </Field>
+
+            <div className="flex gap-2 justify-end pt-1">
               <button type="button" onClick={() => setEditing(false)}
                 className="px-3 py-1.5 text-sm border border-[var(--border)] rounded-md hover:bg-[var(--surface)]">
                 Cancel
@@ -74,71 +82,6 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
                 {pending ? "Saving…" : "Save"}
               </button>
             </div>
-            <div className="col-span-3 flex items-end gap-4">
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
-                <input type="hidden" name="has_deliverable" value="false" />
-                <input type="checkbox" name="has_deliverable" value="true" defaultChecked={service.has_deliverable !== false} className="w-4 h-4" />
-                Has deliverable
-              </label>
-              <span className="text-[11.5px] text-[var(--muted)]">
-                (uncheck for services with no hand-off to the client)
-              </span>
-            </div>
-            <div className="col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
-              <div>
-                <div className="text-[10.5px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">Who is it for?</div>
-                <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
-                  {(["person", "company", "either"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setAppliesTo(v)}
-                      className={`px-3 py-1 text-[12.5px] rounded-md capitalize ${
-                        appliesTo === v ? "bg-brand text-white font-medium" : "text-[var(--muted)] hover:text-ink"
-                      }`}
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10.5px] font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">Type of tracking</div>
-                <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
-                  {([
-                    ["none", "One-off"],
-                    ["expiry", "Has an end date"],
-                    ["ongoing", "Ongoing"],
-                  ] as const).map(([v, label]) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setTracking(v)}
-                      className={`px-3 py-1 text-[12.5px] rounded-md ${
-                        tracking === v ? "bg-brand text-white font-medium" : "text-[var(--muted)] hover:text-ink"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="col-span-6">
-              <ScheduleFields
-                initialKind={service.schedule_kind}
-                annualMonth={service.annual_month}
-                annualDay={service.annual_day}
-                quarterlyDay={service.quarterly_day}
-                quarterlyMonths={service.quarterly_months}
-              />
-            </div>
-            <div className="col-span-6">
-              <Field label="Description (optional)">
-                <input name="description" defaultValue={service.description ?? ""}
-                  className="w-full px-2.5 py-1.5 border border-[var(--border)] rounded-md text-sm" />
-              </Field>
-            </div>
           </form>
         </td>
       </tr>
@@ -147,8 +90,8 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
 
   return (
     <tr className="border-b border-[var(--border)] hover:bg-[var(--surface-muted)]">
-      <td className="px-5 py-3 font-mono text-[12px] text-[var(--muted)] tabular-nums">{service.code}</td>
-      <td className="px-5 py-3">
+      <td className="px-5 py-3 font-mono text-[12px] text-[var(--muted)] tabular-nums align-top">{service.code}</td>
+      <td className="px-5 py-3 align-top">
         <div className="font-medium text-ink flex items-center gap-1.5 flex-wrap">
           {service.name}
           {service.applies_to && service.applies_to !== "either" && (
@@ -156,25 +99,15 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
               {service.applies_to}
             </span>
           )}
-          {service.tracks_expiry && (
-            <span className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0 rounded">
-              has expiry
-            </span>
-          )}
-          {service.is_ongoing && (
-            <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1 py-0 rounded">
-              ongoing
-            </span>
-          )}
-          {service.has_deliverable === false && (
-            <span className="text-[10px] font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1 py-0 rounded" title="Marks services with no physical/digital hand-off to the client">
-              no deliverable
-            </span>
-          )}
         </div>
-        {service.description && <div className="text-[12px] text-[var(--muted)] mt-0.5">{service.description}</div>}
+        <div className="text-[12px] text-[var(--muted)] mt-0.5">
+          {describeSchedule(service)}
+        </div>
+        {service.description && (
+          <div className="text-[11.5px] text-[var(--muted)] italic mt-0.5">{service.description}</div>
+        )}
       </td>
-      <td className="px-5 py-3">
+      <td className="px-5 py-3 align-top">
         {service.is_active ? (
           <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-green-800 bg-green-100 px-2 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-green-700" />
@@ -187,7 +120,7 @@ export function ServiceRow({ service, categories }: { service: ServiceType; cate
           </span>
         )}
       </td>
-      <td className="px-5 py-3 text-right">
+      <td className="px-5 py-3 text-right align-top">
         <button onClick={() => setEditing(true)}
           className="text-[12px] font-medium text-brand hover:underline mr-3">
           Edit
