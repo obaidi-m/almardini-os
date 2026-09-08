@@ -19,8 +19,13 @@ type CatalogService = Pick<
   "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind"
 >;
 
-// A "subscription-shaped" service — anything that repeats or is continuous.
-// One-off services (KITAS setup, PT PMA formation) live in /cases, not here.
+// What belongs in the entity's card depends on whether the owner is a
+// company (subscriptions) or a person (permits).
+//   Subscription = recurring revenue: ongoing OR calendar-recurring OR rolling.
+//   Permit       = a document a person holds with an expiry: anything with
+//                  a real end date (tracks_expiry) — that's one-off + shelf
+//                  life (KITAS 2yr, KITAP 5yr) or rolling.
+// Pure one-offs with no expiry (PT PMA formation) belong in /cases, not here.
 function isSubscriptionShape(c: CatalogService): boolean {
   return (
     c.is_ongoing ||
@@ -28,6 +33,9 @@ function isSubscriptionShape(c: CatalogService): boolean {
     c.schedule_kind === "quarterly_fixed" ||
     c.schedule_kind === "rolling"
   );
+}
+function isPermitShape(c: CatalogService): boolean {
+  return c.tracks_expiry || c.schedule_kind === "rolling";
 }
 
 type CompanyOpt = { id: string; code: string; name: string };
@@ -49,9 +57,8 @@ export function EntityServicesCard({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<EntityService | null>(null);
 
-  // Filter catalog to what can apply to this owner AND is subscription-shaped.
-  // One-off services (KITAS setup, PT PMA formation) never belong here — they
-  // are single jobs tracked through /cases, not recurring subscriptions.
+  // Filter catalog to what can apply to this owner AND fits the card's
+  // real-world concept — subscriptions for companies, permits for people.
   const availableCatalog = useMemo(
     () =>
       catalog
@@ -62,7 +69,7 @@ export function EntityServicesCard({
             ? c.applies_to === "person"
             : c.applies_to === "company",
         )
-        .filter(isSubscriptionShape),
+        .filter(owner.kind === "client" ? isPermitShape : isSubscriptionShape),
     [catalog, owner.kind],
   );
 
