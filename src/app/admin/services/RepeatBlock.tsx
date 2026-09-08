@@ -21,7 +21,9 @@ import { DEFAULT_QUARTERLY_MONTHS, type ServiceScheduleKind } from "@/lib/types"
 // never sees them. is_ongoing is always false now (Continuously was dropped).
 
 type Mode = "one_off" | "calendar_fixed" | "rolling";
-type CalendarShape = "annual" | "quarterly";
+type CalendarShape = "monthly" | "quarterly" | "annual";
+
+const ALL_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 function modeFromKind(k: ServiceScheduleKind | null | undefined): Mode {
   if (k === "annual_fixed" || k === "quarterly_fixed") return "calendar_fixed";
@@ -29,8 +31,15 @@ function modeFromKind(k: ServiceScheduleKind | null | undefined): Mode {
   return "one_off";
 }
 
-function shapeFromKind(k: ServiceScheduleKind | null | undefined): CalendarShape {
-  return k === "quarterly_fixed" ? "quarterly" : "annual";
+function shapeFromKind(
+  k: ServiceScheduleKind | null | undefined,
+  quarterlyMonths: number[] | null,
+): CalendarShape {
+  if (k === "annual_fixed") return "annual";
+  if (k === "quarterly_fixed") {
+    return (quarterlyMonths?.length ?? 4) === 12 ? "monthly" : "quarterly";
+  }
+  return "annual";
 }
 
 export function RepeatBlock({
@@ -51,7 +60,7 @@ export function RepeatBlock({
   validityUnit?: string | null;
 }) {
   const [mode, setMode] = useState<Mode>(modeFromKind(initialKind));
-  const [shape, setShape] = useState<CalendarShape>(shapeFromKind(initialKind));
+  const [shape, setShape] = useState<CalendarShape>(shapeFromKind(initialKind, quarterlyMonths ?? null));
   const [hasShelfLife, setHasShelfLife] = useState<boolean>(
     initialKind === "one_off" && !!validityAmount && !!validityUnit,
   );
@@ -68,15 +77,27 @@ export function RepeatBlock({
   );
   const [vUnit, setVUnit] = useState<string>(validityUnit ?? "months");
 
-  // Compute the wire schedule_kind + which validity to emit.
+  // Compute the wire schedule_kind + which validity to emit. Monthly and
+  // Quarterly are both stored as quarterly_fixed — monthly = all 12 anchor
+  // months. That way we don't invent a new kind for what is structurally
+  // the same shape (day-of-month × N anchors).
   const scheduleKind: ServiceScheduleKind =
     mode === "rolling"
       ? "rolling"
       : mode === "calendar_fixed"
-      ? shape === "quarterly"
-        ? "quarterly_fixed"
-        : "annual_fixed"
+      ? shape === "annual"
+        ? "annual_fixed"
+        : "quarterly_fixed"
       : "one_off";
+
+  // What months get written when calendar-fixed. Monthly = all 12; Quarterly
+  // = whatever the user ticked (defaulted to Jan/Apr/Jul/Oct); Annual = none.
+  const emittedQuarterlyMonths =
+    mode === "calendar_fixed" && shape === "monthly"
+      ? ALL_MONTHS
+      : mode === "calendar_fixed" && shape === "quarterly"
+      ? Array.from(qMonths)
+      : [];
 
   // For preview + wire: only emit validity when it belongs (rolling always,
   // one-off only if shelf life is ticked).
@@ -99,9 +120,9 @@ export function RepeatBlock({
         schedule_kind: scheduleKind,
         annual_month: mode === "calendar_fixed" && shape === "annual" ? aMonth : null,
         annual_day:   mode === "calendar_fixed" && shape === "annual" ? aDay : null,
-        quarterly_day:    mode === "calendar_fixed" && shape === "quarterly" ? qDay : null,
-        quarterly_months: mode === "calendar_fixed" && shape === "quarterly"
-          ? Array.from(qMonths)
+        quarterly_day:    mode === "calendar_fixed" && shape !== "annual" ? qDay : null,
+        quarterly_months: mode === "calendar_fixed" && shape !== "annual"
+          ? emittedQuarterlyMonths
           : null,
         validity_amount: validityForWire,
         validity_unit: validityUnitForWire || null,
@@ -163,11 +184,12 @@ export function RepeatBlock({
         >
           <div className="mt-2 space-y-2">
             <div className="inline-flex bg-[var(--bg)] border border-[var(--border)] rounded-lg p-0.5">
-              <ShapeToggle value="annual"    label="Annual"    current={shape} onSelect={setShape} />
+              <ShapeToggle value="monthly"   label="Monthly"   current={shape} onSelect={setShape} />
               <ShapeToggle value="quarterly" label="Quarterly" current={shape} onSelect={setShape} />
+              <ShapeToggle value="annual"    label="Annual"    current={shape} onSelect={setShape} />
             </div>
 
-            {shape === "annual" ? (
+            {shape === "annual" && (
               <div className="flex items-center gap-2 text-[12.5px]">
                 <span className="text-[var(--muted)]">Every year on</span>
                 <select
@@ -188,7 +210,23 @@ export function RepeatBlock({
                   className="w-16 px-2 py-1 border border-[var(--border)] rounded-md text-sm tabular-nums"
                 />
               </div>
-            ) : (
+            )}
+
+            {shape === "monthly" && (
+              <div className="flex items-center gap-2 text-[12.5px]">
+                <span className="text-[var(--muted)]">Every month on day</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={qDay}
+                  onChange={(e) => setQDay(Number(e.target.value))}
+                  className="w-16 px-2 py-1 border border-[var(--border)] rounded-md text-sm tabular-nums"
+                />
+              </div>
+            )}
+
+            {shape === "quarterly" && (
               <div className="text-[12.5px] space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-[var(--muted)]">On day</span>
@@ -281,10 +319,10 @@ export function RepeatBlock({
         </>
       )}
 
-      {mode === "calendar_fixed" && shape === "quarterly" && (
+      {mode === "calendar_fixed" && shape !== "annual" && (
         <>
           <input type="hidden" name="quarterly_day" value={qDay} />
-          {Array.from(qMonths).map((m) => (
+          {emittedQuarterlyMonths.map((m) => (
             <input key={m} type="hidden" name="quarterly_months" value={m} />
           ))}
         </>

@@ -76,7 +76,7 @@ function parseSchedule(fd: FormData): ScheduleFields {
     if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error("Quarterly day must be 1–31");
     const months = fd.getAll("quarterly_months").map((v) => Number(v)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 12);
     const uniq = Array.from(new Set(months)).sort((a, b) => a - b);
-    if (uniq.length < 1 || uniq.length > 4) throw new Error("Pick 1–4 anchor months");
+    if (uniq.length < 1 || uniq.length > 12) throw new Error("Pick 1–12 anchor months");
     return { ...zero, quarterly_day: d, quarterly_months: uniq };
   }
   return zero;

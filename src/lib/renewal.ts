@@ -40,7 +40,14 @@ function toDays(amount: number | null, unit: string | null): number | null {
 export function cadenceDays(svc: ServiceSchedule): number {
   if (!svc) return 0;
   if (svc.schedule_kind === "annual_fixed") return 365;
-  if (svc.schedule_kind === "quarterly_fixed") return 90;
+  if (svc.schedule_kind === "quarterly_fixed") {
+    // "Quarterly" is really "n anchor months per year" — 4 = quarterly,
+    // 12 = monthly, anything else = irregular. Cadence = year / n so the
+    // reminder-lead heuristic below chooses a sensible window.
+    const n = svc.quarterly_months?.length ?? 4;
+    if (n <= 0) return 0;
+    return Math.round(365 / n);
+  }
   // Rolling and one_off with validity both fall through to the term.
   return toDays(svc.validity_amount, svc.validity_unit) ?? 0;
 }
@@ -238,6 +245,9 @@ export function describeSchedule(svc: {
     return `Every year on ${MONTH_LABELS[svc.annual_month - 1]} ${svc.annual_day}.`;
   }
   if (svc.schedule_kind === "quarterly_fixed" && svc.quarterly_day && svc.quarterly_months?.length) {
+    if (svc.quarterly_months.length === 12) {
+      return `Every month on day ${svc.quarterly_day}.`;
+    }
     const months = svc.quarterly_months
       .slice()
       .sort((a, b) => a - b)
