@@ -639,7 +639,7 @@ function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) 
       className="space-y-3"
     >
       <div className="text-[12.5px] text-[var(--muted)]">
-        Current expiry: <span className="text-ink font-medium">{fmt(row.expires_date)}</span>
+        Current expiry: <span className="text-ink font-medium">{fmtLong(row.expires_date)}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -652,6 +652,9 @@ function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) 
             className={input}
             required
           />
+          <div className="text-[11px] text-[var(--muted)] mt-1 tabular-nums">
+            → {fmtLong(newStart)}
+          </div>
         </div>
         <div>
           <Label>New expiry</Label>
@@ -662,6 +665,9 @@ function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) 
             className={input}
             required
           />
+          <div className="text-[11px] text-[var(--muted)] mt-1 tabular-nums">
+            → {fmtLong(newExpiry)}
+          </div>
         </div>
       </div>
 
@@ -725,5 +731,17 @@ function fmt(v: string | null | undefined): string {
   if (!v) return "—";
   const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
+}
+
+// Unambiguous month-in-words format for anywhere date interpretation matters.
+// "08/10/2026" is ambiguous (8 Oct or Oct 8?); "8 Oct 2026" is not.
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtLong(v: string | null | undefined): string {
+  if (!v) return "—";
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return v;
+  const [, y, mm, dd] = m;
+  const monthIdx = parseInt(mm, 10) - 1;
+  return `${parseInt(dd, 10)} ${MONTH_SHORT[monthIdx] ?? mm} ${y}`;
 }
 
