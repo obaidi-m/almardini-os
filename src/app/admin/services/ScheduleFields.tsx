@@ -31,6 +31,7 @@ export function ScheduleFields({
         <ModeOption value="one_off"         label="One-off"    kind={kind} onSelect={setKind} />
         <ModeOption value="annual_fixed"    label="Annual (fixed date)"    kind={kind} onSelect={setKind} />
         <ModeOption value="quarterly_fixed" label="Quarterly (fixed dates)" kind={kind} onSelect={setKind} />
+        <ModeOption value="rolling"         label="Rolling (renews from expiry)" kind={kind} onSelect={setKind} />
       </div>
       <input type="hidden" name="schedule_kind" value={kind} />
 
@@ -84,6 +85,12 @@ export function ScheduleFields({
       {kind === "one_off" && (
         <p className="text-[11.5px] text-[var(--muted)] mt-1">
           No recurrence. Set Validity below if the output has a shelf life (visa, KITAS).
+        </p>
+      )}
+
+      {kind === "rolling" && (
+        <p className="text-[11.5px] text-[var(--muted)] mt-1">
+          Each customer's cycle rolls from <em>their own</em> expiry date (e.g. VO renewed on Mar 4 → next due Mar 4). Set the term below under Validity (e.g. 12 months).
         </p>
       )}
     </div>

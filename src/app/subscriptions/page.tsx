@@ -30,7 +30,7 @@ type ServiceRow = {
   id: string;
   code: string;
   name: string;
-  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
+  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | "rolling" | null;
   annual_month: number | null;
   annual_day: number | null;
   quarterly_day: number | null;
@@ -53,6 +53,11 @@ type Row = {
 function cadenceLabel(svc: ServiceRow): string {
   if (svc.schedule_kind === "annual_fixed") return "Annual";
   if (svc.schedule_kind === "quarterly_fixed") return "Quarterly";
+  if (svc.schedule_kind === "rolling") {
+    const n = svc.validity_amount;
+    const u = svc.validity_unit;
+    return n && u ? `Every ${n} ${u}` : "Rolling";
+  }
   if (svc.is_ongoing) return "Ongoing";
   return "—";
 }
@@ -90,7 +95,7 @@ export default async function SubscriptionsPage({
     )
     .is("deleted_at", null)
     .not("company_id", "is", null)
-    .or("is_ongoing.eq.true,schedule_kind.in.(annual_fixed,quarterly_fixed)", {
+    .or("is_ongoing.eq.true,schedule_kind.in.(annual_fixed,quarterly_fixed,rolling)", {
       referencedTable: "service_types",
     })
     .order("expires_date", { ascending: true, nullsFirst: false })

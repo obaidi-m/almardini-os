@@ -40,7 +40,7 @@ function parseAmountUnit(fd: FormData, amountKey: string, unitKey: string, label
   return { amount, unit: rawUnit as Unit };
 }
 
-const SCHEDULE_KINDS = ["one_off", "annual_fixed", "quarterly_fixed"] as const;
+const SCHEDULE_KINDS = ["one_off", "annual_fixed", "quarterly_fixed", "rolling"] as const;
 type ScheduleKind = (typeof SCHEDULE_KINDS)[number];
 
 type ScheduleFields = {
@@ -106,6 +106,10 @@ export async function createService(formData: FormData) {
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
 
+  if (schedule.schedule_kind === "rolling" && (!validity_amount || !validity_unit)) {
+    throw new Error("Rolling services must have a term — set Validity (e.g. 12 months).");
+  }
+
   if (!name || !category_id) throw new Error("Name and category are required");
 
   const { data, error } = await supabase
@@ -130,6 +134,9 @@ export async function updateService(formData: FormData) {
   const schedule = parseSchedule(formData);
   const v = parseAmountUnit(formData, "validity_amount", "validity_unit", "Validity duration");
   const validity_amount = v.amount, validity_unit = v.unit;
+  if (schedule.schedule_kind === "rolling" && (!validity_amount || !validity_unit)) {
+    throw new Error("Rolling services must have a term — set Validity (e.g. 12 months).");
+  }
   const patch = {
     code: String(formData.get("code") || "").trim().toUpperCase() || null,
     name: String(formData.get("name") || "").trim(),

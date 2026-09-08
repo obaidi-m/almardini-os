@@ -17,7 +17,7 @@
  */
 
 export type ServiceSchedule = {
-  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | null;
+  schedule_kind: "one_off" | "annual_fixed" | "quarterly_fixed" | "rolling" | null;
   annual_month: number | null;
   annual_day: number | null;
   quarterly_day: number | null;
@@ -41,6 +41,7 @@ export function cadenceDays(svc: ServiceSchedule): number {
   if (!svc) return 0;
   if (svc.schedule_kind === "annual_fixed") return 365;
   if (svc.schedule_kind === "quarterly_fixed") return 90;
+  // Rolling and one_off with validity both fall through to the term.
   return toDays(svc.validity_amount, svc.validity_unit) ?? 0;
 }
 
@@ -109,11 +110,17 @@ export function isInReminderWindow(svc: ServiceSchedule): boolean {
 }
 
 /** Date to reason about for renewal urgency:
- *  - If `expires_date` is set (one-off, or a stamped subscription cycle), use it.
- *  - Else, for recurring services (annual_fixed / quarterly_fixed), compute
- *    the next scheduled occurrence. This is how ongoing subscriptions —
- *    which never stamp expires_date — still surface 90d/30d before their
- *    next cycle. Returns null when there is nothing to count toward. */
+ *  - If `expires_date` is set (one-off, a rolling subscription's current
+ *    cycle, or a stamped calendar-fixed cycle), use it.
+ *  - Else, for calendar-fixed recurring services (annual_fixed /
+ *    quarterly_fixed), compute the next scheduled occurrence. This is how
+ *    ongoing subscriptions that never stamp expires_date still surface
+ *    90d/30d before their next cycle.
+ *
+ *  A rolling service with no expires_date has no cycle yet — the customer
+ *  hasn't started their subscription, or the row was created before rolling
+ *  existed. Return null in that case; the admin should stamp an expiry to
+ *  start the cycle. */
 export function effectiveExpiryDate(
   expiresDate: string | null,
   svc: ServiceSchedule,
@@ -192,7 +199,9 @@ export function computeNextExpiry(svc: ServiceSchedule, from: Date = new Date())
   if (svc.schedule_kind === "quarterly_fixed" && svc.quarterly_day && svc.quarterly_months?.length) {
     return nextQuarterlyOccurrence(svc.quarterly_day, svc.quarterly_months, from, skip);
   }
+  // rolling → today + validity (per-entity cycle starts from now).
   // one_off with validity → today + validity (shelf life of the output).
+  // Same math either way; the distinction is *why* the date matters, not how it's computed.
   const validity = toDays(svc.validity_amount, svc.validity_unit);
   if (validity && validity > 0) {
     const d = new Date(from); d.setHours(0, 0, 0, 0);

@@ -116,7 +116,7 @@ export type Partner = {
   updated_at: string;
 };
 
-export type ServiceScheduleKind = "one_off" | "annual_fixed" | "quarterly_fixed";
+export type ServiceScheduleKind = "one_off" | "annual_fixed" | "quarterly_fixed" | "rolling";
 
 export type ServiceType = {
   id: string;
