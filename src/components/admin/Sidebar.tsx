@@ -13,6 +13,7 @@ const nav: NavItem[] = [
   { href: "/admin/services", label: "Service catalog", icon: <IconCatalog /> },
   { href: "/admin/company-roles", label: "Company roles", icon: <IconTag /> },
   { href: "/admin/activity", label: "Activity log",  icon: <IconActivity /> },
+  { href: "/admin/feedback", label: "Feedback",      icon: <IconFeedback /> },
   { href: "/admin/import",   label: "Import data",   icon: <IconImport /> },
 ];
 
@@ -137,6 +138,13 @@ function IconImport() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <path d="M7 10l5 5 5-5" />
       <path d="M12 15V3" />
+    </svg>
+  );
+}
+function IconFeedback() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z" />
     </svg>
   );
 }

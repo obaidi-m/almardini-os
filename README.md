@@ -47,6 +47,8 @@ npm install
 2. Open [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql), copy everything, paste, click **Run**.
 3. You should see "Success. No rows returned." Six roles are now seeded, and the empty tables exist.
 
+> **Every time you apply a new migration** (in the SQL editor or elsewhere), run `npm run postmigrate` locally. It regenerates `src/lib/database.types.ts` from the live schema and typechecks the codebase — if a migration dropped or renamed something the app still references, you'll see the error before your users do. Silent output = clean. Requires `SUPABASE_ACCESS_TOKEN` set in your shell (get one at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens), grant only Project + Database read).
+
 ### 5. Create the first owner user
 
 The very first user has to be created manually because we don't yet have anyone to invite them.

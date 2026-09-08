@@ -8,3 +8,6 @@ build/
 .DS_Store
 .vscode/
 tsconfig.tsbuildinfo
+
+# Supabase CLI local cache
+supabase/.temp/

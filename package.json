@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "types:generate": "supabase gen types typescript --project-id YOUR_PROJECT_ID > src/lib/database.types.ts"
+    "types:generate": "npx supabase@latest gen types typescript --project-id ixhvxuephsckygvevrqf --schema public > src/lib/database.types.ts",
+    "types:check": "tsc --noEmit",
+    "postmigrate": "npm run types:generate && npm run types:check"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
