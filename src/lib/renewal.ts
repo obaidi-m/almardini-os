@@ -180,8 +180,8 @@ export function nextQuarterlyOccurrence(
 /** Compute expires_at for a service that just moved to Done. Skips the
  *  candidate that falls inside the service's reminder window, since the
  *  operator marking Done today is almost always closing the cycle whose
- *  deadline is coming up — pushing them onto that same date would mean
- *  the successor case reminds them again for work they just finished.
+ *  deadline is coming up — landing on that same date would immediately
+ *  re-remind them of work they just finished.
  *  Returns null when the service has no schedule. */
 export function computeNextExpiry(svc: ServiceSchedule, from: Date = new Date()): string | null {
   if (!svc) return null;
@@ -200,13 +200,6 @@ export function computeNextExpiry(svc: ServiceSchedule, from: Date = new Date())
     return toIsoDate(d);
   }
   return null;
-}
-
-/** True when the service will spawn a successor case on Delivered. Both
- *  calendar-fixed kinds spawn; one_off does not. */
-export function serviceRepeats(svc: ServiceSchedule): boolean {
-  if (!svc) return false;
-  return svc.schedule_kind === "annual_fixed" || svc.schedule_kind === "quarterly_fixed";
 }
 
 export const MONTH_LABELS = [

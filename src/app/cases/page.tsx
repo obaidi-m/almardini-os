@@ -6,6 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { ServiceFilter } from "./ServiceFilter";
 import { serviceLabel } from "@/lib/service";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
+import { BulkStatusBar } from "./BulkStatusBar";
 
 type SortKey = "recent" | "deadline_asc" | "priority" | "code_asc";
 type SearchParams = { status?: string; mine?: string; sort?: string; service?: string; show?: string };
@@ -270,7 +271,18 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
             return (
               <div key={c.id} className={`group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`} style={{ gridTemplateColumns: "var(--rt-cols)" }}>
                 <div className="flex items-center justify-center">
-                  <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
+                  {c.status !== "delivered" && !c.deleted_at ? (
+                    <input
+                      type="checkbox"
+                      data-bulk-check
+                      data-case-id={c.id}
+                      data-case-status={c.status}
+                      className="w-3.5 h-3.5 rounded border-[var(--border-strong)] accent-[var(--brand,#148A7C)] cursor-pointer opacity-30 group-hover:opacity-100 checked:opacity-100 transition-opacity"
+                      aria-label="Select case for bulk action"
+                    />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0" aria-hidden />
+                  )}
                 </div>
                 <Link href={`/cases/${c.id}`}>
                   <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">{c.code}</span>
@@ -321,6 +333,8 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
         {t("list.count.cases", { n: rows.length })}
         {rows.length === 200 && ` · ${t("common.showing_first", { n: 200 })}`}
       </div>
+
+      <BulkStatusBar />
     </div>
   );
 }

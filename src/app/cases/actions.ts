@@ -325,6 +325,107 @@ export async function clearCaseExpiryAction(fd: FormData) {
   revalidatePath("/renewals");
 }
 
+/** Bulk-set the status of many cases in one action. Delivered is intentionally
+ *  excluded — that transition opens the WhatsApp/email send flow per case and
+ *  must stay a deliberate one-at-a-time act. Same is true for anything moving
+ *  out of Delivered (use reopenCaseAction with a reason).
+ *
+ *  Per case: no-op if already at target, otherwise write a status-only
+ *  case_updates row and update cases.status. Auto-fills expires_at on the
+ *  New/In-progress → Done edge, same as the single-case path.
+ *
+ *  Returns per-case results so the UI can show "3 updated, 1 skipped, 1
+ *  already at target". RLS still applies — if a row is not visible/writable
+ *  to this user it comes back as skipped with the DB's own error. */
+export async function bulkSetCaseStatusAction(
+  ids: string[],
+  rawStatus: string,
+): Promise<{
+  updated: string[];
+  unchanged: string[];
+  skipped: { id: string; reason: string }[];
+}> {
+  const { supabase, actorId } = await requireUser();
+
+  if (!STATUSES.includes(rawStatus as CaseStatus)) {
+    throw new Error("Invalid status.");
+  }
+  const newStatus = rawStatus as CaseStatus;
+  if (newStatus === "delivered") {
+    throw new Error("Delivered is set per case, not in bulk.");
+  }
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { updated: [], unchanged: [], skipped: [] };
+  }
+  const cleaned = Array.from(new Set(ids.filter((v) => typeof v === "string" && v.length > 0)));
+
+  const { data: rows, error: fetchError } = await supabase
+    .from("cases")
+    .select("id, status")
+    .in("id", cleaned);
+  if (fetchError) throw new Error(fetchError.message);
+
+  const found = new Map<string, CaseStatus>();
+  for (const r of (rows ?? []) as { id: string; status: CaseStatus }[]) {
+    found.set(r.id, r.status);
+  }
+
+  const updated: string[] = [];
+  const unchanged: string[] = [];
+  const skipped: { id: string; reason: string }[] = [];
+
+  for (const id of cleaned) {
+    const current = found.get(id);
+    if (!current) {
+      skipped.push({ id, reason: "not visible" });
+      continue;
+    }
+    if (current === newStatus) {
+      unchanged.push(id);
+      continue;
+    }
+    if (current === "delivered") {
+      skipped.push({ id, reason: "delivered — use reopen with a reason" });
+      continue;
+    }
+
+    const { error: insertError } = await supabase.from("case_updates").insert({
+      case_id: id,
+      author_id: actorId,
+      text: null,
+      status_before: current,
+      status_after: newStatus,
+    });
+    if (insertError) {
+      skipped.push({ id, reason: insertError.message });
+      continue;
+    }
+
+    const { error: statusError } = await supabase
+      .from("cases")
+      .update({ status: newStatus, updated_by: actorId })
+      .eq("id", id);
+    if (statusError) {
+      skipped.push({ id, reason: statusError.message });
+      continue;
+    }
+
+    if (newStatus === "done") {
+      try {
+        await autoFillExpiresOnDone(supabase, id);
+      } catch {
+        // Non-fatal — status change succeeded; expiry backfill is a nicety.
+      }
+    }
+
+    updated.push(id);
+  }
+
+  revalidatePath("/cases");
+  revalidatePath("/renewals");
+  return { updated, unchanged, skipped };
+}
+
 export async function softDeleteCaseAction(fd: FormData) {
   const { supabase } = await requireUser();
   const id = String(fd.get("id") ?? "");
