@@ -1,5 +1,12 @@
-/** Shared renewal-window rule used by /renewals, the dashboard, the Active
- *  Services card, and the on-Done auto-fill of cases.expires_at.
+/** Shared renewal-window rule used by /renewals, the dashboard, and the
+ *  entity Subscriptions / Permits card.
+ *
+ *  Cases DO NOT auto-fill their own expires_at anymore. Renewal reminders
+ *  come from the entity_services table (subscriptions on companies,
+ *  permits on people) — the case is the *work*, the entity_service is the
+ *  *thing in the world*. When a KITAS case is delivered, the operator
+ *  updates the person's permit entry with the new expiry; that's what
+ *  drives the next reminder.
  *
  *  Service scheduling model (see migration 025):
  *    - schedule_kind = 'one_off'          : no recurrence. Validity may

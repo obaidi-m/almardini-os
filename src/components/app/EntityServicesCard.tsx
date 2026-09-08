@@ -69,11 +69,21 @@ export function EntityServicesCard({
   const active = services.filter((s) => s.status === "active");
   const other  = services.filter((s) => s.status !== "active");
 
+  // Naming diverges by owner kind. Companies have subscriptions (recurring
+  // things they pay us for). People have permits (KITAS/KITAP/IMTA — a
+  // regulatory allowance with an expiry). Same table underneath, different
+  // real-world concept, so different words for the operator.
+  const isPerson = owner.kind === "client";
+  const titleKey    = isPerson ? "services.title.permits"          : "services.title.subscriptions";
+  const emptyKey    = isPerson ? "services.empty.permit"           : "services.empty.subscription";
+  const addModalKey = isPerson ? "services.modal.add.permit"       : "services.modal.add.subscription";
+  const editModalKey= isPerson ? "services.modal.edit.permit"      : "services.modal.edit.subscription";
+
   return (
     <section className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(15,31,29,0.06),0_8px_24px_-6px_rgba(15,31,29,0.10)] p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-serif text-[15px] text-ink leading-none">{t("services.title")}</h3>
+          <h3 className="font-serif text-[15px] text-ink leading-none">{t(titleKey)}</h3>
           <span className="text-[11.5px] text-[var(--muted)] font-medium">{t("services.n_active", { n: active.length })}</span>
         </div>
         <button
@@ -87,7 +97,7 @@ export function EntityServicesCard({
 
       {services.length === 0 ? (
         <p className="text-[12.5px] text-[var(--muted)]">
-          {t("services.empty")}
+          {t(emptyKey)}
         </p>
       ) : (
         <ul className="divide-y divide-[var(--border)] -mx-1">
@@ -106,7 +116,7 @@ export function EntityServicesCard({
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title={t("services.modal.add")}
+        title={t(addModalKey)}
         size="lg"
       >
         <ServiceForm
@@ -122,7 +132,7 @@ export function EntityServicesCard({
       <Modal
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={t("services.modal.edit")}
+        title={t(editModalKey)}
         size="lg"
       >
         {editing && (

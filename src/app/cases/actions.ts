@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { CaseStatus, CasePriority } from "@/lib/types";
-import { computeNextExpiry, type ServiceSchedule } from "@/lib/renewal";
 
 async function requireUser() {
   const supabase = createClient();
@@ -18,35 +17,6 @@ function str(fd: FormData, key: string): string | null {
 }
 
 const STATUSES: CaseStatus[] = ["new", "in_progress", "done", "delivered"];
-
-const SCHEDULE_SELECT = "schedule_kind, annual_month, annual_day, quarterly_day, quarterly_months, validity_amount, validity_unit";
-
-/** When a case first hits Done, seed its expires_at so the renewal calendar
- *  and the Active Services section on the client/company page can surface it.
- *  The date comes from the service's schedule:
- *    annual_fixed    → next occurrence of (annual_month, annual_day)
- *    quarterly_fixed → next occurrence in (quarterly_day, quarterly_months)
- *    one_off + validity → today + validity (shelf life of the output)
- *    one_off no validity → no date, no reminder
- *  A manually set expires_at is never overwritten. */
-async function autoFillExpiresOnDone(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  case_id: string,
-): Promise<string | null> {
-  const { data: c } = await supabase
-    .from("cases")
-    .select(`expires_at, service:service_types(${SCHEDULE_SELECT})`)
-    .eq("id", case_id)
-    .single();
-  if (!c || c.expires_at) return null;
-  const svc = (Array.isArray(c.service) ? c.service[0] : c.service) as ServiceSchedule;
-  const iso = computeNextExpiry(svc);
-  if (!iso) return null;
-
-  const { error } = await supabase.from("cases").update({ expires_at: iso }).eq("id", case_id);
-  if (error) throw new Error(error.message);
-  return iso;
-}
 
 const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
 
@@ -184,10 +154,6 @@ export async function setCaseStatusAction(fd: FormData) {
     .eq("id", case_id);
   if (statusError) throw new Error(statusError.message);
 
-  if (newStatus === "done" && currentStatus !== "done") {
-    await autoFillExpiresOnDone(supabase, case_id);
-  }
-
   revalidatePath(`/cases/${case_id}`);
   revalidatePath("/cases");
   revalidatePath("/renewals");
@@ -230,10 +196,6 @@ export async function addCaseUpdateAction(fd: FormData) {
       .update({ status: newStatus, updated_by: actorId })
       .eq("id", case_id);
     if (statusError) throw new Error(statusError.message);
-
-    if (newStatus === "done" && currentStatus !== "done") {
-      await autoFillExpiresOnDone(supabase, case_id);
-    }
   }
 
   revalidatePath(`/cases/${case_id}`);
@@ -408,14 +370,6 @@ export async function bulkSetCaseStatusAction(
     if (statusError) {
       skipped.push({ id, reason: statusError.message });
       continue;
-    }
-
-    if (newStatus === "done") {
-      try {
-        await autoFillExpiresOnDone(supabase, id);
-      } catch {
-        // Non-fatal — status change succeeded; expiry backfill is a nicety.
-      }
     }
 
     updated.push(id);
