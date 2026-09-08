@@ -44,7 +44,7 @@ export function ClientDetail({
   roles: Role[];
   cases: CaseSummary[];
   entityServices?: EntityService[];
-  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing">[];
+  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind">[];
   handledServiceIds?: string[];
 }) {
   const { t } = useT();

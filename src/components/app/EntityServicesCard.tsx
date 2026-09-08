@@ -16,8 +16,19 @@ import {
 
 type CatalogService = Pick<
   ServiceType,
-  "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing"
+  "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind"
 >;
+
+// A "subscription-shaped" service — anything that repeats or is continuous.
+// One-off services (KITAS setup, PT PMA formation) live in /cases, not here.
+function isSubscriptionShape(c: CatalogService): boolean {
+  return (
+    c.is_ongoing ||
+    c.schedule_kind === "annual_fixed" ||
+    c.schedule_kind === "quarterly_fixed" ||
+    c.schedule_kind === "rolling"
+  );
+}
 
 type CompanyOpt = { id: string; code: string; name: string };
 type PartnerOpt = { id: string; code: string; name: string };
@@ -38,16 +49,20 @@ export function EntityServicesCard({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<EntityService | null>(null);
 
-  // Filter catalog to what can apply to this owner.
+  // Filter catalog to what can apply to this owner AND is subscription-shaped.
+  // One-off services (KITAS setup, PT PMA formation) never belong here — they
+  // are single jobs tracked through /cases, not recurring subscriptions.
   const availableCatalog = useMemo(
     () =>
-      catalog.filter((c) =>
-        c.applies_to === "either"
-          ? true
-          : owner.kind === "client"
-          ? c.applies_to === "person"
-          : c.applies_to === "company",
-      ),
+      catalog
+        .filter((c) =>
+          c.applies_to === "either"
+            ? true
+            : owner.kind === "client"
+            ? c.applies_to === "person"
+            : c.applies_to === "company",
+        )
+        .filter(isSubscriptionShape),
     [catalog, owner.kind],
   );
 
