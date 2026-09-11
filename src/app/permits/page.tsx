@@ -1,3 +1,7 @@
+// Rebuilt at most every 60s per path — actions call revalidatePath
+// to bust it immediately on mutations.
+export const revalidate = 60;
+
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { EntityServiceStatus } from "@/lib/types";
