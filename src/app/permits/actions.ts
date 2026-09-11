@@ -44,7 +44,6 @@ export async function createPermitWithClientAction(fd: FormData): Promise<{ clie
     const passport_no = normalizePassport(s(fd, "passport_no"));
     const nationality = s(fd, "nationality");
     if (!full_name) throw new Error("Type the person's full name or pick an existing client.");
-    if (!passport_no) throw new Error("Passport number is required for a new client.");
 
     // Dupe check mirrors the standalone client-create action so operators
     // can't slip a duplicate person in through this shortcut.

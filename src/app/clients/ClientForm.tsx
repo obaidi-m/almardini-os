@@ -101,11 +101,10 @@ export function ClientForm({
           />
         </Row>
 
-        <Row label={t("field.passport_no")} required={mode === "create"}>
+        <Row label={t("field.passport_no")}>
           <input
             name="passport_no"
             defaultValue={client?.passport_no ?? ""}
-            required={mode === "create"}
             placeholder={t("form.placeholder.passport_example")}
             className={cellInput + " font-mono uppercase"}
           />

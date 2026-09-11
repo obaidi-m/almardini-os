@@ -109,12 +109,11 @@ function NewPermitForm({
                   no existing client was picked. */}
               <input type="hidden" name="full_name" value={nameQuery} />
             </Row>
-            <Row label="Passport no." required>
+            <Row label="Passport no.">
               <input
                 name="passport_no"
                 value={passport}
                 onChange={(e) => setPassport(e.target.value)}
-                required
                 placeholder="e.g. AB1234567"
                 className={cellInput + " font-mono uppercase"}
               />

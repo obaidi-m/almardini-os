@@ -276,8 +276,8 @@ function QuickClientForm({
       <Row label="Full name" required>
         <input name="full_name" required autoFocus placeholder="e.g. Ahmed Al Yamani" className={cellInput} />
       </Row>
-      <Row label="Passport no." required>
-        <input name="passport_no" required placeholder="e.g. BV31645" className={cellInput + " font-mono uppercase"} />
+      <Row label="Passport no.">
+        <input name="passport_no" placeholder="e.g. BV31645" className={cellInput + " font-mono uppercase"} />
       </Row>
       <Row label="Nationality">
         <input name="nationality" list="qc-nationalities" placeholder="e.g. Yemen" autoComplete="off" className={cellInput} />

@@ -100,10 +100,6 @@ function parseCompanies(fd: FormData): CompanyLinkRow[] {
 export async function createClientAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const payload = await parseForm(fd);
-  if (!payload.passport_no) {
-    const { t } = await getT();
-    throw new Error(t("err.passport_required"));
-  }
   const companies = parseCompanies(fd);
 
   if (payload.full_name) {
@@ -229,7 +225,6 @@ export async function createClientQuickAction(fd: FormData): Promise<{ id: strin
   const passport_no = normalizePassport(String(fd.get("passport_no") ?? "").trim() || null);
   const nationality = str(fd, "nationality");
   if (!full_name) throw new Error("Full name is required.");
-  if (!passport_no) throw new Error("Passport number is required.");
 
   const { data: dupe } = await supabase
     .from("clients")
