@@ -99,10 +99,9 @@ export function RepeatBlock({
       ? Array.from(qMonths)
       : [];
 
-  // For preview + wire: only emit validity when it belongs (rolling always,
-  // one-off only if shelf life is ticked).
-  const emitValidity =
-    mode === "rolling" || (mode === "one_off" && hasShelfLife);
+  // For preview + wire: only rolling emits validity globally. One-off
+  // shelf life is per-instance — set on the permit when it's created.
+  const emitValidity = mode === "rolling";
   const validityForWire = emitValidity && vAmount ? Number(vAmount) : null;
   const validityUnitForWire = emitValidity && vAmount ? vUnit : "";
 
@@ -151,28 +150,7 @@ export function RepeatBlock({
               className="w-3.5 h-3.5 accent-brand"
             />
             Output has a shelf life
-            {hasShelfLife && (
-              <span className="ml-2 inline-flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={vAmount}
-                  onChange={(e) => setVAmount(e.target.value)}
-                  placeholder="12"
-                  className="w-16 px-2 py-1 border border-[var(--border)] rounded-md text-sm tabular-nums"
-                />
-                <select
-                  value={vUnit}
-                  onChange={(e) => setVUnit(e.target.value)}
-                  className="px-2 py-1 border border-[var(--border)] rounded-md text-sm bg-[var(--surface)]"
-                >
-                  <option value="days">days</option>
-                  <option value="months">months</option>
-                  <option value="years">years</option>
-                </select>
-              </span>
-            )}
+            <span className="text-[var(--muted)] text-[11.5px]">(end date set per permit)</span>
           </label>
         </ModeCard>
 

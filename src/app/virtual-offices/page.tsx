@@ -94,8 +94,15 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  const displayStatus = (s: EntityServiceStatus): DisplayStatus =>
-    s === "expired" ? "expired" : s === "terminated" ? "terminated" : "active";
+  const today = new Date().toISOString().slice(0, 10);
+  // Derived: paused still counts as active for the tabs; "expired" comes from
+  // the end date passing, not from a stored flag.
+  const displayStatus = (s: EntityServiceStatus, expires: string | null): DisplayStatus => {
+    if (s === "terminated") return "terminated";
+    if (s === "expired") return "expired";
+    if (expires && expires < today) return "expired";
+    return "active";
+  };
 
   const all: Row[] = ((data ?? []) as Array<{
     id: string;
@@ -114,12 +121,11 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
       term_months: r.term_months,
       start_date: r.started_date,
       end_date: r.expires_date as string,
-      status: displayStatus(r.status),
+      status: displayStatus(r.status, r.expires_date),
       company: unwrap(r.company),
       responsible: unwrap(r.responsible),
     }));
 
-  const today = new Date().toISOString().slice(0, 10);
   const counts = {
     all:         all.length,
     renew_soon:  all.filter((r) => r.status === "active" && r.end_date >= today && daysUntil(r.end_date) <= 90).length,

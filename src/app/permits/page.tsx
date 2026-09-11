@@ -88,11 +88,17 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
   const unwrap = <T,>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? v[0] ?? null : v ?? null;
 
-  // Fold status into the three display buckets we support here — paused
-  // gets treated as active for permit purposes, since the doc is still
-  // valid on paper.
-  const displayStatus = (s: EntityServiceStatus): DisplayStatus =>
-    s === "expired" ? "expired" : s === "terminated" ? "terminated" : "active";
+  const today = new Date().toISOString().slice(0, 10);
+  // Fold stored status + expiry date into the three display buckets. Paused
+  // permits still count as active on paper. "Expired" comes from the date
+  // passing — not from a stored flag — so a live row whose date rolled by
+  // yesterday shows as expired today with no manual step.
+  const displayStatus = (s: EntityServiceStatus, expires: string | null): DisplayStatus => {
+    if (s === "terminated") return "terminated";
+    if (s === "expired") return "expired";
+    if (expires && expires < today) return "expired";
+    return "active";
+  };
 
   const all: Row[] = ((data ?? []) as Array<{
     id: string;
@@ -107,12 +113,11 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
       id: r.id,
       kind: unwrap(r.service)?.name ?? "Permit",
       expires_date: r.expires_date as string,
-      status: displayStatus(r.status),
+      status: displayStatus(r.status, r.expires_date),
       client: unwrap(r.client),
       sponsor: unwrap(r.sponsor),
     }));
 
-  const today = new Date().toISOString().slice(0, 10);
   const counts = {
     all:         all.length,
     renew_soon:  all.filter((r) => r.status === "active" && r.expires_date >= today && daysUntil(r.expires_date) <= 90).length,
