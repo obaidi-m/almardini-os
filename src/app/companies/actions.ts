@@ -92,6 +92,17 @@ export async function createCompanyAction(fd: FormData) {
   const payload = await parseForm(fd);
   const people = parsePeople(fd);
 
+  if (payload.name) {
+    const { data: dupe } = await supabase
+      .from("companies")
+      .select("code, name")
+      .ilike("name", payload.name.trim())
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (dupe) throw new Error(`A company named "${dupe.name}" already exists (${dupe.code}).`);
+  }
+
   const { data: company, error: companyErr } = await supabase
     .from("companies")
     .insert({ ...payload, created_by: actorId, updated_by: actorId })
@@ -109,6 +120,14 @@ export async function createCompanyAction(fd: FormData) {
       if (p.kind === "existing") {
         clientId = p.client_id;
       } else {
+        const { data: dupeCli } = await supabase
+          .from("clients")
+          .select("id, code, full_name")
+          .ilike("full_name", p.full_name.trim())
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        if (dupeCli) throw new Error(`A client named "${dupeCli.full_name}" already exists (${dupeCli.code}). Pick them from the existing list instead.`);
         const { data: newClient, error: clientErr } = await supabase
           .from("clients")
           .insert({
@@ -146,6 +165,18 @@ export async function updateCompanyAction(fd: FormData) {
   const id = String(fd.get("id") ?? "");
   if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
   const payload = await parseForm(fd);
+
+  if (payload.name) {
+    const { data: dupe } = await supabase
+      .from("companies")
+      .select("code, name")
+      .ilike("name", payload.name.trim())
+      .is("deleted_at", null)
+      .neq("id", id)
+      .limit(1)
+      .maybeSingle();
+    if (dupe) throw new Error(`A company named "${dupe.name}" already exists (${dupe.code}).`);
+  }
 
   const { error } = await supabase
     .from("companies")
