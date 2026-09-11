@@ -205,6 +205,58 @@ export async function softDeleteCompanyAction(fd: FormData) {
   redirect("/companies");
 }
 
+/**
+ * Nuke an archived company from the DB, along with its client links, its
+ * (soft-deleted) subscriptions, and any (soft-deleted) cases. Refuses if
+ * the row isn't already archived (soft-delete first as a safety gate), or
+ * if it still has live cases / subscriptions attached — those need to be
+ * archived on their own before the parent can go.
+ */
+export async function hardDeleteCompanyAction(fd: FormData) {
+  const { supabase } = await requireUser();
+  const id = String(fd.get("id") ?? "");
+  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
+
+  const { data: company, error: readErr } = await supabase
+    .from("companies")
+    .select("id, name, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!company) throw new Error("Company not found.");
+  if (!company.deleted_at) throw new Error("Archive the company first, then delete permanently.");
+
+  // Block if there is still any live (non-soft-deleted) child data hanging
+  // off it — permanent delete should only clean up after archive, not act
+  // as a shortcut past archived-state safety.
+  const { count: liveSubs } = await supabase
+    .from("entity_services")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", id)
+    .is("deleted_at", null);
+  if ((liveSubs ?? 0) > 0) throw new Error("This company still has active subscriptions — archive or delete those first.");
+
+  const { count: liveCases } = await supabase
+    .from("cases")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", id)
+    .is("deleted_at", null);
+  if ((liveCases ?? 0) > 0) throw new Error("This company still has active cases — archive or delete those first.");
+
+  // Sweep the leftovers: client-company links, historical soft-deleted
+  // subscriptions, and soft-deleted cases. Do them in dependent order so
+  // no FK check catches a still-referenced row.
+  await supabase.from("client_companies").delete().eq("company_id", id);
+  await supabase.from("entity_services").delete().eq("company_id", id);
+  await supabase.from("cases").delete().eq("company_id", id);
+
+  const { error: delErr } = await supabase.from("companies").delete().eq("id", id);
+  if (delErr) throw new Error(delErr.message);
+
+  revalidatePath("/companies");
+  redirect("/companies");
+}
+
 export async function restoreCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");

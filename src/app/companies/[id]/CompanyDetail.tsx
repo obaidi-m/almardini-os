@@ -10,6 +10,7 @@ import { CompanyForm } from "../CompanyForm";
 import {
   updateCompanyAction,
   softDeleteCompanyAction,
+  hardDeleteCompanyAction,
   restoreCompanyAction,
   linkClientToCompanyAction,
   unlinkClientFromCompanyAction,
@@ -102,23 +103,46 @@ export function CompanyDetail({
             </button>
           </>
         ) : (
-          <form
-            action={(fd) => {
-              start(async () => {
-                try { await restoreCompanyAction(fd); }
-                catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
-              });
-            }}
-          >
-            <input type="hidden" name="id" value={company.id} />
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg disabled:opacity-50"
+          <>
+            <form
+              action={(fd) => {
+                start(async () => {
+                  try { await restoreCompanyAction(fd); }
+                  catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
+                });
+              }}
             >
-              {t("action.restore")}
+              <input type="hidden" name="id" value={company.id} />
+              <button
+                type="submit"
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg disabled:opacity-50"
+              >
+                {t("action.restore")}
+              </button>
+            </form>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Delete permanently",
+                  message: `"${company.name}" will be removed from the system for good. This can't be undone.`,
+                  confirmLabel: "Delete permanently",
+                  tone: "danger",
+                });
+                if (!ok) return;
+                const fd = new FormData(); fd.set("id", company.id);
+                start(async () => {
+                  try { await hardDeleteCompanyAction(fd); }
+                  catch (e) { setFlash(e instanceof Error ? e.message : "Failed"); }
+                });
+              }}
+              className="inline-flex items-center gap-1.5 text-red-700 hover:bg-red-50 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Delete permanently
             </button>
-          </form>
+          </>
         )}
       </div>
 
