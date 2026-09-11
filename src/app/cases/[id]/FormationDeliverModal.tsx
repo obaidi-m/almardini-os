@@ -1,18 +1,17 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { DateInput } from "@/components/ui/DateInput";
 import { deliverFormationAction } from "../actions";
 
 /**
- * Delivery flow specific to Company Formation cases. Two toggles that can
- * be turned on independently:
- *   - Register the company (name + optional NIB/address/incorp date)
- *   - Create a Virtual Office subscription for it, starting today
+ * Delivery flow for Company Formation cases: two independent toggles.
+ *   - Register the company → creates the company row using the case's
+ *     title as the name and links the client as director.
+ *   - Start a VO subscription → adds an active VO entity_service for
+ *     the resulting (or existing) company, silver / 12mo from today.
  *
- * Turning both off collapses to a plain "mark delivered" — same result as
- * the ordinary deliver flow. The modal delegates to a single server action
- * so the whole thing goes through in one round-trip.
+ * Both off = plain "mark delivered". Everything runs through one server
+ * action so the whole thing either succeeds or errors out cleanly.
  */
 export function FormationDeliverModal({
   open, onClose, caseId, defaultCompanyName, onDone,
@@ -29,74 +28,39 @@ export function FormationDeliverModal({
   const [createVo, setCreateVo] = useState(false);
 
   return (
-    <Modal open={open} onClose={onClose} title="Deliver — Company Formation" size="lg">
+    <Modal open={open} onClose={onClose} title="Deliver — Company Formation" size="md">
       {open && (
         <form
           action={(fd) => {
             setError(null);
-            // FormData omits unchecked switches — set explicit "on"/"off" so
-            // the server sees the intent unambiguously.
             fd.set("register_company", registerCompany ? "on" : "off");
             fd.set("create_vo",        createVo        ? "on" : "off");
             fd.set("case_id", caseId);
+            fd.set("company_name", defaultCompanyName);
             start(async () => {
               try { await deliverFormationAction(fd); onDone(); }
               catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
             });
           }}
-          className="space-y-5"
+          className="space-y-4"
         >
           <p className="text-[13px] text-[var(--muted)]">
-            Two optional steps that happen at delivery. Toggle off anything you don't need.
+            Two optional steps that happen at delivery. Toggle off anything you don&apos;t need.
           </p>
 
-          {/* Toggle 1: Register the company */}
-          <section className="border border-[var(--border)] rounded-lg">
-            <label className="flex items-start gap-3 p-3 cursor-pointer">
-              <Switch checked={registerCompany} onChange={setRegisterCompany} />
-              <div>
-                <div className="text-[13.5px] font-medium text-ink">Register the company</div>
-                <div className="text-[11.5px] text-[var(--muted)]">
-                  Create a new company row and link the client as director.
-                </div>
-              </div>
-            </label>
-            {registerCompany && (
-              <div className="border-t border-[var(--border)] p-3 space-y-2">
-                <Row label="Company name" required>
-                  <input
-                    name="company_name"
-                    defaultValue={defaultCompanyName}
-                    required
-                    className={cellInput}
-                    placeholder="e.g. PT Almardini Wisata"
-                  />
-                </Row>
-                <Row label="NIB">
-                  <input name="company_nib" className={cellInput + " font-mono"} />
-                </Row>
-                <Row label="Incorporation date">
-                  <DateInput name="incorporation_date" />
-                </Row>
-                <Row label="Address" align="start">
-                  <textarea name="company_address" rows={2} className={cellInput + " resize-y"} />
-                </Row>
-              </div>
-            )}
-          </section>
+          <ToggleCard
+            checked={registerCompany}
+            onChange={setRegisterCompany}
+            title="Register the company"
+            hint={`Create "${defaultCompanyName || "—"}" and link the client as director.`}
+          />
 
-          {/* Toggle 2: Create VO */}
-          <section className="border border-[var(--border)] rounded-lg">
-            <label className="flex items-start gap-3 p-3 cursor-pointer">
-              <Switch checked={createVo} onChange={setCreateVo} />
-              <div>
-                <div className="text-[13.5px] font-medium text-ink">Start a Virtual Office subscription</div>
-                <div className="text-[11.5px] text-[var(--muted)]">
-                  Silver tier, 12 months from today. Needs the company (register above or existing).
-                </div>
-              </div>
-            </label>
-          </section>
+          <ToggleCard
+            checked={createVo}
+            onChange={setCreateVo}
+            title="Start a Virtual Office subscription"
+            hint="Silver tier, 12 months from today. Needs the company (register above or existing)."
+          />
 
           {error && (
             <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
@@ -115,6 +79,25 @@ export function FormationDeliverModal({
         </form>
       )}
     </Modal>
+  );
+}
+
+function ToggleCard({
+  checked, onChange, title, hint,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <label className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg cursor-pointer hover:bg-white/50 transition-colors">
+      <Switch checked={checked} onChange={onChange} />
+      <div>
+        <div className="text-[13.5px] font-medium text-ink">{title}</div>
+        <div className="text-[11.5px] text-[var(--muted)]">{hint}</div>
+      </div>
+    </label>
   );
 }
 
@@ -137,23 +120,3 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     </button>
   );
 }
-
-function Row({ label, required, align = "center", children }: {
-  label: string;
-  required?: boolean;
-  align?: "start" | "center";
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`grid grid-cols-[160px_1fr] gap-3 items-${align}`}>
-      <div className="text-[12px] text-[var(--muted)] font-medium pt-1.5">
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-const cellInput =
-  "w-full px-2.5 py-1.5 bg-white border border-[var(--border)] rounded-md text-[13.5px] text-ink focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand";
