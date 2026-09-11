@@ -7,7 +7,7 @@ import { PartnerDetail } from "./PartnerDetail";
 export default async function PartnerDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: partner, error }, { data: introducedClients }, { data: introducedCompanies }, { data: managedVOs }, { data: casesRaw }] = await Promise.all([
+  const [{ data: partner, error }, { data: introducedClients }, { data: pjClientPermits }, { data: introducedCompanies }, { data: managedVOs }, { data: casesRaw }] = await Promise.all([
     supabase
       .from("partners")
       .select("id, code, name, type, contact_person, phone, email, notes, deleted_at, created_at, updated_at")
@@ -20,6 +20,16 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50),
+    // Also count clients where this partner is the PJ (responsible partner)
+    // on any of their permits — a person can hold multiple permits under
+    // this PJ, so we dedupe by client id after fetching.
+    supabase
+      .from("entity_services")
+      .select("client:clients!inner(id, code, full_name)")
+      .eq("responsible_partner_id", params.id)
+      .not("client_id", "is", null)
+      .is("deleted_at", null)
+      .limit(500),
     supabase
       .from("companies")
       .select("id, code, name")
@@ -62,7 +72,18 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
   if (!partner) notFound();
 
   const p = partner as Partner;
-  const clients = (introducedClients as Array<{ id: string; code: string; full_name: string }>) ?? [];
+
+  // Related clients = introduced-by ∪ clients this partner is PJ on any permit.
+  const clientMap = new Map<string, { id: string; code: string; full_name: string }>();
+  for (const c of (introducedClients as Array<{ id: string; code: string; full_name: string }>) ?? []) {
+    clientMap.set(c.id, c);
+  }
+  type PjClientRow = { client: { id: string; code: string; full_name: string } | { id: string; code: string; full_name: string }[] | null };
+  for (const row of (pjClientPermits as PjClientRow[]) ?? []) {
+    const cli = Array.isArray(row.client) ? row.client[0] ?? null : row.client;
+    if (cli) clientMap.set(cli.id, cli);
+  }
+  const clients = Array.from(clientMap.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
 
   const unwrapCo = <T,>(v: T | T[] | null | undefined): T | null => Array.isArray(v) ? v[0] ?? null : v ?? null;
   type VORaw = {

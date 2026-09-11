@@ -147,7 +147,7 @@ export function PartnerDetail({
         <div className="space-y-5">
           <Card title="Related clients" count={introducedClients.length} padded>
             {introducedClients.length === 0 ? (
-              <p className="text-[12.5px] text-[var(--muted)]">No clients yet from this partner.</p>
+              <p className="text-[12.5px] text-[var(--muted)]">No clients linked to this partner yet.</p>
             ) : (
               <ul className="divide-y divide-[var(--border)] -mx-1">
                 {introducedClients.map((c) => (
