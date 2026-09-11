@@ -37,82 +37,100 @@ export function AccountForm({ email }: { email: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(15,31,29,0.06),0_8px_24px_-6px_rgba(15,31,29,0.10)] p-5">
-        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-2">Email</div>
-        <div className="text-[14px] text-ink font-mono">{email}</div>
-        <div className="text-[11.5px] text-[var(--muted)] mt-2">
-          To change your email, ask an admin — they can update it from the Supabase dashboard.
-        </div>
-      </section>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <Card title="Sign-in">
+        <FieldRow label="Email" value={<span className="font-mono text-[13px]">{email}</span>} />
+        <p className="text-[11.5px] text-[var(--muted)] pt-3">
+          To change your email, ask an admin.
+        </p>
+      </Card>
 
-      <form
-        onSubmit={submit}
-        className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(15,31,29,0.06),0_8px_24px_-6px_rgba(15,31,29,0.10)] p-5 space-y-3"
-      >
-        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold mb-1">Change password</div>
-
-        <Field label="Current password">
-          <input
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            required
-            autoComplete="current-password"
-            className={cellInput}
+      <Card title="Change password">
+        <form onSubmit={submit}>
+          <FieldRow
+            label="Current"
+            value={
+              <input
+                type="password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                required
+                autoComplete="current-password"
+                className={cellInput}
+              />
+            }
           />
-        </Field>
-
-        <Field label="New password">
-          <input
-            type="password"
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className={cellInput}
+          <FieldRow
+            label="New"
+            value={
+              <input
+                type="password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={cellInput}
+              />
+            }
           />
-        </Field>
-
-        <Field label="Confirm new">
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className={cellInput}
+          <FieldRow
+            label="Confirm new"
+            value={
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={cellInput}
+              />
+            }
           />
-        </Field>
 
-        {err && (
-          <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{err}</div>
-        )}
-        {ok && (
-          <div className="text-[12.5px] text-green-800 bg-green-50 border border-green-200 rounded-md px-3 py-2">{ok}</div>
-        )}
+          {err && (
+            <div className="mt-3 text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              {err}
+            </div>
+          )}
+          {ok && (
+            <div className="mt-3 text-[12.5px] text-green-800 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+              {ok}
+            </div>
+          )}
 
-        <div className="flex justify-end pt-1">
-          <button
-            type="submit"
-            disabled={pending}
-            className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Change password"}
-          </button>
-        </div>
-      </form>
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={pending}
+              className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50"
+            >
+              {pending ? "Saving…" : "Change password"}
+            </button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-4 items-center">
-      <div className="text-[12px] text-[var(--muted)] font-medium">{label}</div>
-      <div>{children}</div>
+    <section className="bg-surface rounded-2xl shadow-[0_1px_3px_rgba(15,31,29,0.06),0_8px_24px_-6px_rgba(15,31,29,0.10)] p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-serif text-[15px] text-ink leading-none">{title}</h2>
+      </div>
+      <div className="-mb-1">{children}</div>
+    </section>
+  );
+}
+
+function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-4 py-2 items-center border-t border-[var(--border)] first:border-t-0">
+      <div className="text-[11.5px] text-[var(--muted)] font-medium">{label}</div>
+      <div className="text-[13.5px] text-ink">{value}</div>
     </div>
   );
 }

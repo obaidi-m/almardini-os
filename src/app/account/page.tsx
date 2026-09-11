@@ -13,7 +13,7 @@ export default async function AccountPage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="max-w-[560px]">
+    <div className="max-w-[1200px]">
       <Link href="/" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--muted)] hover:text-ink mb-3">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
           <path d="M15 18l-6-6 6-6" />
@@ -21,9 +21,7 @@ export default async function AccountPage() {
         Back
       </Link>
       <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight mb-1">Account</h1>
-      <p className="text-[13px] text-[var(--muted)] mb-6">
-        Your sign-in details. Email changes are done by an admin from Supabase.
-      </p>
+      <p className="text-[13px] text-[var(--muted)] mb-6">Your sign-in details.</p>
 
       <AccountForm email={user.email ?? ""} />
     </div>
