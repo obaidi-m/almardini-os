@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
 
 export default function LoginPage() {
   const { t } = useT();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +23,11 @@ export default function LoginPage() {
       setLoading(false);
       return setError(error.message);
     }
-    router.push("/admin");
+    // Only accept an internal path (starts with "/", not "//") as a redirect
+    // target — never trust an absolute URL from the query string.
+    const next = searchParams.get("next");
+    const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    router.push(safeNext);
     router.refresh();
   }
 
@@ -45,7 +50,7 @@ export default function LoginPage() {
         </div>
 
         <div className="text-xs tracking-widest text-white/60 uppercase">
-          v0.1 · Admin preview
+          v0.1
         </div>
       </div>
 
