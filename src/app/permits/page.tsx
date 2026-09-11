@@ -89,6 +89,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
       .from("service_types")
       .select("id, code, name")
       .eq("is_active", true)
+      .eq("tracks_expiry", true)
       .in("applies_to", ["person", "either"])
       .order("name"),
     supabase
