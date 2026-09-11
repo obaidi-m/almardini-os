@@ -138,10 +138,6 @@ export function ClientDetail({
             <FieldRow label={t("field.preferred_channel")} value={<ChannelPill c={client.preferred_channel} t={t} />} />
           </Card>
 
-          <Card title={t("section.files")}>
-            <FieldRow label={t("field.onedrive_folder")} value={<DriveLink url={client.drive_folder_url} label={t("onedrive.open")} />} />
-          </Card>
-
           {client.notes && (
             <Card title={t("section.notes")}>
               <p className="text-[13.5px] whitespace-pre-wrap text-ink leading-relaxed py-1">

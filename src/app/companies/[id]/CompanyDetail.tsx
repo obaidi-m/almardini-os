@@ -153,24 +153,6 @@ export function CompanyDetail({
             </div>
           </Card>
 
-          <Card title={t("section.files")}>
-            <FieldRow
-              label={t("field.onedrive_folder")}
-              value={company.drive_folder_url ? (
-                <a
-                  href={company.drive_folder_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-brand hover:text-brand-dark font-medium"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
-                  </svg>
-                  {t("onedrive.open")}
-                </a>
-              ) : null}
-            />
-          </Card>
 
           {company.notes && (
             <Card title={t("section.notes")}>

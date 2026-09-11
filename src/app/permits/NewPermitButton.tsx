@@ -23,7 +23,7 @@ export function NewPermitButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 bg-ink hover:opacity-90 text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg shadow-sm"
+        className="inline-flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white text-[12.5px] font-medium px-3 py-1.5 rounded-lg shadow-sm"
       >
         <span className="text-[14px] leading-none">+</span>
         New permit

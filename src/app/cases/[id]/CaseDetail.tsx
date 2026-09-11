@@ -274,12 +274,6 @@ export function CaseDetail({
               </span>
             ) : null
           } />
-          <MetaRow label={t("meta.onedrive")} value={caseRow.drive_folder_url ? (
-            <a href={caseRow.drive_folder_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-brand hover:text-brand-dark font-medium">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /></svg>
-              {t("case.detail.open_folder")}
-            </a>
-          ) : null} />
         </Card>
         <div className="text-[11px] text-[var(--muted)] px-1">{t("case.detail.created_at", { date: fmtDate(caseRow.created_at) ?? "" })}</div>
       </aside>

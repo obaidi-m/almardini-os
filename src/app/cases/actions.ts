@@ -50,7 +50,11 @@ function parseCaseForm(fd: FormData): CasePayload {
     priority,
     assigned_to: str(fd, "assigned_to"),
     deadline: str(fd, "deadline"),
-    title: str(fd, "title"),
+    // For a Company Formation case the operator types the target company's
+    // name in a dedicated field; fall back to that when the free-text title
+    // is empty so the case surfaces with a useful label everywhere it's
+    // rendered (list rows, sidebar, activity log).
+    title: str(fd, "title") ?? str(fd, "company_name_to_create"),
     drive_folder_url: str(fd, "drive_folder_url"),
   };
 }

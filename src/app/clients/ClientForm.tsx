@@ -175,18 +175,6 @@ export function ClientForm({
             </Row>
           </Section>
 
-          <Section title={t("section.files")}>
-            <Row label={t("field.onedrive_folder")}>
-              <input
-                name="drive_folder_url"
-                type="url"
-                defaultValue={client?.drive_folder_url ?? ""}
-                placeholder={t("form.placeholder.drive_url")}
-                className={cellInput}
-              />
-            </Row>
-          </Section>
-
           <Section title={t("section.relationship")}>
             <Row label={t("field.introduced_by")}>
               <select

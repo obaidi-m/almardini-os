@@ -54,6 +54,15 @@ export function CaseForm({
   const [error, setError] = useState<string | null>(null);
   const [serviceId, setServiceId] = useState<string>(defaults?.service_type_id ?? "");
 
+  // "Company formation" is detected by label — its catalog entry is what
+  // triggers the extra "Company name" input on client-scope cases. Matching
+  // by name (case-insensitive) lets ops rename the service or add a variant
+  // like "Company formation (PT)" without having to hard-code a UUID here.
+  const isCompanyFormation = (() => {
+    const s = services.find((o) => o.id === serviceId);
+    return !!s && /company formation/i.test(s.label);
+  })();
+
   // Initial scope: an existing case that has only a company (no client) starts
   // as "company"; everything else starts as "client".
   const initialScope: Scope =
@@ -99,27 +108,15 @@ export function CaseForm({
         </Row>
 
         {scope === "client" ? (
-          <>
-            <Row label={t("case.field.client")} required>
-              <Combobox
-                name="client_id"
-                options={toCombo(clients)}
-                defaultValue={defaults?.client_id ?? ""}
-                placeholder={t("case.form.search_client")}
-                required
-              />
-            </Row>
-            <Row label={t("case.field.company")}>
-              <Combobox
-                name="company_id"
-                options={toCombo(companies)}
-                defaultValue={defaults?.company_id ?? ""}
-                placeholder={t("case.form.search_company_optional")}
-                emptyLabel={t("case.form.personal_case")}
-                allowEmpty
-              />
-            </Row>
-          </>
+          <Row label={t("case.field.client")} required>
+            <Combobox
+              name="client_id"
+              options={toCombo(clients)}
+              defaultValue={defaults?.client_id ?? ""}
+              placeholder={t("case.form.search_client")}
+              required
+            />
+          </Row>
         ) : (
           <Row label={t("case.field.company")} required>
             <Combobox
@@ -146,6 +143,19 @@ export function CaseForm({
             onChange={setServiceId}
           />
         </Row>
+
+        {isCompanyFormation && scope === "client" && (
+          <Row label="Company name" required>
+            <input
+              name="company_name_to_create"
+              defaultValue={defaults?.title ?? ""}
+              placeholder="e.g. PT Almardini Wisata"
+              required
+              className={cellInput}
+            />
+          </Row>
+        )}
+
         <Row label={t("case.form.title_note")}>
           <input
             name="title"
@@ -176,18 +186,6 @@ export function CaseForm({
         </Row>
         <Row label={t("case.field.deadline")}>
           <DateInput name="deadline" defaultValue={defaults?.deadline} />
-        </Row>
-      </Section>
-
-      <Section title={t("case.form.section.files")} last>
-        <Row label={t("field.onedrive_folder")}>
-          <input
-            name="drive_folder_url"
-            type="url"
-            defaultValue={defaults?.drive_folder_url ?? ""}
-            placeholder={t("form.placeholder.drive_url")}
-            className={cellInput}
-          />
         </Row>
       </Section>
 
