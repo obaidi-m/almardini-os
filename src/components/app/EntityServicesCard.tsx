@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/types";
 import { Modal } from "@/components/ui/Modal";
+import { DateInput } from "@/components/ui/DateInput";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { effectiveStatus } from "@/lib/entityStatus";
@@ -440,25 +441,20 @@ function ServiceForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>{svc.applies_to === "company" ? t("services.label.start_date") : t("services.label.issued_date")}</Label>
-            <input
-              type="date"
+            <DateInput
               name={svc.applies_to === "company" ? "started_date" : "issued_date"}
               defaultValue={
                 svc.applies_to === "company"
                   ? initial?.started_date ?? ""
                   : initial?.issued_date ?? ""
               }
-              className={input}
             />
           </div>
           <div>
             <Label>{t("services.label.end_date")}</Label>
-            <input
-              type="date"
+            <DateInput
               name="expires_date"
               defaultValue={initial?.expires_date ?? ""}
-              className={input}
-              required
             />
           </div>
         </div>
@@ -467,11 +463,9 @@ function ServiceForm({
       {svc?.is_ongoing && (
         <div>
           <Label>{t("services.label.subscribed_since")}</Label>
-          <input
-            type="date"
+          <DateInput
             name="started_date"
             defaultValue={initial?.started_date ?? ""}
-            className={input}
           />
         </div>
       )}
@@ -620,12 +614,10 @@ function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Renews on</Label>
-          <input
-            type="date"
+          <DateInput
+            name="_renews_on_display"
             value={newStart}
-            onChange={(e) => setNewStart(e.target.value)}
-            className={input}
-            required
+            onChange={(iso) => setNewStart(iso)}
           />
           <div className="text-[11px] text-[var(--muted)] mt-1 tabular-nums">
             → {fmtLong(newStart)}
@@ -633,12 +625,10 @@ function RenewForm({ row, onDone }: { row: EntityService; onDone: () => void }) 
         </div>
         <div>
           <Label>New expiry</Label>
-          <input
-            type="date"
+          <DateInput
+            name="_new_expiry_display"
             value={newExpiry}
-            onChange={(e) => setNewExpiry(e.target.value)}
-            className={input}
-            required
+            onChange={(iso) => setNewExpiry(iso)}
           />
           <div className="text-[11px] text-[var(--muted)] mt-1 tabular-nums">
             → {fmtLong(newExpiry)}
