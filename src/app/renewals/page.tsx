@@ -6,13 +6,12 @@ import { daysUntil, effectiveExpiryDate, renewalTier, type ServiceSchedule } fro
 import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 
-type Filter = "all" | "renew_soon" | "overdue" | "later";
+type Filter = "all" | "renew_soon" | "later";
 type SearchParams = { filter?: string };
 
 const FILTER_KEYS: { key: Filter; labelKey: MessageKey }[] = [
   { key: "all",         labelKey: "page.renewals.filter.all" },
   { key: "renew_soon",  labelKey: "page.renewals.filter.renew_soon" },
-  { key: "overdue",     labelKey: "page.renewals.filter.overdue" },
   { key: "later",       labelKey: "page.renewals.filter.later" },
 ];
 
@@ -26,7 +25,7 @@ type Row = {
   href: string;
   expires_at: string;
   daysLeft: number;
-  bucket: "overdue" | "renew_soon" | "later";
+  bucket: "renew_soon" | "later";
   badge: string;
 };
 
@@ -41,7 +40,6 @@ function fmtDate(v: string): string {
 }
 
 function toneClass(bucket: Row["bucket"]): string {
-  if (bucket === "overdue")    return "text-red-700 font-semibold";
   if (bucket === "renew_soon") return "text-amber-700 font-semibold";
   return "text-[var(--muted)]";
 }
@@ -105,8 +103,10 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
     const ownerHref = cli ? `/clients/${cli.id}` : cmp ? `/companies/${cmp.id}` : null;
 
     const tier = renewalTier(effective, svc);
-    const bucket: Row["bucket"] =
-      tier === "overdue" ? "overdue" : tier === "due_soon" ? "renew_soon" : "later";
+    // Renewals surfaces only what is coming to expire — already-overdue rows
+    // are handled from the owning entity's page, not here.
+    if (tier === "overdue") return [];
+    const bucket: Row["bucket"] = tier === "due_soon" ? "renew_soon" : "later";
 
     const badge =
       svc?.schedule_kind === "annual_fixed"      ? "annual"
@@ -130,13 +130,12 @@ export default async function RenewalsPage({ searchParams }: { searchParams: Sea
     }];
   });
 
-  const bucketOrder: Record<Row["bucket"], number> = { overdue: 0, renew_soon: 1, later: 2 };
+  const bucketOrder: Record<Row["bucket"], number> = { renew_soon: 0, later: 1 };
   rows.sort((a, b) => bucketOrder[a.bucket] - bucketOrder[b.bucket] || a.daysLeft - b.daysLeft);
 
   const counts = {
     all:        rows.length,
     renew_soon: rows.filter((r) => r.bucket === "renew_soon").length,
-    overdue:    rows.filter((r) => r.bucket === "overdue").length,
     later:      rows.filter((r) => r.bucket === "later").length,
   };
 

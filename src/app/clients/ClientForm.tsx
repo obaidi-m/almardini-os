@@ -138,6 +138,7 @@ export function ClientForm({
             </Row>
           </>
         )}
+
       </Section>
 
       {mode === "edit" && (
@@ -324,16 +325,12 @@ function CompaniesSection({
 
             {c.kind === "existing" ? (
               <div className="grid grid-cols-[1fr_180px] gap-2">
-                <select
+                <CompanyCombobox
                   value={c.company_id}
-                  onChange={(e) => update(c.uid, { company_id: e.target.value })}
-                  className={cellInput}
-                >
-                  <option value="">{t("form.pick_existing_company")}</option>
-                  {existingCompanies.map((co) => (
-                    <option key={co.id} value={co.id}>{co.name} ({co.code})</option>
-                  ))}
-                </select>
+                  onChange={(id) => update(c.uid, { company_id: id })}
+                  options={existingCompanies}
+                  placeholder={t("form.pick_existing_company")}
+                />
                 <RoleSelect value={c.role} onChange={(v) => update(c.uid, { role: v })} roles={roles} />
               </div>
             ) : (
@@ -361,6 +358,64 @@ function RoleSelect({ value, onChange, roles }: { value: string; onChange: (v: s
       {roles.length === 0 && <option value="">{t("form.no_roles_configured")}</option>}
       {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
     </select>
+  );
+}
+
+function CompanyCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options: ExistingCompanyOption[];
+  placeholder: string;
+}) {
+  const selected = options.find((o) => o.id === value);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const display = selected ? `${selected.name} (${selected.code})` : "";
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return options.slice(0, 50);
+    return options
+      .filter((o) => o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [options, q]);
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? query : display}
+        placeholder={placeholder}
+        onFocus={() => { setQuery(display); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        className={cellInput}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-10 left-0 right-0 mt-1 max-h-60 overflow-auto bg-white border border-[var(--border)] rounded-md shadow-sm">
+          {filtered.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(o.id); setQuery(""); setOpen(false); }}
+              className="w-full text-left px-2 py-1.5 text-[12.5px] hover:bg-[var(--muted-bg,#f5f5f5)]"
+            >
+              {o.name} <span className="text-[var(--muted)]">({o.code})</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && (
+        <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-[var(--border)] rounded-md shadow-sm px-2 py-1.5 text-[12.5px] text-[var(--muted)]">
+          —
+        </div>
+      )}
+    </div>
   );
 }
 

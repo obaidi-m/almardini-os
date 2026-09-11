@@ -5,6 +5,7 @@ import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/type
 import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { ExpiryPill } from "@/components/app/ExpiryPill";
+import { effectiveStatus } from "@/lib/entityStatus";
 import { isInReminderWindow } from "@/lib/renewal";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -251,7 +252,7 @@ function ServiceRow({
               {t("services.row.mo_term", { n: row.term_months })}
             </span>
           )}
-          <StatusPill status={row.status} />
+          <StatusPill status={effectiveStatus(row)} />
         </div>
         <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
           <DateLine row={row} />
@@ -507,28 +508,13 @@ function ServiceForm({
         <Label>{t("services.label.status")}</Label>
         <select name="status" defaultValue={initial?.status ?? "active"} className={input}>
           <option value="active">{t("services.status.active")}</option>
-          <option value="expired">{t("services.status.expired")}</option>
-          <option value="terminated">{t("services.status.terminated")}</option>
           <option value="paused">{t("services.status.paused")}</option>
+          <option value="terminated">{t("services.status.terminated")}</option>
         </select>
+        <p className="text-[11px] text-[var(--muted)] mt-1">
+          Expired is set automatically from the expiry date — no need to pick it.
+        </p>
       </div>
-
-      {/* Sponsor only makes sense on person subs (KITAS under a PT). */}
-      {owner.kind === "client" && (
-        <div>
-          <Label>{t("services.label.sponsor_optional")}</Label>
-          <select
-            name="sponsor_company_id"
-            defaultValue={initial?.sponsor_company_id ?? ""}
-            className={input}
-          >
-            <option value="">—</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <div>
         <Label>{t("services.label.responsible_optional")}</Label>
@@ -542,17 +528,6 @@ function ServiceForm({
             <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
           ))}
         </select>
-      </div>
-
-      <div>
-        <Label>{t("services.label.drive_optional")}</Label>
-        <input
-          type="url"
-          name="drive_folder_url"
-          defaultValue={initial?.drive_folder_url ?? ""}
-          placeholder="https://…"
-          className={input}
-        />
       </div>
 
       <div>

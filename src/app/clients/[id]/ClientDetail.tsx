@@ -138,21 +138,6 @@ export function ClientDetail({
             <FieldRow label={t("field.preferred_channel")} value={<ChannelPill c={client.preferred_channel} t={t} />} />
           </Card>
 
-          <Card title={t("section.relationship")}>
-            <FieldRow
-              label={t("field.introduced_by")}
-              value={
-                client.introduced_by ? (
-                  <Link href={`/partners/${client.introduced_by.id}`} className="text-brand hover:underline">
-                    {client.introduced_by.name}
-                    <span className="font-mono text-[11.5px] text-[var(--muted)] ml-2">{client.introduced_by.code}</span>
-                  </Link>
-                ) : null
-              }
-            />
-            <FieldRow label={t("field.created")} value={fmtDate(client.created_at)} />
-          </Card>
-
           <Card title={t("section.files")}>
             <FieldRow label={t("field.onedrive_folder")} value={<DriveLink url={client.drive_folder_url} label={t("onedrive.open")} />} />
           </Card>
@@ -173,6 +158,9 @@ export function ClientDetail({
             count={linkedCompanies.length}
             padded
           >
+            <p className="text-[11.5px] text-[var(--muted)] -mt-2 mb-3">
+              {t("section.linked_companies.hint")}
+            </p>
             <CompaniesLinker
               clientId={client.id}
               linkedCompanies={linkedCompanies}
@@ -267,6 +255,10 @@ export function ClientDetail({
           </Card>
 
         </div>
+      </div>
+
+      <div className="mt-4 text-[11px] text-[var(--muted)] px-1">
+        {t("client.detail.created_at", { date: fmtDate(client.created_at) ?? "" })}
       </div>
 
       <Modal
