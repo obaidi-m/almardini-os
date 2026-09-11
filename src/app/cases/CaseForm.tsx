@@ -10,7 +10,7 @@ const PRIORITIES: CasePriority[] = ["low", "normal", "high", "urgent"];
 
 type Mode = "create" | "edit";
 
-type Option = { id: string; label: string; hint?: string };
+type Option = { id: string; label: string; hint?: string; appliesTo?: "person" | "company" | "either" };
 
 export type CaseFormDefaults = {
   id?: string;
@@ -135,7 +135,11 @@ export function CaseForm({
         <Row label={t("case.field.service")} required>
           <Combobox
             name="service_type_id"
-            options={toCombo(services)}
+            options={toCombo(services.filter((s) => {
+              const a = s.appliesTo ?? "either";
+              if (a === "either") return true;
+              return scope === "company" ? a === "company" : a === "person";
+            }))}
             defaultValue={defaults?.service_type_id ?? ""}
             placeholder={t("case.form.search_service")}
             required

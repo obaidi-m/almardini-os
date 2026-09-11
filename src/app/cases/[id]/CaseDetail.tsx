@@ -21,7 +21,7 @@ import {
 } from "../actions";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 
-type Option = { id: string; label: string; hint?: string };
+type Option = { id: string; label: string; hint?: string; appliesTo?: "person" | "company" | "either" };
 
 /** Pipeline order. `delivered` is hidden for staff; Owner/Ops Lead see it as
  *  the final pill. */
@@ -103,19 +103,18 @@ export function CaseDetail({
       setReopening(true);
       return;
     }
-    // Delivering opens the WhatsApp/email flow when there's a client.
-    if (next === "delivered" && caseRow.status !== "delivered" && client) {
-      setDelivering(true);
-      return;
-    }
-
     startStatus(async () => {
       const fd = new FormData();
       fd.set("case_id", caseRow.id);
-      fd.set("status", next);
       try {
-        await setCaseStatusAction(fd);
-        setToast(t("case.detail.status.moved", { label: t(`status.${next}` as MessageKey) }));
+        if (next === "delivered" && caseRow.status !== "delivered") {
+          await deliverCaseAction(fd);
+          setToast(t("case.detail.deliver.marked"));
+        } else {
+          fd.set("status", next);
+          await setCaseStatusAction(fd);
+          setToast(t("case.detail.status.moved", { label: t(`status.${next}` as MessageKey) }));
+        }
       } catch (e) {
         setToast(e instanceof Error ? e.message : t("case.detail.status.failed"));
       }

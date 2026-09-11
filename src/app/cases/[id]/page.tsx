@@ -64,7 +64,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
       .order("created_at", { ascending: false }),
     supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name"),
     supabase.from("companies").select("id, code, name").is("deleted_at", null).order("name"),
-    supabase.from("service_types").select("id, code, name, has_deliverable, is_active").eq("is_active", true).order("sort_order"),
+    supabase.from("service_types").select("id, code, name, has_deliverable, is_active, applies_to").eq("is_active", true).order("sort_order"),
     supabase.from("users").select("id, full_name").eq("is_active", true).order("full_name"),
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -175,7 +175,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         canDeliver={canDeliver}
         clientOptions={(clients ?? []).map((x) => ({ id: x.id, label: x.full_name, hint: x.code }))}
         companyOptions={(companies ?? []).map((x) => ({ id: x.id, label: x.name, hint: x.code }))}
-        serviceOptions={(services ?? []).map((x) => ({ id: x.id, label: serviceLabel(x) }))}
+        serviceOptions={(services ?? []).map((x) => ({ id: x.id, label: serviceLabel(x), appliesTo: (x.applies_to ?? "either") as "person" | "company" | "either" }))}
         userOptions={(users ?? []).map((x) => ({ id: x.id, label: x.full_name }))}
         hasDeliverableByService={Object.fromEntries((services ?? []).map((s) => [s.id, s.has_deliverable !== false]))}
       />
