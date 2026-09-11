@@ -9,6 +9,7 @@ import { ExpiryPill } from "@/components/app/ExpiryPill";
 import { ResizableTable, type ColumnDef } from "@/components/app/ResizableTable";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { NewPermitButton } from "./NewPermitButton";
 
 type Filter = "all" | "renew_soon" | "active" | "expired" | "terminated";
 type SearchParams = { filter?: string };
@@ -67,19 +68,38 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
   // Read every person-owned subscription from the unified entity_services
   // store, then filter/status-derive in memory. Permits are a subset of
   // subscriptions — the ones whose catalog entry is applies_to = 'person'.
-  const { data, error } = await supabase
-    .from("entity_services")
-    .select(`
-      id, expires_date, status,
-      client:clients(id, full_name, code),
-      sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code),
-      service:service_types!inner(id, name, applies_to)
-    `)
-    .is("deleted_at", null)
-    .eq("service.applies_to", "person")
-    .not("client_id", "is", null)
-    .order("expires_date", { ascending: true })
-    .limit(1000);
+  const [{ data, error }, { data: clientOptions }, { data: serviceOptions }, { data: partnerOptions }] = await Promise.all([
+    supabase
+      .from("entity_services")
+      .select(`
+        id, expires_date, status,
+        client:clients(id, full_name, code),
+        sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code),
+        service:service_types!inner(id, name, applies_to)
+      `)
+      .is("deleted_at", null)
+      .eq("service.applies_to", "person")
+      .not("client_id", "is", null)
+      .order("expires_date", { ascending: true })
+      .limit(1000),
+    supabase
+      .from("clients")
+      .select("id, code, full_name")
+      .is("deleted_at", null)
+      .order("full_name")
+      .limit(1000),
+    supabase
+      .from("service_types")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .in("applies_to", ["person", "either"])
+      .order("name"),
+    supabase
+      .from("partners")
+      .select("id, code, name")
+      .is("deleted_at", null)
+      .order("name"),
+  ]);
 
   if (error) {
     return (
@@ -153,6 +173,11 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
             {t("page.permits.subtitle")}
           </p>
         </div>
+        <NewPermitButton
+          clients={(clientOptions as { id: string; code: string; full_name: string }[]) ?? []}
+          services={(serviceOptions as { id: string; code: string | null; name: string }[]) ?? []}
+          partners={(partnerOptions as { id: string; code: string; name: string }[]) ?? []}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
