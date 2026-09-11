@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getT } from "@/lib/i18n/server";
+import { ensurePtPrefix } from "@/lib/companyName";
 
 async function requireUser() {
   const supabase = createClient();
@@ -30,8 +31,9 @@ type CompanyPayload = {
 };
 
 async function parseForm(fd: FormData): Promise<CompanyPayload> {
-  const name = String(fd.get("name") ?? "").trim();
-  if (!name) { const { t } = await getT(); throw new Error(t("err.company_name_required")); }
+  const raw = String(fd.get("name") ?? "").trim();
+  if (!raw) { const { t } = await getT(); throw new Error(t("err.company_name_required")); }
+  const name = ensurePtPrefix(raw);
   return {
     name,
     nib: str(fd, "nib"),

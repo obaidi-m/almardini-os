@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getT } from "@/lib/i18n/server";
+import { ensurePtPrefix } from "@/lib/companyName";
 
 async function requireUser() {
   const supabase = createClient();
@@ -127,17 +128,18 @@ export async function createClientAction(fd: FormData) {
       if (co.kind === "existing") {
         companyId = co.company_id;
       } else {
+        const canonicalName = ensurePtPrefix(co.name);
         const { data: dupeCo } = await supabase
           .from("companies")
           .select("id, code, name")
-          .ilike("name", co.name.trim())
+          .ilike("name", canonicalName)
           .is("deleted_at", null)
           .limit(1)
           .maybeSingle();
         if (dupeCo) throw new Error(`A company named "${dupeCo.name}" already exists (${dupeCo.code}). Pick it from the existing list instead.`);
         const { data: newCompany, error: coErr } = await supabase
           .from("companies")
-          .insert({ name: co.name, created_by: actorId, updated_by: actorId })
+          .insert({ name: canonicalName, created_by: actorId, updated_by: actorId })
           .select("id")
           .single();
         if (coErr) throw new Error(coErr.message);
