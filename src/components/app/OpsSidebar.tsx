@@ -87,22 +87,36 @@ export function OpsSidebar({
         )}
       </nav>
 
-      <div className="mt-auto pt-3 border-t border-[var(--border)] flex items-center gap-2.5">
+      <div className="mt-auto pt-3 border-t border-[var(--border)] space-y-1">
         <Link
           href="/account"
-          className="flex items-center gap-2.5 min-w-0 rounded-lg p-1 -m-1 hover:bg-white/60 transition-colors"
-          title={t("nav.account")}
+          className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${
+            pathname.startsWith("/account")
+              ? "bg-brand text-white shadow-[0_6px_16px_-8px_rgba(20,138,124,0.6)]"
+              : "text-[var(--text)] hover:bg-white/60"
+          }`}
         >
-          <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark flex items-center justify-center text-[11px] font-semibold shrink-0">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
+            pathname.startsWith("/account")
+              ? "bg-white/20 text-white"
+              : "bg-brand-soft text-brand-dark"
+          }`}>
             {userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "??"}
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-medium text-ink truncate">{userName}</div>
-            <div className="text-[11px] text-[var(--muted)] truncate">{userEmail}</div>
+            <div className="truncate">{t("nav.account")}</div>
+            <div className={`text-[11px] truncate ${pathname.startsWith("/account") ? "text-white/70" : "text-[var(--muted)]"}`}>
+              {userEmail}
+            </div>
           </div>
         </Link>
-        <button onClick={signOut} className="ml-auto text-[var(--muted)] hover:text-ink text-xs" title={t("nav.sign_out")}>
-          <IconSignOut />
+        <button
+          type="button"
+          onClick={signOut}
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium text-red-700 hover:bg-red-50 transition-colors"
+        >
+          <span className="w-4 h-4"><IconSignOut /></span>
+          {t("nav.sign_out")}
         </button>
       </div>
     </aside>
