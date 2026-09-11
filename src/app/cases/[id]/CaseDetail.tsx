@@ -9,6 +9,7 @@ import { serviceLabel } from "@/lib/service";
 import { CaseForm } from "../CaseForm";
 import type { CaseFormDefaults } from "../CaseForm";
 import { Modal } from "@/components/ui/Modal";
+import { FormationDeliverModal } from "./FormationDeliverModal";
 import {
   updateCaseMetaAction,
   addCaseUpdateAction,
@@ -65,7 +66,10 @@ export function CaseDetail({
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [delivering, setDelivering] = useState(false);
+  const [deliveringFormation, setDeliveringFormation] = useState(false);
   const [reopening, setReopening] = useState(false);
+
+  const isCompanyFormation = !!service && /company formation/i.test(service.name);
   const [addingNote, setAddingNote] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [statusPending, startStatus] = useTransition();
@@ -101,6 +105,12 @@ export function CaseDetail({
     // Reopening from delivered needs a reason — route through the modal.
     if (caseRow.status === "delivered" && next !== "delivered") {
       setReopening(true);
+      return;
+    }
+    // Company Formation gets a dedicated delivery flow — the modal handles
+    // the (optional) company register + VO subscription toggles.
+    if (next === "delivered" && caseRow.status !== "delivered" && isCompanyFormation) {
+      setDeliveringFormation(true);
       return;
     }
     startStatus(async () => {
@@ -294,6 +304,14 @@ export function CaseDetail({
           onDone={() => { setReopening(false); setToast(t("case.detail.reopen.done")); }}
         />
       )}
+
+      <FormationDeliverModal
+        open={deliveringFormation}
+        onClose={() => setDeliveringFormation(false)}
+        caseId={caseRow.id}
+        defaultCompanyName={caseRow.title ?? ""}
+        onDone={() => { setDeliveringFormation(false); setToast(t("case.detail.deliver.marked")); }}
+      />
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-[13px] px-4 py-2 rounded-full shadow-lg z-50">

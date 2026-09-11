@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { CaseStatus, CasePriority } from "@/lib/types";
+import { ensurePtPrefix } from "@/lib/companyName";
 
 async function requireUser() {
   const supabase = createClient();
@@ -237,6 +238,147 @@ export async function deliverCaseAction(fd: FormData) {
   revalidatePath(`/cases/${case_id}`);
   revalidatePath("/cases");
   revalidatePath("/renewals");
+}
+
+/**
+ * Delivery variant for Company Formation cases: two toggles, either or both,
+ * wired to the same "mark delivered" click.
+ *
+ *   register_company  → insert a company (PT-normalized name, dupe-guarded),
+ *                       link the case's client to it as director.
+ *   create_vo         → insert an active Virtual Office subscription for
+ *                       the company, starting today, 12 months, silver tier.
+ *
+ * A VO cannot be created without a company — if register_company is off and
+ * no company exists yet on the case, the create_vo toggle is a no-op.
+ */
+export async function deliverFormationAction(fd: FormData) {
+  const { supabase, actorId } = await requireUser();
+  const case_id = String(fd.get("case_id") ?? "");
+  if (!case_id) throw new Error("Missing case.");
+
+  const registerCompany = String(fd.get("register_company") ?? "") === "on";
+  const createVo        = String(fd.get("create_vo") ?? "") === "on";
+
+  const { data: me } = await supabase.from("users").select("role:roles(code)").eq("id", actorId).single();
+  const roleCode = (me?.role as { code?: string } | null)?.code;
+  if (roleCode !== "owner" && roleCode !== "ops_lead") {
+    throw new Error("Only Owner or Ops Lead can mark a case as delivered.");
+  }
+
+  const { data: caseRow, error: caseErr } = await supabase
+    .from("cases")
+    .select("id, status, client_id, company_id, title")
+    .eq("id", case_id)
+    .maybeSingle();
+  if (caseErr) throw new Error(caseErr.message);
+  if (!caseRow) throw new Error("Case not found.");
+
+  let companyId: string | null = caseRow.company_id ?? null;
+
+  if (registerCompany) {
+    const rawName = String(fd.get("company_name") ?? "").trim();
+    if (!rawName) throw new Error("Company name is required.");
+    const name = ensurePtPrefix(rawName);
+    const nib = str(fd, "company_nib");
+    const address = str(fd, "company_address");
+    const incorpDate = str(fd, "incorporation_date");
+
+    const { data: dupe } = await supabase
+      .from("companies")
+      .select("code, name")
+      .ilike("name", name)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (dupe) throw new Error(`A company named "${dupe.name}" already exists (${dupe.code}). Register aborted; open it directly and continue there.`);
+
+    const { data: newCompany, error: coErr } = await supabase
+      .from("companies")
+      .insert({
+        name,
+        nib,
+        incorporation_date: incorpDate,
+        address,
+        created_by: actorId,
+        updated_by: actorId,
+      })
+      .select("id")
+      .single();
+    if (coErr) throw new Error(coErr.message);
+    companyId = newCompany.id;
+
+    if (caseRow.client_id) {
+      // Link the case's client to the new company. Use the lowest-sorted
+      // company role as a sensible default; ops can change it later.
+      const { data: roles } = await supabase
+        .from("company_roles")
+        .select("code")
+        .order("sort_order")
+        .limit(1);
+      const roleCodeForLink = roles?.[0]?.code ?? "director";
+      const { error: linkErr } = await supabase
+        .from("client_companies")
+        .insert({ client_id: caseRow.client_id, company_id: companyId, role: roleCodeForLink });
+      if (linkErr) throw new Error(linkErr.message);
+    }
+  }
+
+  if (createVo) {
+    if (!companyId) throw new Error("Turn on \"Register the company\" first — a VO needs a company to sit under.");
+
+    const { data: voService } = await supabase
+      .from("service_types")
+      .select("id")
+      .eq("is_active", true)
+      .ilike("name", "%virtual office%")
+      .limit(1)
+      .maybeSingle();
+    if (!voService) throw new Error("No active Virtual Office service is configured in the catalog.");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const end = new Date();
+    end.setFullYear(end.getFullYear() + 1);
+    const expiry = end.toISOString().slice(0, 10);
+
+    const { error: voErr } = await supabase.from("entity_services").insert({
+      service_id: voService.id,
+      client_id: null,
+      company_id: companyId,
+      status: "active",
+      started_date: today,
+      expires_date: expiry,
+      tier: "silver",
+      term_months: 12,
+      created_by: actorId,
+    });
+    if (voErr) throw new Error(voErr.message);
+  }
+
+  const noteBits: string[] = ["Delivered to client."];
+  if (registerCompany) noteBits.push("Registered the new company.");
+  if (createVo)        noteBits.push("Started a Virtual Office subscription.");
+  const { error: insertError } = await supabase.from("case_updates").insert({
+    case_id,
+    author_id: actorId,
+    text: noteBits.join(" "),
+    status_before: caseRow.status,
+    status_after: "delivered",
+  });
+  if (insertError) throw new Error(insertError.message);
+
+  const { error: statusError } = await supabase
+    .from("cases")
+    .update({ status: "delivered", updated_by: actorId })
+    .eq("id", case_id);
+  if (statusError) throw new Error(statusError.message);
+
+  revalidatePath(`/cases/${case_id}`);
+  revalidatePath("/cases");
+  revalidatePath("/renewals");
+  revalidatePath("/companies");
+  revalidatePath("/virtual-offices");
+  if (companyId) revalidatePath(`/companies/${companyId}`);
 }
 
 export async function reopenCaseAction(fd: FormData) {
