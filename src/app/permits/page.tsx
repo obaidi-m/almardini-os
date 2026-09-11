@@ -36,7 +36,6 @@ type Row = {
   expires_date: string;
   status: DisplayStatus;
   client:  { id: string; full_name: string; code: string } | null;
-  sponsor: { id: string; name: string; code: string } | null;
 };
 
 function daysUntil(iso: string): number {
@@ -59,7 +58,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     { header: <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white inline-block" aria-hidden />, defaultWidth: 36, fixed: true },
     { header: t("page.permits.col.holder"),  defaultWidth: 300, minWidth: 160 },
     { header: t("page.permits.col.kind"),    defaultWidth: 100 },
-    { header: t("page.permits.col.sponsor"), defaultWidth: 220, minWidth: 120 },
     { header: t("page.permits.col.expires"), defaultWidth: 100 },
     { header: t("page.permits.col.days"),    defaultWidth: 120 },
     { header: t("page.permits.col.status"),  defaultWidth: 100 },
@@ -74,7 +72,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
       .select(`
         id, expires_date, status,
         client:clients(id, full_name, code),
-        sponsor:companies!entity_services_sponsor_company_id_fkey(id, name, code),
         service:service_types!inner(id, name, applies_to)
       `)
       .is("deleted_at", null)
@@ -129,7 +126,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     expires_date: string | null;
     status: EntityServiceStatus;
     client:  { id: string; full_name: string; code: string }[] | { id: string; full_name: string; code: string } | null;
-    sponsor: { id: string; name: string; code: string }[]      | { id: string; name: string; code: string }      | null;
     service: { id: string; name: string; applies_to: string }[] | { id: string; name: string; applies_to: string } | null;
   }>)
     .filter((r) => r.expires_date !== null) // permits list is expiry-tracked ones only
@@ -139,7 +135,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
       expires_date: r.expires_date as string,
       status: displayStatus(r.status, r.expires_date),
       client: unwrap(r.client),
-      sponsor: unwrap(r.sponsor),
     }));
 
   const counts = {
@@ -232,15 +227,6 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
                   )}
                 </div>
                 <div>{p.kind}</div>
-                <div className="min-w-0">
-                  {p.sponsor ? (
-                    <Link href={`/companies/${p.sponsor.id}`} className="text-[13px] text-ink hover:text-brand-dark truncate block">
-                      {p.sponsor.name}
-                    </Link>
-                  ) : (
-                    <span className="text-[var(--muted)]">—</span>
-                  )}
-                </div>
                 <div>{fmtDate(p.expires_date)}</div>
                 <div className="whitespace-nowrap">
                   {p.status === "terminated" ? (
