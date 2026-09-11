@@ -1,7 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
-import { DateInput } from "@/components/ui/DateInput";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
+import { Modal } from "@/components/ui/Modal";
+import { NATIONALITIES } from "@/lib/nationalities";
+import { createClientQuickAction } from "@/app/clients/actions";
 import type { CasePriority } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -53,6 +55,11 @@ export function CaseForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [serviceId, setServiceId] = useState<string>(defaults?.service_type_id ?? "");
+  // Local mirror of clients so the "+ New client" flow can append the freshly
+  // created row and preselect it without navigating away or reloading the page.
+  const [clientList, setClientList] = useState<Option[]>(clients);
+  const [preselectClientId, setPreselectClientId] = useState<string | null>(defaults?.client_id ?? null);
+  const [addingClient, setAddingClient] = useState(false);
 
   // "Company formation" is detected by label — its catalog entry is what
   // triggers the extra "Company name" input on client-scope cases. Matching
@@ -75,6 +82,7 @@ export function CaseForm({
     opts.map((o) => ({ id: o.id, label: o.label, hint: o.hint }));
 
   return (
+    <>
     <form
       action={(fd) => {
         setError(null);
@@ -109,13 +117,25 @@ export function CaseForm({
 
         {scope === "client" ? (
           <Row label={t("case.field.client")} required>
-            <Combobox
-              name="client_id"
-              options={toCombo(clients)}
-              defaultValue={defaults?.client_id ?? ""}
-              placeholder={t("case.form.search_client")}
-              required
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Combobox
+                  key={preselectClientId ?? "empty"}
+                  name="client_id"
+                  options={toCombo(clientList)}
+                  defaultValue={preselectClientId ?? ""}
+                  placeholder={t("case.form.search_client")}
+                  required
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingClient(true)}
+                className="text-[11.5px] font-medium text-brand hover:text-brand-dark whitespace-nowrap shrink-0"
+              >
+                + New client
+              </button>
+            </div>
           </Row>
         ) : (
           <Row label={t("case.field.company")} required>
@@ -184,9 +204,6 @@ export function CaseForm({
             ))}
           </select>
         </Row>
-        <Row label={t("case.field.deadline")}>
-          <DateInput name="deadline" defaultValue={defaults?.deadline} />
-        </Row>
       </Section>
 
       {!hasDeliverable && serviceId && (
@@ -209,6 +226,71 @@ export function CaseForm({
         )}
         <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-ink text-white rounded-md hover:opacity-90 disabled:opacity-50">
           {pending ? t("form.saving") : submitLabel ?? (mode === "create" ? t("case.form.create") : t("action.save_changes"))}
+        </button>
+      </div>
+    </form>
+
+    <Modal open={addingClient} onClose={() => setAddingClient(false)} title="New client" size="md">
+      {addingClient && (
+        <QuickClientForm
+          onSaved={(c) => {
+            const newOpt: Option = { id: c.id, label: c.full_name, hint: c.code };
+            setClientList((prev) => [newOpt, ...prev]);
+            setPreselectClientId(c.id);
+            setAddingClient(false);
+          }}
+          onCancel={() => setAddingClient(false)}
+        />
+      )}
+    </Modal>
+    </>
+  );
+}
+
+function QuickClientForm({
+  onSaved, onCancel,
+}: {
+  onSaved: (c: { id: string; code: string; full_name: string }) => void;
+  onCancel: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <form
+      action={(fd) => {
+        setErr(null);
+        start(async () => {
+          try {
+            const created = await createClientQuickAction(fd);
+            onSaved(created);
+          } catch (e) {
+            setErr(e instanceof Error ? e.message : "Failed");
+          }
+        });
+      }}
+      className="space-y-3"
+    >
+      <datalist id="qc-nationalities">
+        {NATIONALITIES.map((n) => <option key={n} value={n} />)}
+      </datalist>
+      <Row label="Full name" required>
+        <input name="full_name" required autoFocus placeholder="e.g. Ahmed Al Yamani" className={cellInput} />
+      </Row>
+      <Row label="Passport no." required>
+        <input name="passport_no" required placeholder="e.g. BV31645" className={cellInput + " font-mono uppercase"} />
+      </Row>
+      <Row label="Nationality">
+        <input name="nationality" list="qc-nationalities" placeholder="e.g. Yemen" autoComplete="off" className={cellInput} />
+      </Row>
+      {err && (
+        <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{err}</div>
+      )}
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md">
+          Cancel
+        </button>
+        <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-md disabled:opacity-50">
+          {pending ? "Saving…" : "Add client"}
         </button>
       </div>
     </form>

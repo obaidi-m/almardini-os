@@ -297,9 +297,6 @@ function CaseRows({ rows, t }: { rows: CompanyCase[]; t: Tr }) {
                 <div className="text-[11.5px] text-[var(--muted)] truncate">
                   {c.service ? serviceLabel(c.service) : "—"}
                   {c.client && <> · {c.client.full_name}</>}
-                  {c.deadline && (
-                    <> · <span className={overdue ? "text-red-700 font-semibold" : ""}>{t("detail.due_prefix")} {fmtDate(c.deadline)}</span></>
-                  )}
                   {c.priority !== "normal" && (
                     <> · <span className="uppercase tracking-wide text-[10px] font-semibold">{t(`priority.${c.priority}` as MessageKey)}</span></>
                   )}

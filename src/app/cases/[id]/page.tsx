@@ -110,11 +110,6 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     : undefined) as string | undefined;
   const canDeliver = roleCode === "owner" || roleCode === "ops_lead";
 
-  const today = new Date().toISOString().slice(0, 10);
-  const overdue = c.deadline && c.deadline < today && c.status !== "delivered";
-  const soonIso = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
-  const dueSoon = !overdue && c.deadline && c.deadline <= soonIso && c.status !== "delivered";
-
   return (
     <div className="max-w-[1200px]">
       <Link href="/cases" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--muted)] hover:text-ink mb-3">
@@ -133,16 +128,6 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         {c.deleted_at && (
           <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded">
             archived
-          </span>
-        )}
-        {overdue && (
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded">
-            overdue
-          </span>
-        )}
-        {dueSoon && (
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8A6919] bg-[var(--gold-soft)] px-1.5 py-0.5 rounded">
-            due soon
           </span>
         )}
         {c.priority !== "normal" && (

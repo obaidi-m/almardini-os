@@ -220,6 +220,42 @@ export async function restoreClientAction(fd: FormData) {
   revalidatePath(`/clients/${id}`);
 }
 
+/** Quick-create used by other pages (e.g. New case) that need to add a
+ *  client mid-flow without leaving. Returns the row for the caller to
+ *  splice into its own dropdown state — no revalidate + redirect. */
+export async function createClientQuickAction(fd: FormData): Promise<{ id: string; code: string; full_name: string }> {
+  const { supabase, actorId } = await requireUser();
+  const full_name = String(fd.get("full_name") ?? "").trim();
+  const passport_no = normalizePassport(String(fd.get("passport_no") ?? "").trim() || null);
+  const nationality = str(fd, "nationality");
+  if (!full_name) throw new Error("Full name is required.");
+  if (!passport_no) throw new Error("Passport number is required.");
+
+  const { data: dupe } = await supabase
+    .from("clients")
+    .select("code, full_name")
+    .ilike("full_name", full_name)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (dupe) throw new Error(`A client named "${dupe.full_name}" already exists (${dupe.code}). Pick them from the list instead.`);
+
+  const { data: client, error } = await supabase
+    .from("clients")
+    .insert({
+      full_name, passport_no, nationality,
+      preferred_channel: "whatsapp",
+      created_by: actorId,
+      updated_by: actorId,
+    })
+    .select("id, code, full_name")
+    .single();
+  if (error) throw new Error(await humanizeSupabaseError(error.message));
+
+  revalidatePath("/clients");
+  return client as { id: string; code: string; full_name: string };
+}
+
 /** Soft-warn duplicate check: same name + nationality (case-insensitive), excluding a given id. */
 export async function findSoftDuplicates(fullName: string, nationality: string | null, excludeId?: string) {
   const { supabase } = await requireUser();

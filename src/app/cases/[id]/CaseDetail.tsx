@@ -254,7 +254,6 @@ export function CaseDetail({
           <MetaRow label={t("meta.service")} value={service ? serviceLabel(service) : null} />
           <MetaRow label={t("meta.assignee")} value={assignee?.full_name} />
           <MetaRow label={t("meta.priority")} value={t(`priority.${caseRow.priority}` as MessageKey)} />
-          <MetaRow label={t("meta.deadline")} value={fmtDate(caseRow.deadline)} />
           <MetaRow label={t("meta.expires")} value={
             caseRow.expires_at ? (
               <span className="inline-flex items-center gap-2">

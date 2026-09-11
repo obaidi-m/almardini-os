@@ -253,7 +253,6 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
           { header: <HeadCell icon={<IconDot />} label={t("cases.col.status")} />, defaultWidth: 120 },
           { header: <HeadCell icon={<IconUser />} label={t("cases.col.assignee")} />, defaultWidth: 160, minWidth: 100 },
           { header: <HeadCell icon={<IconFlag />} label={t("cases.col.priority")} href={hrefWith({ sort: "priority" })} sortHint={sort === "priority" ? "↓" : undefined} />, defaultWidth: 90 },
-          { header: <HeadCell icon={<IconClock />} label={t("cases.col.deadline")} href={hrefWith({ sort: "deadline_asc" })} sortHint={sort === "deadline_asc" ? "↑" : undefined} />, defaultWidth: 100 },
         ] satisfies ColumnDef[]}
       >
         {rows.length === 0 ? (
@@ -270,7 +269,6 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
             const company = Array.isArray(c.company) ? c.company[0] : c.company;
             const service = Array.isArray(c.service) ? c.service[0] : c.service;
             const assignee = Array.isArray(c.assignee) ? c.assignee[0] : c.assignee;
-            const overdue = c.deadline && c.deadline < today && c.status !== "delivered";
             const sp = STATUS_PILL[c.status];
             return (
               <div key={c.id} className={`group grid gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${c.deleted_at ? "opacity-55" : ""}`} style={{ gridTemplateColumns: "var(--rt-cols)" }}>
@@ -324,9 +322,6 @@ export default async function CasesListPage({ searchParams }: { searchParams: Se
                   )}
                 </div>
                 <div className={`text-[11.5px] ${PRIORITY_STYLE[c.priority]}`}>{t(`priority.${c.priority}` as MessageKey)}</div>
-                <div className={`text-[11.5px] font-mono ${overdue ? "text-red-700 font-semibold" : "text-[var(--muted)]"}`}>
-                  {fmtDate(c.deadline)}
-                </div>
               </div>
             );
           })
