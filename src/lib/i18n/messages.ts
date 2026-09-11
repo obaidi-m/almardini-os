@@ -195,6 +195,7 @@ const en = {
   "action.new_case": "New case",
   "action.new_company": "New company",
   "action.new_partner": "New partner",
+  "action.new_permit": "New permit",
 
   // Common labels used across the app
   "common.deleted_client": "Deleted client",
@@ -782,6 +783,7 @@ const id: Messages = {
   "action.new_case": "Kasus baru",
   "action.new_company": "Perusahaan baru",
   "action.new_partner": "Mitra baru",
+  "action.new_permit": "Izin baru",
 
   "common.deleted_client": "Klien terhapus",
   "common.showing_first": "menampilkan {n} pertama",

@@ -390,7 +390,7 @@ export default async function DashboardPage() {
                     <QuickAction href="/clients/new" label={t("action.new_client")} />
                     <QuickAction href="/cases/new" label={t("action.new_case")} />
                     <QuickAction href="/companies/new" label={t("action.new_company")} />
-                    <QuickAction href="/partners/new" label={t("action.new_partner")} />
+                    <QuickAction href="/permits" label={t("action.new_permit")} />
                   </div>
                 </Panel>
               </div>
@@ -446,7 +446,7 @@ export default async function DashboardPage() {
                     <QuickAction href="/clients/new" label={t("action.new_client")} />
                     <QuickAction href="/cases/new" label={t("action.new_case")} />
                     <QuickAction href="/companies/new" label={t("action.new_company")} />
-                    <QuickAction href="/partners/new" label={t("action.new_partner")} />
+                    <QuickAction href="/permits" label={t("action.new_permit")} />
                   </div>
                 </Panel>
               </div>
