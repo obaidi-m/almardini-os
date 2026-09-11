@@ -28,13 +28,12 @@ type PartnerPayload = {
 function parseForm(fd: FormData): PartnerPayload {
   const name = String(fd.get("name") ?? "").trim();
   if (!name) throw new Error("Name is required.");
-  const type = String(fd.get("type") ?? "");
-  if (type !== "referrer" && type !== "agent" && type !== "both") {
-    throw new Error("Type must be referrer, agent, or both.");
-  }
+  // `type` is a legacy column kept for schema compatibility — the form no
+  // longer surfaces it. Default new rows to 'agent' so the NOT NULL check
+  // is satisfied; the value is not shown or used anywhere in the UI.
   return {
     name,
-    type,
+    type: "agent" as PartnerType,
     contact_person: str(fd, "contact_person"),
     phone: str(fd, "phone"),
     email: str(fd, "email")?.toLowerCase() ?? null,

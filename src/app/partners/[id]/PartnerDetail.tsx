@@ -9,12 +9,6 @@ import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { serviceLabel } from "@/lib/service";
 
-const TYPE_LABEL: Record<Partner["type"], string> = {
-  referrer: "Referrer",
-  agent: "Agent",
-  both: "Both",
-};
-
 type PartnerCase = {
   id: string;
   code: string;
@@ -134,10 +128,6 @@ export function PartnerDetail({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* LEFT COLUMN */}
         <div className="space-y-5">
-          <Card title="Identity">
-            <FieldRow label="Type" value={TYPE_LABEL[partner.type]} />
-          </Card>
-
           <Card title="Contact">
             <FieldRow label="Contact person" value={partner.contact_person} />
             <FieldRow label="Phone" value={partner.phone} />

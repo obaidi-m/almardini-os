@@ -4,18 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import type { Partner, CaseStatus, CasePriority } from "@/lib/types";
 import { PartnerDetail } from "./PartnerDetail";
 
-const TYPE_LABEL: Record<Partner["type"], string> = {
-  referrer: "Referrer",
-  agent: "Agent",
-  both: "Both",
-};
-
-const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: string }> = {
-  referrer: { bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", dot: "bg-[#3B82F6]" },
-  agent:    { bg: "bg-[#EDE9FE]", text: "text-[#5B21B6]", dot: "bg-[#8B5CF6]" },
-  both:     { bg: "bg-[#FBEFD4]", text: "text-[#8A6919]", dot: "bg-[#E8B14A]" },
-};
-
 export default async function PartnerDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
@@ -123,8 +111,6 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
     service: unwrap(row.service),
   }));
 
-  const ts = TYPE_STYLE[p.type];
-
   return (
     <div className="max-w-[1200px]">
       <Link href="/partners" className="inline-flex items-center gap-1 text-[12.5px] text-[var(--muted)] hover:text-ink mb-3">
@@ -137,10 +123,6 @@ export default async function PartnerDetailPage({ params }: { params: { id: stri
         <h1 className="font-serif text-[28px] leading-tight text-ink tracking-tight">{p.name}</h1>
         <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">
           {p.code}
-        </span>
-        <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${ts.bg} ${ts.text}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${ts.dot}`} />
-          {TYPE_LABEL[p.type]}
         </span>
         {p.deleted_at && (
           <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded">

@@ -5,14 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type SortKey = "newest" | "oldest" | "name_asc" | "name_desc";
-type TypeFilter = "" | "referrer" | "agent" | "both";
-type SearchParams = { show?: string; sort?: string; type?: string };
-
-const TYPE_STYLE: Record<Partner["type"], { bg: string; text: string; dot: string }> = {
-  referrer: { bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", dot: "bg-[#3B82F6]" },
-  agent:    { bg: "bg-[#EDE9FE]", text: "text-[#5B21B6]", dot: "bg-[#8B5CF6]" },
-  both:     { bg: "bg-[#FBEFD4]", text: "text-[#8A6919]", dot: "bg-[#E8B14A]" },
-};
+type SearchParams = { show?: string; sort?: string };
 
 const SORT_KEYS: SortKey[] = ["newest", "oldest", "name_asc", "name_desc"];
 
@@ -20,10 +13,8 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
   const supabase = createClient();
   const { t } = await getT();
   const sortLabelFor = (k: SortKey) => t(`sort.${k}` as MessageKey);
-  const typeLabelFor = (v: Partner["type"]) => t(`partner.type.${v}` as MessageKey);
   const includeDeleted = searchParams.show === "archived";
   const sort: SortKey = (SORT_KEYS.find((k) => k === searchParams.sort) ?? "newest") as SortKey;
-  const typeFilter = (["referrer", "agent", "both"].includes(searchParams.type ?? "") ? searchParams.type : "") as TypeFilter;
 
   let query = supabase
     .from("partners")
@@ -31,7 +22,6 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
     .limit(200);
 
   if (!includeDeleted) query = query.is("deleted_at", null);
-  if (typeFilter) query = query.eq("type", typeFilter);
 
   switch (sort) {
     case "oldest":    query = query.order("created_at", { ascending: true }); break;
@@ -48,14 +38,13 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
 
   function hrefWith(patch: Partial<SearchParams>): string {
     const params = new URLSearchParams();
-    const merged = { show: includeDeleted ? "archived" : undefined, sort, type: typeFilter || undefined, ...patch };
+    const merged = { show: includeDeleted ? "archived" : undefined, sort, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, String(v));
     const s = params.toString();
     return s ? `/partners?${s}` : "/partners";
   }
 
   const sortLabel = sortLabelFor(sort);
-  const activeFilterCount = typeFilter ? 1 : 0;
 
   return (
     <div className="max-w-[1400px]">
@@ -102,37 +91,6 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
           </div>
         </details>
 
-        <details className="relative">
-          <summary className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-ink px-2 py-1 rounded hover:bg-white/50 cursor-pointer list-none">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 3H2l8 9v7l4 2v-9l8-9z"/></svg>
-            <span>{t("toolbar.filter")}</span>
-            {activeFilterCount > 0 && <span className="ml-1 bg-brand text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[16px] text-center">{activeFilterCount}</span>}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-60"><path d="M6 9l6 6 6-6"/></svg>
-          </summary>
-          <div className="absolute z-20 mt-1 left-0 min-w-[180px] bg-white rounded-lg shadow-lg border border-[var(--border)] p-3">
-            <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--muted)] mb-1.5">{t("filter.section.type")}</div>
-            <div className="-mx-1">
-              <Link href={hrefWith({ type: undefined })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${!typeFilter ? "text-brand-dark font-medium" : "text-ink"}`}>
-                {t("toolbar.any_type")}
-              </Link>
-              {(["referrer", "agent", "both"] as const).map((tk) => (
-                <Link key={tk} href={hrefWith({ type: tk })} className={`block px-2 py-1 rounded text-[12.5px] hover:bg-[var(--surface-2)] ${typeFilter === tk ? "text-brand-dark font-medium" : "text-ink"}`}>
-                  {typeLabelFor(tk)}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </details>
-
-        {typeFilter && (
-          <div className="flex items-center gap-1.5 pl-1">
-            <span className="inline-flex items-center gap-1 bg-brand-soft text-brand-dark px-2 py-0.5 rounded-full text-[11.5px]">
-              {typeLabelFor(typeFilter as Partner["type"])}
-              <Link href={hrefWith({ type: undefined })} className="opacity-70 hover:opacity-100">×</Link>
-            </span>
-          </div>
-        )}
-
         <div className="ml-auto flex items-center gap-3">
           <span className="text-[var(--muted)]">
             <span className="text-ink font-medium num">{activeCount}</span> {t("toolbar.active_word")}
@@ -154,13 +112,12 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
       )}
 
       <div className="border-y border-[var(--border-strong)]">
-        <div className="grid grid-cols-[36px_100px_1.4fr_100px_1fr_1fr_1.3fr] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
+        <div className="grid grid-cols-[36px_100px_1.6fr_1fr_1fr_1.3fr] gap-3 px-3 py-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)] font-semibold border-b border-[var(--border-strong)] bg-white/30">
           <div className="flex items-center justify-center">
             <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white" aria-hidden />
           </div>
           <HeadCell icon={<IconHash />} label={t("col.code")} href={hrefWith({ sort: sort === "newest" ? "oldest" : "newest" })} sortHint={sort === "newest" ? "↓" : sort === "oldest" ? "↑" : undefined} />
           <HeadCell icon={<IconHandshake />} label={t("field.name")} href={hrefWith({ sort: sort === "name_asc" ? "name_desc" : "name_asc" })} sortHint={sort === "name_asc" ? "↑" : sort === "name_desc" ? "↓" : undefined} />
-          <HeadCell icon={<IconTag />} label={t("filter.section.type")} />
           <HeadCell icon={<IconUser />} label={t("field.contact_person")} />
           <HeadCell icon={<IconPhone />} label={t("field.phone")} />
           <HeadCell icon={<IconMail />} label={t("field.email")} />
@@ -168,17 +125,12 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
 
         {rows.length === 0 ? (
           <div className="py-20 text-center text-[13px] text-[var(--muted)]">
-            {typeFilter ? (
-              <>{t("empty.no_partners_match")} <Link href={hrefWith({ type: undefined })} className="text-brand hover:text-brand-dark font-medium">{t("toolbar.clear_filters")}</Link></>
-            ) : (
-              <>{t("empty.no_partners")} <Link href="/partners/new" className="text-brand hover:text-brand-dark font-medium">{t("empty.add_first")}</Link></>
-            )}
+            <>{t("empty.no_partners")} <Link href="/partners/new" className="text-brand hover:text-brand-dark font-medium">{t("empty.add_first")}</Link></>
           </div>
         ) : (
           rows.map((p) => {
-            const ts = TYPE_STYLE[p.type];
             return (
-              <div key={p.id} className={`group grid grid-cols-[36px_100px_1.4fr_100px_1fr_1fr_1.3fr] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${p.deleted_at ? "opacity-55" : ""}`}>
+              <div key={p.id} className={`group grid grid-cols-[36px_100px_1.6fr_1fr_1fr_1.3fr] gap-3 px-3 py-2 text-[13px] items-center border-b border-[var(--border)] last:border-b-0 hover:bg-white/50 transition-colors ${p.deleted_at ? "opacity-55" : ""}`}>
                 <div className="flex items-center justify-center">
                   <span className="w-3.5 h-3.5 rounded border border-[var(--border-strong)] bg-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
                 </div>
@@ -194,12 +146,6 @@ export default async function PartnersListPage({ searchParams }: { searchParams:
                     <span className="text-[9.5px] uppercase tracking-wider font-semibold text-[var(--muted)] bg-[var(--surface-2)] px-1.5 py-0.5 rounded shrink-0">{t("badge.archived")}</span>
                   )}
                 </Link>
-                <div>
-                  <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full ${ts.bg} ${ts.text}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${ts.dot}`} />
-                    {typeLabelFor(p.type)}
-                  </span>
-                </div>
                 <div className="text-[12.5px] text-ink truncate">{p.contact_person ?? <span className="text-[var(--hint)]">—</span>}</div>
                 <div className="text-[12.5px] text-ink truncate">{p.phone ?? <span className="text-[var(--hint)]">—</span>}</div>
                 <div className="text-[12.5px] text-[var(--muted)] truncate">{p.email ?? <span className="text-[var(--hint)]">—</span>}</div>

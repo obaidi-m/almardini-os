@@ -49,13 +49,6 @@ export function PartnerForm({
           />
         </Row>
 
-        <Row label={t("partner.form.type")} required>
-          <select name="type" defaultValue={partner?.type ?? "referrer"} className={cellInput + " bg-transparent"}>
-            <option value="referrer">{t("partner.type.referrer_long")}</option>
-            <option value="agent">{t("partner.type.agent_long")}</option>
-            <option value="both">{t("partner.type.both")}</option>
-          </select>
-        </Row>
       </Section>
 
       <Section title={t("partner.section.contact")}>
