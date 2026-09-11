@@ -74,7 +74,6 @@ const en = {
   "section.passport_history": "Passport history",
   "section.cases": "Cases",
   "section.timeline": "Timeline",
-  "section.quick_actions": "Quick actions",
   "section.my_cases": "My cases",
   "section.ready_to_deliver": "Ready to deliver",
   "section.recent_activity": "Recent activity",
@@ -195,7 +194,6 @@ const en = {
   "action.new_case": "New case",
   "action.new_company": "New company",
   "action.new_partner": "New partner",
-  "action.new_permit": "New permit",
 
   // Common labels used across the app
   "common.deleted_client": "Deleted client",
@@ -670,7 +668,6 @@ const id: Messages = {
   "section.passport_history": "Riwayat paspor",
   "section.cases": "Kasus",
   "section.timeline": "Riwayat aktivitas",
-  "section.quick_actions": "Aksi cepat",
   "section.my_cases": "Kasus saya",
   "section.ready_to_deliver": "Siap diserahkan",
   "section.recent_activity": "Aktivitas terbaru",
@@ -783,7 +780,6 @@ const id: Messages = {
   "action.new_case": "Kasus baru",
   "action.new_company": "Perusahaan baru",
   "action.new_partner": "Mitra baru",
-  "action.new_permit": "Izin baru",
 
   "common.deleted_client": "Klien terhapus",
   "common.showing_first": "menampilkan {n} pertama",

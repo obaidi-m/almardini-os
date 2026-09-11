@@ -385,14 +385,6 @@ export default async function DashboardPage() {
               </div>
               <div className="space-y-8">
                 {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
-                <Panel title={t("section.quick_actions")}>
-                  <div className="grid grid-cols-2 gap-2">
-                    <QuickAction href="/clients/new" label={t("action.new_client")} />
-                    <QuickAction href="/cases/new" label={t("action.new_case")} />
-                    <QuickAction href="/companies/new" label={t("action.new_company")} />
-                    <QuickAction href="/permits" label={t("action.new_permit")} />
-                  </div>
-                </Panel>
               </div>
             </div>
           ) : (
@@ -441,14 +433,6 @@ export default async function DashboardPage() {
                 </Panel>
 
                 {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
-                <Panel title={t("section.quick_actions")}>
-                  <div className="grid grid-cols-2 gap-2">
-                    <QuickAction href="/clients/new" label={t("action.new_client")} />
-                    <QuickAction href="/cases/new" label={t("action.new_case")} />
-                    <QuickAction href="/companies/new" label={t("action.new_company")} />
-                    <QuickAction href="/permits" label={t("action.new_permit")} />
-                  </div>
-                </Panel>
               </div>
             </div>
           )}
@@ -742,17 +726,6 @@ function fmtShortDate(v: string): string {
   if (!m) return v;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${Number(m[3])} ${months[Number(m[2]) - 1]}`;
-}
-
-function QuickAction({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="px-3 py-2 border border-[var(--border)] rounded-md text-[13px] text-ink hover:border-brand hover:text-brand text-center"
-    >
-      {label}
-    </Link>
-  );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
