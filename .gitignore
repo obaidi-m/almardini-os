@@ -11,3 +11,6 @@ tsconfig.tsbuildinfo
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Local tunnel binary — not part of the app
+cloudflared.exe
