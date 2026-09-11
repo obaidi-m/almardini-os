@@ -88,13 +88,19 @@ export function OpsSidebar({
       </nav>
 
       <div className="mt-auto pt-3 border-t border-[var(--border)] flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark flex items-center justify-center text-[11px] font-semibold shrink-0">
-          {userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "??"}
-        </div>
-        <div className="min-w-0">
-          <div className="text-[13px] font-medium text-ink truncate">{userName}</div>
-          <div className="text-[11px] text-[var(--muted)] truncate">{userEmail}</div>
-        </div>
+        <Link
+          href="/account"
+          className="flex items-center gap-2.5 min-w-0 rounded-lg p-1 -m-1 hover:bg-white/60 transition-colors"
+          title={t("nav.account")}
+        >
+          <div className="w-8 h-8 rounded-full bg-brand-soft text-brand-dark flex items-center justify-center text-[11px] font-semibold shrink-0">
+            {userName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "??"}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-ink truncate">{userName}</div>
+            <div className="text-[11px] text-[var(--muted)] truncate">{userEmail}</div>
+          </div>
+        </Link>
         <button onClick={signOut} className="ml-auto text-[var(--muted)] hover:text-ink text-xs" title={t("nav.sign_out")}>
           <IconSignOut />
         </button>

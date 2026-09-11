@@ -26,6 +26,7 @@ const en = {
   "nav.admin": "Admin",
   "nav.search": "Search…",
   "nav.sign_out": "Sign out",
+  "nav.account": "Account",
 
   // Common actions
   "action.new": "New",
@@ -623,6 +624,7 @@ const id: Messages = {
   "nav.admin": "Admin",
   "nav.search": "Cari…",
   "nav.sign_out": "Keluar",
+  "nav.account": "Akun",
 
   "action.new": "Baru",
   "action.edit": "Ubah",
