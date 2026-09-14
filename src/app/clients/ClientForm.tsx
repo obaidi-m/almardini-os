@@ -42,7 +42,7 @@ export function ClientForm({
   mode: Mode;
   client?: Partial<Client>;
   partners: Pick<Partner, "id" | "name" | "code">[];
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<void | { error?: string }>;
   onCancel?: () => void;
   submitLabel?: string;
   roles?: CompanyRoleOption[];
@@ -75,7 +75,8 @@ export function ClientForm({
         setError(null);
         start(async () => {
           try {
-            await action(fd);
+            const res = await action(fd);
+            if (res && "error" in res && res.error) setError(res.error);
           } catch (e) {
             setError(e instanceof Error ? e.message : "Failed");
           }

@@ -98,94 +98,110 @@ function parseCompanies(fd: FormData): CompanyLinkRow[] {
   return out;
 }
 
-export async function createClientAction(fd: FormData) {
-  const { supabase, actorId } = await requireUser();
-  const payload = await parseForm(fd);
-  const companies = parseCompanies(fd);
-
-  if (payload.full_name) {
-    const { data: dupe } = await supabase
-      .from("clients")
-      .select("code, full_name")
-      .ilike("full_name", payload.full_name.trim())
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    if (dupe) throw new Error(`A client named "${dupe.full_name}" already exists (${dupe.code}).`);
-  }
-
-  const { data: client, error } = await supabase
-    .from("clients")
-    .insert({ ...payload, created_by: actorId, updated_by: actorId })
-    .select("id")
-    .single();
-  if (error) throw new Error(await humanizeSupabaseError(error.message));
-
-  const links: Array<{ client_id: string; company_id: string; role: string }> = [];
+// Return { error } instead of throwing so the browser sees the real
+// message. Next.js Server Actions strip thrown error messages in
+// production ("digest: '...'"), which reduces every failure to a generic
+// red box — bad for validation errors the operator can actually fix.
+export async function createClientAction(fd: FormData): Promise<{ error?: string } | void> {
+  let newClientId: string | null = null;
   try {
-    for (const co of companies) {
-      let companyId: string;
-      if (co.kind === "existing") {
-        companyId = co.company_id;
-      } else {
-        const canonicalName = ensurePtPrefix(co.name);
-        const { data: dupeCo } = await supabase
-          .from("companies")
-          .select("id, code, name")
-          .ilike("name", canonicalName)
-          .is("deleted_at", null)
-          .limit(1)
-          .maybeSingle();
-        if (dupeCo) throw new Error(`A company named "${dupeCo.name}" already exists (${dupeCo.code}). Pick it from the existing list instead.`);
-        const { data: newCompany, error: coErr } = await supabase
-          .from("companies")
-          .insert({ name: canonicalName, created_by: actorId, updated_by: actorId })
-          .select("id")
-          .single();
-        if (coErr) throw new Error(coErr.message);
-        companyId = newCompany.id;
-      }
-      links.push({ client_id: client.id, company_id: companyId, role: co.role });
-    }
-    if (links.length > 0) {
-      const { error: linkErr } = await supabase.from("client_companies").insert(links);
-      if (linkErr) throw new Error(linkErr.message);
-    }
-  } catch (e) {
-    await supabase.from("clients").delete().eq("id", client.id);
-    throw e;
-  }
+    const { supabase, actorId } = await requireUser();
+    const payload = await parseForm(fd);
+    const companies = parseCompanies(fd);
 
-  revalidatePath("/clients");
-  redirect(`/clients/${client.id}`);
+    if (payload.full_name) {
+      const { data: dupe } = await supabase
+        .from("clients")
+        .select("code, full_name")
+        .ilike("full_name", payload.full_name.trim())
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+      if (dupe) return { error: `A client named "${dupe.full_name}" already exists (${dupe.code}).` };
+    }
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .insert({ ...payload, created_by: actorId, updated_by: actorId })
+      .select("id")
+      .single();
+    if (error) return { error: await humanizeSupabaseError(error.message) };
+    newClientId = client.id;
+
+    const links: Array<{ client_id: string; company_id: string; role: string }> = [];
+    try {
+      for (const co of companies) {
+        let companyId: string;
+        if (co.kind === "existing") {
+          companyId = co.company_id;
+        } else {
+          const canonicalName = ensurePtPrefix(co.name);
+          const { data: dupeCo } = await supabase
+            .from("companies")
+            .select("id, code, name")
+            .ilike("name", canonicalName)
+            .is("deleted_at", null)
+            .limit(1)
+            .maybeSingle();
+          if (dupeCo) throw new Error(`A company named "${dupeCo.name}" already exists (${dupeCo.code}). Pick it from the existing list instead.`);
+          const { data: newCompany, error: coErr } = await supabase
+            .from("companies")
+            .insert({ name: canonicalName, created_by: actorId, updated_by: actorId })
+            .select("id")
+            .single();
+          if (coErr) throw new Error(coErr.message);
+          companyId = newCompany.id;
+        }
+        links.push({ client_id: client.id, company_id: companyId, role: co.role });
+      }
+      if (links.length > 0) {
+        const { error: linkErr } = await supabase.from("client_companies").insert(links);
+        if (linkErr) throw new Error(linkErr.message);
+      }
+    } catch (e) {
+      await supabase.from("clients").delete().eq("id", client.id);
+      newClientId = null;
+      return { error: e instanceof Error ? e.message : "Failed to link companies." };
+    }
+
+    revalidatePath("/clients");
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed" };
+  }
+  // Redirect must run outside try/catch — Next signals it by throwing.
+  if (newClientId) redirect(`/clients/${newClientId}`);
 }
 
-export async function updateClientAction(fd: FormData) {
-  const { supabase, actorId } = await requireUser();
-  const id = String(fd.get("id") ?? "");
-  if (!id) { const { t } = await getT(); throw new Error(t("err.missing_id")); }
-  const payload = await parseForm(fd);
+export async function updateClientAction(fd: FormData): Promise<{ error?: string } | void> {
+  try {
+    const { supabase, actorId } = await requireUser();
+    const id = String(fd.get("id") ?? "");
+    if (!id) { const { t } = await getT(); return { error: t("err.missing_id") }; }
+    const payload = await parseForm(fd);
 
-  if (payload.full_name) {
-    const { data: dupe } = await supabase
+    if (payload.full_name) {
+      const { data: dupe } = await supabase
+        .from("clients")
+        .select("code, full_name")
+        .ilike("full_name", payload.full_name.trim())
+        .is("deleted_at", null)
+        .neq("id", id)
+        .limit(1)
+        .maybeSingle();
+      if (dupe) return { error: `A client named "${dupe.full_name}" already exists (${dupe.code}).` };
+    }
+
+    const { error } = await supabase
       .from("clients")
-      .select("code, full_name")
-      .ilike("full_name", payload.full_name.trim())
-      .is("deleted_at", null)
-      .neq("id", id)
-      .limit(1)
-      .maybeSingle();
-    if (dupe) throw new Error(`A client named "${dupe.full_name}" already exists (${dupe.code}).`);
+      .update({ ...payload, updated_by: actorId })
+      .eq("id", id);
+    if (error) return { error: await humanizeSupabaseError(error.message) };
+
+    revalidatePath("/clients");
+    revalidatePath(`/clients/${id}`);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed" };
   }
-
-  const { error } = await supabase
-    .from("clients")
-    .update({ ...payload, updated_by: actorId })
-    .eq("id", id);
-  if (error) throw new Error(await humanizeSupabaseError(error.message));
-
-  revalidatePath("/clients");
-  revalidatePath(`/clients/${id}`);
 }
 
 export async function softDeleteClientAction(fd: FormData) {
