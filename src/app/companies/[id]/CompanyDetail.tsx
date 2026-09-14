@@ -55,7 +55,7 @@ export function CompanyDetail({
   cases: CompanyCase[];
   partners?: PartnerOpt[];
   entityServices?: EntityService[];
-  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind">[];
+  catalog?: Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind" | "validity_amount" | "validity_unit">[];
   handledServiceIds?: string[];
 }) {
   const { t } = useT();
