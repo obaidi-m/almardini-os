@@ -262,6 +262,7 @@ function QuickClientForm({
         start(async () => {
           try {
             const created = await createClientQuickAction(fd);
+            if ("error" in created) { setErr(created.error); return; }
             onSaved(created);
           } catch (e) {
             setErr(e instanceof Error ? e.message : "Failed");
