@@ -257,13 +257,19 @@ function ServiceRow({
         </div>
         <div className="text-[11.5px] text-[var(--muted)] mt-0.5">
           <DateLine row={row} />
-          {row.responsible && (
-            <> · {t("services.row.pj_prefix")}{" "}
+          {row.sponsor ? (
+            <> · Guarantor:{" "}
+              <Link href={`/companies/${row.sponsor.id}`} className="hover:text-brand">
+                {row.sponsor.name}
+              </Link>
+            </>
+          ) : row.responsible ? (
+            <> · Guarantor:{" "}
               <Link href={`/partners/${row.responsible.id}`} className="hover:text-brand">
                 {row.responsible.name}
               </Link>
             </>
-          )}
+          ) : null}
           {cycleNumber && cycleNumber > 1 && (
             <> · <span title="Cycles including renewals">cycle {cycleNumber}</span></>
           )}
