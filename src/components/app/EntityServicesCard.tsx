@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import type { EntityService, EntityServiceStatus, ServiceType } from "@/lib/types";
 import { Modal } from "@/components/ui/Modal";
@@ -58,9 +58,26 @@ export function EntityServicesCard({
 }) {
   const { t } = useT();
   const [creating, setCreating] = useState(false);
+  const [preselectedServiceId, setPreselectedServiceId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EntityService | null>(null);
   const [renewing, setRenewing] = useState<EntityService | null>(null);
   const [showPast, setShowPast] = useState(false);
+
+  // Open the add-permit modal automatically when the URL carries
+  // ?add_permit=<service_id>. Fired by the case-delivery flow so an
+  // operator lands here with the form already up.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const svcId = params.get("add_permit");
+    if (svcId) {
+      setPreselectedServiceId(svcId);
+      setCreating(true);
+      params.delete("add_permit");
+      const clean = window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
+      window.history.replaceState(null, "", clean);
+    }
+  }, []);
 
   // Count past cycles per (service_id) so an active row can hint
   // "3rd cycle since …" without hitting the DB again.
@@ -170,7 +187,7 @@ export function EntityServicesCard({
 
       <Modal
         open={creating}
-        onClose={() => setCreating(false)}
+        onClose={() => { setCreating(false); setPreselectedServiceId(null); }}
         title={t(addModalKey)}
         size="lg"
       >
@@ -180,7 +197,8 @@ export function EntityServicesCard({
           catalog={availableCatalog}
           companies={companies}
           partners={partners}
-          onDone={() => setCreating(false)}
+          preselectedServiceId={preselectedServiceId}
+          onDone={() => { setCreating(false); setPreselectedServiceId(null); }}
         />
       </Modal>
 
@@ -362,7 +380,7 @@ function StatusPill({ status }: { status: EntityServiceStatus }) {
 /* ============ Form ============ */
 
 function ServiceForm({
-  mode, owner, catalog, companies, partners, initial, onDone,
+  mode, owner, catalog, companies, partners, initial, preselectedServiceId, onDone,
 }: {
   mode: "create" | "edit";
   owner: Owner;
@@ -370,15 +388,20 @@ function ServiceForm({
   companies: CompanyOpt[];
   partners: PartnerOpt[];
   initial?: EntityService;
+  preselectedServiceId?: string | null;
   onDone: () => void;
 }) {
   const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [serviceId, setServiceId] = useState<string>(
-    initial?.service_id ?? catalog[0]?.id ?? "",
-  );
+  const [serviceId, setServiceId] = useState<string>(() => {
+    if (initial?.service_id) return initial.service_id;
+    if (preselectedServiceId && catalog.some((c) => c.id === preselectedServiceId)) {
+      return preselectedServiceId;
+    }
+    return catalog[0]?.id ?? "";
+  });
   const svc = useMemo(
     () => catalog.find((c) => c.id === serviceId) ?? null,
     [catalog, serviceId],

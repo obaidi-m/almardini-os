@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { CaseStatus } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -52,7 +53,7 @@ export function CaseDetail({
   caseRow: CaseRecord;
   client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
   company: { id: string; code: string; name: string } | null;
-  service: { id: string; code: string; name: string; has_deliverable: boolean } | null;
+  service: { id: string; code: string; name: string; has_deliverable: boolean; applies_to?: string | null; tracks_expiry?: boolean | null } | null;
   assignee: { id: string; full_name: string } | null;
   updates: UpdateRow[];
   canDeliver: boolean;
@@ -70,6 +71,13 @@ export function CaseDetail({
   const [reopening, setReopening] = useState(false);
 
   const isCompanyFormation = !!service && /company formation/i.test(service.name);
+  // A person-owned, expiry-tracked service (KITAS, KITAP, IMTA…). When one
+  // of these is delivered, jump to the client page with the add-permit
+  // modal pre-opened so the operator captures the permit dates immediately.
+  const isPersonPermit = !!service
+    && (service.applies_to === "person" || service.applies_to === "either")
+    && service.tracks_expiry === true;
+  const router = useRouter();
   const [addingNote, setAddingNote] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [statusPending, startStatus] = useTransition();
@@ -120,6 +128,9 @@ export function CaseDetail({
         if (next === "delivered" && caseRow.status !== "delivered") {
           await deliverCaseAction(fd);
           setToast(t("case.detail.deliver.marked"));
+          if (isPersonPermit && client?.id && service?.id) {
+            router.push(`/clients/${client.id}?add_permit=${service.id}#permits`);
+          }
         } else {
           fd.set("status", next);
           await setCaseStatusAction(fd);

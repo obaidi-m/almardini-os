@@ -56,7 +56,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
         drive_folder_url, deleted_at, created_at, updated_at,
         client:clients(id, code, full_name, phone, email, preferred_channel),
         company:companies(id, code, name),
-        service:service_types(id, code, name, has_deliverable),
+        service:service_types(id, code, name, has_deliverable, applies_to, tracks_expiry),
         assignee:users!cases_assigned_to_fkey(id, full_name)
       `)
       .eq("id", params.id)
@@ -89,7 +89,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
   const raw = caseRow as unknown as CaseRecord & {
     client: { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" }[] | { id: string; code: string; full_name: string; phone: string | null; email: string | null; preferred_channel: "whatsapp" | "email" } | null;
     company: { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
-    service: { id: string; code: string; name: string; has_deliverable: boolean }[] | { id: string; code: string; name: string; has_deliverable: boolean } | null;
+    service: { id: string; code: string; name: string; has_deliverable: boolean; applies_to: string | null; tracks_expiry: boolean | null }[] | { id: string; code: string; name: string; has_deliverable: boolean; applies_to: string | null; tracks_expiry: boolean | null } | null;
     assignee: { id: string; full_name: string }[] | { id: string; full_name: string } | null;
   };
   const unwrap = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
