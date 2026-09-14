@@ -17,7 +17,7 @@ type LinkedClient = {
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: partnersData }, { data: entityServicesRaw }, { data: catalogRaw }] = await Promise.all([
+  const [{ data: company, error }, { data: links }, { data: allClients }, { data: rolesList }, { data: casesRaw }, { data: partnersData }, { data: entityServicesRaw }, { data: catalogRaw }, { data: sponsoredRaw }] = await Promise.all([
     supabase
       .from("companies")
       .select("id, code, name, nib, incorporation_date, address, drive_folder_url, notes, introduced_by_partner_id, deleted_at, created_at, updated_at, introduced_by:partners!companies_introduced_by_fk(id, name, code)")
@@ -66,6 +66,15 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .eq("is_active", true)
       .in("applies_to", ["company", "either"])
       .order("name"),
+    // People who hold a permit guaranteed by this company. Feeds the
+    // "Linked people" list so the guarantor picker doubles as an implicit
+    // link — no manual client_companies row needed.
+    supabase
+      .from("entity_services")
+      .select("client:clients(id, code, full_name)")
+      .eq("sponsor_company_id", params.id)
+      .not("client_id", "is", null)
+      .is("deleted_at", null),
   ]);
 
   if (error) {
@@ -86,6 +95,17 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     role: l.role,
     client: Array.isArray(l.client) ? l.client[0] ?? null : l.client,
   }));
+
+  // Merge in permit-derived links (guarantor = this company) without
+  // duplicating clients that already have an explicit client_companies row.
+  const existingIds = new Set(linkedClients.map((l) => l.client?.id).filter(Boolean));
+  const rawSponsored = (sponsoredRaw as unknown as Array<{ client: { id: string; code: string; full_name: string }[] | { id: string; code: string; full_name: string } | null }>) ?? [];
+  for (const row of rawSponsored) {
+    const client = Array.isArray(row.client) ? row.client[0] ?? null : row.client;
+    if (!client || existingIds.has(client.id)) continue;
+    existingIds.add(client.id);
+    linkedClients.push({ role: "none", client });
+  }
 
   const clients = (allClients as Array<{ id: string; code: string; full_name: string }>) ?? [];
 

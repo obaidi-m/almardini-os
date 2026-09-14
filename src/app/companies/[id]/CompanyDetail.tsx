@@ -388,12 +388,9 @@ function ClientsLinker({
               ))}
             </select>
           </div>
-          <div>
-            <label className="text-[10.5px] uppercase tracking-wider text-[var(--muted)] font-semibold">{t("detail.role")}</label>
-            <select name="role" defaultValue={roles[0]?.code ?? ""} className={cellInputMuted}>
-              {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
-            </select>
-          </div>
+          {/* Position hidden for now — silently default to "none" (seeded in
+              migration 045) so the link table's PK still gets a value. */}
+          <input type="hidden" name="role" value="none" />
           <button type="submit" disabled={pending} className="px-3 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-lg disabled:opacity-50">
             {t("detail.link")}
           </button>
@@ -425,7 +422,8 @@ function ClientsLinker({
                   <span className="text-[var(--muted)] italic">{t("common.deleted_client")}</span>
                 )}
               </span>
-              <span className="text-[11.5px] text-[var(--muted)] uppercase tracking-wider">{roleLabel(l.role)}</span>
+              {/* Position label hidden for now — kept in data. */}
+              <span className="text-[11.5px] text-[var(--muted)] uppercase tracking-wider" hidden>{roleLabel(l.role)}</span>
               <button
                 type="button"
                 onClick={async () => {

@@ -149,22 +149,26 @@ export function ClientDetail({
 
         {/* RIGHT COLUMN */}
         <div className="space-y-5">
-          <Card
-            title={t("section.linked_companies")}
-            count={linkedCompanies.length}
-            padded
-          >
-            <p className="text-[11.5px] text-[var(--muted)] -mt-2 mb-3">
-              {t("section.linked_companies.hint")}
-            </p>
-            <CompaniesLinker
-              clientId={client.id}
-              linkedCompanies={linkedCompanies}
-              allCompanies={allCompanies}
-              roles={roles}
-              roleLabel={roleLabel}
-            />
-          </Card>
+          {/* "Role at a company" card hidden — position tracking retired.
+              Guarantor is derived from each permit's sponsor_company_id. */}
+          {false && (
+            <Card
+              title={t("section.linked_companies")}
+              count={linkedCompanies.length}
+              padded
+            >
+              <p className="text-[11.5px] text-[var(--muted)] -mt-2 mb-3">
+                {t("section.linked_companies.hint")}
+              </p>
+              <CompaniesLinker
+                clientId={client.id}
+                linkedCompanies={linkedCompanies}
+                allCompanies={allCompanies}
+                roles={roles}
+                roleLabel={roleLabel}
+              />
+            </Card>
+          )}
 
           <EntityServicesCard
             owner={{ kind: "client", id: client.id }}
