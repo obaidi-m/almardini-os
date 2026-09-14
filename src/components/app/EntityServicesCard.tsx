@@ -511,16 +511,33 @@ function ServiceForm({
       </div>
 
       <div>
-        <Label>{t("services.label.responsible_optional")}</Label>
+        <Label>Guarantor</Label>
         <select
-          name="responsible_partner_id"
-          defaultValue={initial?.responsible_partner_id ?? ""}
+          name="guarantor"
+          defaultValue={
+            initial?.sponsor_company_id
+              ? `company:${initial.sponsor_company_id}`
+              : initial?.responsible_partner_id
+                ? `partner:${initial.responsible_partner_id}`
+                : ""
+          }
           className={input}
         >
-          <option value="">—</option>
-          {partners.map((p) => (
-            <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-          ))}
+          <option value="">— (family / none)</option>
+          {companies.length > 0 && (
+            <optgroup label="Companies">
+              {companies.map((c) => (
+                <option key={`c-${c.id}`} value={`company:${c.id}`}>{c.name} ({c.code})</option>
+              ))}
+            </optgroup>
+          )}
+          {partners.length > 0 && (
+            <optgroup label="PJ (legacy)">
+              {partners.map((p) => (
+                <option key={`p-${p.id}`} value={`partner:${p.id}`}>{p.name} ({p.code})</option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
 

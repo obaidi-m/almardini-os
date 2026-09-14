@@ -66,7 +66,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
   // Read every person-owned subscription from the unified entity_services
   // store, then filter/status-derive in memory. Permits are a subset of
   // subscriptions — the ones whose catalog entry is applies_to = 'person'.
-  const [{ data, error }, { data: clientOptions }, { data: serviceOptions }, { data: partnerOptions }] = await Promise.all([
+  const [{ data, error }, { data: clientOptions }, { data: serviceOptions }, { data: partnerOptions }, { data: companyOptions }] = await Promise.all([
     supabase
       .from("entity_services")
       .select(`
@@ -94,6 +94,11 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
       .order("name"),
     supabase
       .from("partners")
+      .select("id, code, name")
+      .is("deleted_at", null)
+      .order("name"),
+    supabase
+      .from("companies")
       .select("id, code, name")
       .is("deleted_at", null)
       .order("name"),
@@ -173,6 +178,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
           clients={(clientOptions as { id: string; code: string; full_name: string }[]) ?? []}
           services={(serviceOptions as { id: string; code: string | null; name: string }[]) ?? []}
           partners={(partnerOptions as { id: string; code: string; name: string }[]) ?? []}
+          companies={(companyOptions as { id: string; code: string; name: string }[]) ?? []}
         />
       </div>
 

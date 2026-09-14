@@ -78,6 +78,15 @@ export async function createPermitWithClientAction(fd: FormData): Promise<{ clie
     createdClient = true;
   }
 
+  // Guarantor picker is unified over companies + partners for now. Value
+  // arrives as "company:<uuid>" or "partner:<uuid>"; split back into the
+  // right column so the schema stays honest until partners is retired.
+  const guarantor = s(fd, "guarantor");
+  let sponsor_company_id: string | null = null;
+  let responsible_partner_id: string | null = null;
+  if (guarantor?.startsWith("company:")) sponsor_company_id = guarantor.slice(8);
+  else if (guarantor?.startsWith("partner:")) responsible_partner_id = guarantor.slice(8);
+
   const { error: permitErr } = await supabase.from("entity_services").insert({
     service_id,
     client_id: clientId,
@@ -85,7 +94,8 @@ export async function createPermitWithClientAction(fd: FormData): Promise<{ clie
     status: "active",
     issued_date: d(fd, "issued_date"),
     expires_date,
-    responsible_partner_id: s(fd, "responsible_partner_id"),
+    sponsor_company_id,
+    responsible_partner_id,
     notes: s(fd, "notes"),
     created_by: actorId,
   });

@@ -31,6 +31,20 @@ function status(fd: FormData): Status {
   return (STATUSES as readonly string[]).includes(v) ? (v as Status) : "active";
 }
 
+// Guarantor picker is unified over companies + partners for now. Value
+// arrives as "company:<uuid>" or "partner:<uuid>"; fall back to the raw
+// sponsor_company_id / responsible_partner_id fields if the caller still
+// sends those directly.
+function guarantor(fd: FormData): { sponsor_company_id: string | null; responsible_partner_id: string | null } {
+  const g = s(fd, "guarantor");
+  if (g?.startsWith("company:")) return { sponsor_company_id: g.slice(8), responsible_partner_id: null };
+  if (g?.startsWith("partner:")) return { sponsor_company_id: null, responsible_partner_id: g.slice(8) };
+  return {
+    sponsor_company_id:     s(fd, "sponsor_company_id"),
+    responsible_partner_id: s(fd, "responsible_partner_id"),
+  };
+}
+
 export async function createEntityServiceAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
 
@@ -52,8 +66,7 @@ export async function createEntityServiceAction(fd: FormData) {
     expires_date: d(fd, "expires_date"),
     tier:         s(fd, "tier"),
     term_months:  n(fd, "term_months"),
-    sponsor_company_id:     s(fd, "sponsor_company_id"),
-    responsible_partner_id: s(fd, "responsible_partner_id"),
+    ...guarantor(fd),
     drive_folder_url: s(fd, "drive_folder_url"),
     notes: s(fd, "notes"),
     created_by: actorId,
@@ -78,8 +91,7 @@ export async function updateEntityServiceAction(fd: FormData) {
     expires_date: d(fd, "expires_date"),
     tier:         s(fd, "tier"),
     term_months:  n(fd, "term_months"),
-    sponsor_company_id:     s(fd, "sponsor_company_id"),
-    responsible_partner_id: s(fd, "responsible_partner_id"),
+    ...guarantor(fd),
     drive_folder_url: s(fd, "drive_folder_url"),
     notes: s(fd, "notes"),
   };

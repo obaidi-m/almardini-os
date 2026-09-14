@@ -9,13 +9,15 @@ import { createPermitWithClientAction } from "./actions";
 type ClientOpt = { id: string; code: string; full_name: string };
 type ServiceOpt = { id: string; code: string | null; name: string };
 type PartnerOpt = { id: string; code: string; name: string };
+type CompanyOpt = { id: string; code: string; name: string };
 
 export function NewPermitButton({
-  clients, services, partners,
+  clients, services, partners, companies,
 }: {
   clients: ClientOpt[];
   services: ServiceOpt[];
   partners: PartnerOpt[];
+  companies: CompanyOpt[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -35,6 +37,7 @@ export function NewPermitButton({
             clients={clients}
             services={services}
             partners={partners}
+            companies={companies}
             onDone={() => setOpen(false)}
           />
         )}
@@ -44,11 +47,12 @@ export function NewPermitButton({
 }
 
 function NewPermitForm({
-  clients, services, partners, onDone,
+  clients, services, partners, companies, onDone,
 }: {
   clients: ClientOpt[];
   services: ServiceOpt[];
   partners: PartnerOpt[];
+  companies: CompanyOpt[];
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -150,12 +154,23 @@ function NewPermitForm({
             <DateInput name="expires_date" />
           </Row>
         </div>
-        <Row label="Responsible (PJ)">
-          <select name="responsible_partner_id" defaultValue="" className={cellInput + " bg-transparent"}>
-            <option value="">—</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-            ))}
+        <Row label="Guarantor">
+          <select name="guarantor" defaultValue="" className={cellInput + " bg-transparent"}>
+            <option value="">— (family / none)</option>
+            {companies.length > 0 && (
+              <optgroup label="Companies">
+                {companies.map((c) => (
+                  <option key={`c-${c.id}`} value={`company:${c.id}`}>{c.name} ({c.code})</option>
+                ))}
+              </optgroup>
+            )}
+            {partners.length > 0 && (
+              <optgroup label="PJ (legacy)">
+                {partners.map((p) => (
+                  <option key={`p-${p.id}`} value={`partner:${p.id}`}>{p.name} ({p.code})</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </Row>
         <Row label="Notes" align="start">
