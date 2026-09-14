@@ -156,7 +156,7 @@ function NewPermitForm({
         </div>
         <Row label="Guarantor">
           <select name="guarantor" defaultValue="" className={cellInput + " bg-transparent"}>
-            <option value="">— (family / none)</option>
+            <option value="">— (none)</option>
             {companies.length > 0 && (
               <optgroup label="Companies">
                 {companies.map((c) => (

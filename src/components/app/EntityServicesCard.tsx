@@ -552,7 +552,7 @@ function ServiceForm({
           }
           className={input}
         >
-          <option value="">— (family / none)</option>
+          <option value="">— (none)</option>
           {companies.length > 0 && (
             <optgroup label="Companies">
               {companies.map((c) => (
