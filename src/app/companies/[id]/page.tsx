@@ -62,7 +62,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .order("expires_date", { ascending: true }),
     supabase
       .from("service_types")
-      .select("id, code, name, applies_to, tracks_expiry, is_ongoing, schedule_kind")
+      .select("id, code, name, applies_to, tracks_expiry, is_ongoing, schedule_kind, validity_amount, validity_unit")
       .eq("is_active", true)
       .in("applies_to", ["company", "either"])
       .order("name"),
@@ -176,7 +176,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
           sponsor: Array.isArray(r.sponsor) ? r.sponsor[0] ?? null : r.sponsor ?? null,
           responsible: Array.isArray(r.responsible) ? r.responsible[0] ?? null : r.responsible ?? null,
         }))}
-        catalog={(catalogRaw as Array<Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind">>) ?? []}
+        catalog={(catalogRaw as Array<Pick<ServiceType, "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind" | "validity_amount" | "validity_unit">>) ?? []}
         handledServiceIds={handledServiceIds}
       />
     </div>

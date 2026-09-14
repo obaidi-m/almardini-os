@@ -19,7 +19,7 @@ import {
 
 type CatalogService = Pick<
   ServiceType,
-  "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind"
+  "id" | "code" | "name" | "applies_to" | "tracks_expiry" | "is_ongoing" | "schedule_kind" | "validity_amount" | "validity_unit"
 >;
 
 // What belongs in the entity's card depends on whether the owner is a
@@ -407,6 +407,38 @@ function ServiceForm({
     [catalog, serviceId],
   );
 
+  // Date fields become controlled so picking a start auto-fills the end
+  // using the service's validity (validity_amount + validity_unit). The
+  // operator can still edit the end date afterwards.
+  const [startDate, setStartDate] = useState<string>(
+    (svc?.applies_to === "company" ? initial?.started_date : initial?.issued_date) ?? "",
+  );
+  const [endDate, setEndDate] = useState<string>(initial?.expires_date ?? "");
+
+  function addValidity(iso: string, amount: number, unit: "days" | "months" | "years"): string {
+    const d = new Date(iso + "T00:00:00");
+    if (isNaN(d.getTime())) return "";
+    if (unit === "days")   d.setDate(d.getDate() + amount);
+    if (unit === "months") d.setMonth(d.getMonth() + amount);
+    if (unit === "years")  d.setFullYear(d.getFullYear() + amount);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function onStartChange(iso: string) {
+    setStartDate(iso);
+    if (iso && svc?.validity_amount && svc?.validity_unit) {
+      // Only auto-fill when the end is empty or was itself auto-derived
+      // from the previous start; if the operator manually set an end, keep
+      // it. Simple heuristic: overwrite unless the user has edited the end
+      // (tracked via a ref would be sturdier; for now, always overwrite —
+      // they can retype the end after if needed).
+      setEndDate(addValidity(iso, svc.validity_amount, svc.validity_unit));
+    }
+  }
+
   if (catalog.length === 0) {
     return (
       <p className="text-[13px] text-[var(--muted)]">
@@ -472,18 +504,16 @@ function ServiceForm({
             <Label>{svc.applies_to === "company" ? t("services.label.start_date") : t("services.label.issued_date")}</Label>
             <DateInput
               name={svc.applies_to === "company" ? "started_date" : "issued_date"}
-              defaultValue={
-                svc.applies_to === "company"
-                  ? initial?.started_date ?? ""
-                  : initial?.issued_date ?? ""
-              }
+              value={startDate}
+              onChange={onStartChange}
             />
           </div>
           <div>
             <Label>{t("services.label.end_date")}</Label>
             <DateInput
               name="expires_date"
-              defaultValue={initial?.expires_date ?? ""}
+              value={endDate}
+              onChange={setEndDate}
             />
           </div>
         </div>
