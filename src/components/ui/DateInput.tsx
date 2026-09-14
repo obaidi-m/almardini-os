@@ -76,9 +76,9 @@ export function DateInput({
   }
 
   function onPickerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value; // yyyy-mm-dd from native picker
-    if (!v) return;
-    setDisplay(isoToDisplay(v));
+    // "" arrives when the native picker's Clear button is used; treat it
+    // as a real clear rather than ignoring it.
+    setDisplay(isoToDisplay(e.target.value));
   }
 
   return (
