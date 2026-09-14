@@ -16,7 +16,7 @@ begin;
 with candidates as (
   select
     es.id                   as permit_id,
-    min(cc.company_id)      as company_id,
+    (array_agg(cc.company_id))[1] as company_id,
     count(distinct cc.company_id) as company_count
   from public.entity_services es
   join public.client_companies cc on cc.client_id = es.client_id
