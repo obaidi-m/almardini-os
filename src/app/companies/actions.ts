@@ -162,6 +162,47 @@ export async function createCompanyAction(fd: FormData) {
   redirect(`/companies/${company.id}`);
 }
 
+/** Quick-create used by other pages (e.g. New case) that need to add a
+ *  company mid-flow without leaving. Returns the row for the caller to
+ *  splice into its own dropdown state — no revalidate + redirect. */
+export async function createCompanyQuickAction(
+  fd: FormData,
+): Promise<{ id: string; code: string; name: string } | { error: string }> {
+  try {
+    const { supabase, actorId } = await requireUser();
+    const raw = String(fd.get("name") ?? "").trim();
+    if (!raw) return { error: "Company name is required." };
+    const name = ensurePtPrefix(raw);
+    const nib = str(fd, "nib");
+
+    const { data: dupe } = await supabase
+      .from("companies")
+      .select("code, name")
+      .ilike("name", name)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (dupe) return { error: `A company named "${dupe.name}" already exists (${dupe.code}). Pick it from the list instead.` };
+
+    const { data: company, error } = await supabase
+      .from("companies")
+      .insert({
+        name,
+        nib,
+        created_by: actorId,
+        updated_by: actorId,
+      })
+      .select("id, code, name")
+      .single();
+    if (error) return { error: error.message };
+
+    revalidatePath("/companies");
+    return company as { id: string; code: string; name: string };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
 export async function updateCompanyAction(fd: FormData) {
   const { supabase, actorId } = await requireUser();
   const id = String(fd.get("id") ?? "");

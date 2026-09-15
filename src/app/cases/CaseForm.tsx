@@ -4,6 +4,7 @@ import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { Modal } from "@/components/ui/Modal";
 import { NATIONALITIES } from "@/lib/nationalities";
 import { createClientQuickAction } from "@/app/clients/actions";
+import { createCompanyQuickAction } from "@/app/companies/actions";
 import type { CasePriority } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -60,6 +61,9 @@ export function CaseForm({
   const [clientList, setClientList] = useState<Option[]>(clients);
   const [preselectClientId, setPreselectClientId] = useState<string | null>(defaults?.client_id ?? null);
   const [addingClient, setAddingClient] = useState(false);
+  const [companyList, setCompanyList] = useState<Option[]>(companies);
+  const [preselectCompanyId, setPreselectCompanyId] = useState<string | null>(defaults?.company_id ?? null);
+  const [addingCompany, setAddingCompany] = useState(false);
 
   // "Company formation" is detected by label — its catalog entry is what
   // triggers the extra "Company name" input on client-scope cases. Matching
@@ -139,13 +143,25 @@ export function CaseForm({
           </Row>
         ) : (
           <Row label={t("case.field.company")} required>
-            <Combobox
-              name="company_id"
-              options={toCombo(companies)}
-              defaultValue={defaults?.company_id ?? ""}
-              placeholder={t("case.form.search_company")}
-              required
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <Combobox
+                  key={preselectCompanyId ?? "empty"}
+                  name="company_id"
+                  options={toCombo(companyList)}
+                  defaultValue={preselectCompanyId ?? ""}
+                  placeholder={t("case.form.search_company")}
+                  required
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingCompany(true)}
+                className="text-[11.5px] font-medium text-brand hover:text-brand-dark whitespace-nowrap shrink-0"
+              >
+                + New company
+              </button>
+            </div>
           </Row>
         )}
 
@@ -230,6 +246,20 @@ export function CaseForm({
       </div>
     </form>
 
+    <Modal open={addingCompany} onClose={() => setAddingCompany(false)} title="New company" size="md">
+      {addingCompany && (
+        <QuickCompanyForm
+          onSaved={(c) => {
+            const newOpt: Option = { id: c.id, label: c.name, hint: c.code };
+            setCompanyList((prev) => [newOpt, ...prev]);
+            setPreselectCompanyId(c.id);
+            setAddingCompany(false);
+          }}
+          onCancel={() => setAddingCompany(false)}
+        />
+      )}
+    </Modal>
+
     <Modal open={addingClient} onClose={() => setAddingClient(false)} title="New client" size="md">
       {addingClient && (
         <QuickClientForm
@@ -292,6 +322,51 @@ function QuickClientForm({
         </button>
         <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-md disabled:opacity-50">
           {pending ? "Saving…" : "Add client"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function QuickCompanyForm({
+  onSaved, onCancel,
+}: {
+  onSaved: (c: { id: string; code: string; name: string }) => void;
+  onCancel: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <form
+      action={(fd) => {
+        setErr(null);
+        start(async () => {
+          try {
+            const created = await createCompanyQuickAction(fd);
+            if ("error" in created) { setErr(created.error); return; }
+            onSaved(created);
+          } catch (e) {
+            setErr(e instanceof Error ? e.message : "Failed");
+          }
+        });
+      }}
+      className="space-y-3"
+    >
+      <Row label="Company name" required>
+        <input name="name" required autoFocus placeholder="e.g. PT Almardini Wisata" className={cellInput} />
+      </Row>
+      <Row label="NIB">
+        <input name="nib" placeholder="e.g. 1234567890123" className={cellInput + " font-mono"} />
+      </Row>
+      {err && (
+        <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{err}</div>
+      )}
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md">
+          Cancel
+        </button>
+        <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-md disabled:opacity-50">
+          {pending ? "Saving…" : "Add company"}
         </button>
       </div>
     </form>
