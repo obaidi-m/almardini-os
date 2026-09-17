@@ -571,8 +571,9 @@ function ServiceForm({
 
       <div>
         <Label>Guarantor</Label>
-        <select
-          name="guarantor"
+        <GuarantorPicker
+          companies={companies}
+          partners={partners}
           defaultValue={
             initial?.sponsor_company_id
               ? `company:${initial.sponsor_company_id}`
@@ -580,24 +581,7 @@ function ServiceForm({
                 ? `partner:${initial.responsible_partner_id}`
                 : ""
           }
-          className={input}
-        >
-          <option value="">— (none)</option>
-          {companies.length > 0 && (
-            <optgroup label="Companies">
-              {companies.map((c) => (
-                <option key={`c-${c.id}`} value={`company:${c.id}`}>{c.name} ({c.code})</option>
-              ))}
-            </optgroup>
-          )}
-          {partners.length > 0 && (
-            <optgroup label="PJ (legacy)">
-              {partners.map((p) => (
-                <option key={`p-${p.id}`} value={`partner:${p.id}`}>{p.name} ({p.code})</option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+        />
       </div>
 
       <div>
@@ -756,6 +740,110 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 /* ============ helpers ============ */
+
+function GuarantorPicker({
+  companies,
+  partners,
+  defaultValue,
+}: {
+  companies: CompanyOpt[];
+  partners: PartnerOpt[];
+  defaultValue: string;
+}) {
+  type Item = { value: string; label: string; code: string; group: "Companies" | "PJ (legacy)" };
+  const items = useMemo<Item[]>(() => [
+    ...companies.map((c) => ({ value: `company:${c.id}`, label: c.name, code: c.code, group: "Companies" as const })),
+    ...partners.map((p) => ({ value: `partner:${p.id}`, label: p.name, code: p.code, group: "PJ (legacy)" as const })),
+  ], [companies, partners]);
+
+  const initial = items.find((i) => i.value === defaultValue) ?? null;
+  const [picked, setPicked] = useState<Item | null>(initial);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return items.slice(0, 12);
+    return items
+      .filter((i) => i.label.toLowerCase().includes(q) || i.code.toLowerCase().includes(q))
+      .slice(0, 20);
+  }, [items, q]);
+
+  if (picked) {
+    return (
+      <div className="mt-1 flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[var(--border)] rounded-lg">
+        <input type="hidden" name="guarantor" value={picked.value} />
+        <span className="text-[13px] text-ink font-medium">{picked.label}</span>
+        <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">{picked.code}</span>
+        <button
+          type="button"
+          onClick={() => { setPicked(null); setQuery(""); }}
+          className="ml-auto text-[11.5px] text-[var(--muted)] hover:text-red-700"
+        >
+          Change
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <input type="hidden" name="guarantor" value="" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Search company or PJ by name or code…"
+        className={input}
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-auto bg-white border border-[var(--border)] rounded-md shadow-sm">
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { setPicked(null); setQuery(""); setOpen(false); }}
+            className="w-full text-left px-2 py-1.5 text-[12.5px] text-[var(--muted)] hover:bg-[var(--surface-2)] border-b border-[var(--border)]"
+          >
+            — (none)
+          </button>
+          {(["Companies", "PJ (legacy)"] as const).map((g) => {
+            const rows = filtered.filter((i) => i.group === g);
+            if (rows.length === 0) return null;
+            return (
+              <div key={g}>
+                <div className="px-2 py-1 text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold bg-[var(--surface-2)]">
+                  {g}
+                </div>
+                {rows.map((i) => (
+                  <button
+                    key={i.value}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { setPicked(i); setOpen(false); }}
+                    className="w-full text-left px-2 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] flex items-center gap-2"
+                  >
+                    <span className="truncate">{i.label}</span>
+                    <span className="font-mono text-[10.5px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded ml-auto shrink-0">
+                      {i.code}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {open && filtered.length === 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[var(--border)] rounded-md shadow-sm px-2 py-1.5 text-[12px] text-[var(--muted)]">
+          No matches.
+        </div>
+      )}
+    </div>
+  );
+}
 
 const input =
   "w-full mt-1 px-2.5 py-1.5 bg-white border border-[var(--border)] rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand";
