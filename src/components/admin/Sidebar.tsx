@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { clearFilterMemory } from "@/components/app/FilterMemory";
+import { clearFilterMemory, RememberedLink } from "@/components/app/FilterMemory";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -50,7 +50,7 @@ export function Sidebar({ userName, userEmail }: { userName: string; userEmail: 
               ? pathname === "/admin"
               : pathname.startsWith(item.href);
           return (
-            <Link
+            <RememberedLink
               key={item.href}
               href={item.href}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13.5px] font-medium ${
@@ -61,7 +61,7 @@ export function Sidebar({ userName, userEmail }: { userName: string; userEmail: 
             >
               <span className="w-4 h-4 text-[var(--muted)]">{item.icon}</span>
               {item.label}
-            </Link>
+            </RememberedLink>
           );
         })}
       </nav>

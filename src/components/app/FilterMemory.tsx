@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // Paths whose querystring (filters, sort, tabs) is remembered for the current
@@ -62,6 +63,49 @@ export function FilterMemory() {
   }, [pathname, searchParams, router]);
 
   return null;
+}
+
+/** Drop-in <Link> that, at click time, redirects to the saved query for
+ *  its href — so the sidebar takes you straight to your filtered list with
+ *  no visible "All → filtered" flash. Falls back to the plain href on
+ *  cmd/ctrl-click (new tab) and when nothing is saved. */
+export function RememberedLink({
+  href,
+  children,
+  className,
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  const router = useRouter();
+  return (
+    <Link
+      href={href}
+      className={className}
+      onClick={(e) => {
+        onClick?.(e);
+        if (e.defaultPrevented) return;
+        // Let modifier-clicks (open in new tab/window) use the plain href
+        // so the new tab gets a clean list rather than one filtered by
+        // this tab's private sessionStorage.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        try {
+          const saved = sessionStorage.getItem(PREFIX + href);
+          if (saved) {
+            e.preventDefault();
+            router.push(`${href}?${saved}`);
+          }
+        } catch {
+          // ignore
+        }
+      }}
+    >
+      {children}
+    </Link>
+  );
 }
 
 /** Wipe all remembered filters — call on sign-out and on the login page. */

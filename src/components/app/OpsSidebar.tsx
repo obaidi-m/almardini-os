@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LanguageToggle } from "@/components/app/LanguageToggle";
-import { clearFilterMemory } from "@/components/app/FilterMemory";
+import { clearFilterMemory, RememberedLink } from "@/components/app/FilterMemory";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -55,7 +55,7 @@ export function OpsSidebar({
           const active =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
-            <Link
+            <RememberedLink
               key={item.href}
               href={item.href}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${
@@ -66,7 +66,7 @@ export function OpsSidebar({
             >
               <span className={`w-4 h-4 ${active ? "text-white" : "text-[var(--muted)]"}`}>{item.icon}</span>
               {t(item.labelKey)}
-            </Link>
+            </RememberedLink>
           );
         })}
         {isOwner && (
