@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { Client, Partner } from "@/lib/types";
 import { NATIONALITIES } from "@/lib/nationalities";
 import { DateInput } from "@/components/ui/DateInput";
@@ -8,27 +8,6 @@ import { useT } from "@/lib/i18n/client";
 
 type Mode = "create" | "edit";
 
-export type CompanyRoleOption = { code: string; label_en: string };
-export type ExistingCompanyOption = { id: string; code: string; name: string };
-
-type CompanyRow = {
-  uid: string;
-  kind: "new" | "existing";
-  role: string;
-  company_id: string;
-  name: string;
-};
-
-function newRow(defaultRole: string): CompanyRow {
-  return {
-    uid: Math.random().toString(36).slice(2),
-    kind: "new",
-    role: defaultRole,
-    company_id: "",
-    name: "",
-  };
-}
-
 export function ClientForm({
   mode,
   client,
@@ -36,8 +15,6 @@ export function ClientForm({
   action,
   onCancel,
   submitLabel,
-  roles = [],
-  existingCompanies = [],
 }: {
   mode: Mode;
   client?: Partial<Client>;
@@ -45,29 +22,10 @@ export function ClientForm({
   action: (fd: FormData) => Promise<void | { error?: string }>;
   onCancel?: () => void;
   submitLabel?: string;
-  roles?: CompanyRoleOption[];
-  existingCompanies?: ExistingCompanyOption[];
 }) {
   const { t } = useT();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const defaultRole = roles[0]?.code ?? "";
-  const [companies, setCompanies] = useState<CompanyRow[]>([]);
-
-  const companiesJson = useMemo(() => {
-    const clean = companies
-      .map((c) => {
-        if (!c.role) return null;
-        if (c.kind === "existing") {
-          if (!c.company_id) return null;
-          return { kind: "existing", company_id: c.company_id, role: c.role };
-        }
-        if (!c.name.trim()) return null;
-        return { kind: "new", name: c.name.trim(), role: c.role };
-      })
-      .filter(Boolean);
-    return JSON.stringify(clean);
-  }, [companies]);
 
   return (
     <form
@@ -84,7 +42,6 @@ export function ClientForm({
       }}
     >
       {mode === "edit" && client?.id && <input type="hidden" name="id" value={client.id} />}
-      {mode === "create" && <input type="hidden" name="companies_json" value={companiesJson} />}
 
       <datalist id="nationalities-list">
         {NATIONALITIES.map((n) => <option key={n} value={n} />)}
@@ -192,16 +149,6 @@ export function ClientForm({
         </>
       )}
 
-      {mode === "create" && (
-        <CompaniesSection
-          companies={companies}
-          setCompanies={setCompanies}
-          roles={roles}
-          existingCompanies={existingCompanies}
-          defaultRole={defaultRole}
-        />
-      )}
-
       <Section title={t("section.notes")} last>
         <Row label={t("field.notes")} align="start">
           <textarea
@@ -240,170 +187,6 @@ export function ClientForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function CompaniesSection({
-  companies, setCompanies, roles, existingCompanies, defaultRole,
-}: {
-  companies: CompanyRow[];
-  setCompanies: (fn: (prev: CompanyRow[]) => CompanyRow[]) => void;
-  roles: CompanyRoleOption[];
-  existingCompanies: ExistingCompanyOption[];
-  defaultRole: string;
-}) {
-  const { t } = useT();
-  const update = (uid: string, patch: Partial<CompanyRow>) =>
-    setCompanies((prev) => prev.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
-  const remove = (uid: string) => setCompanies((prev) => prev.filter((c) => c.uid !== uid));
-  const add = () => setCompanies((prev) => [...prev, newRow(defaultRole)]);
-
-  return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold">
-          {t("form.companies_of_person")}
-        </div>
-        <button type="button" onClick={add} className="text-[12px] font-medium text-brand hover:text-brand-dark">
-          {t("form.add_company")}
-        </button>
-      </div>
-      <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
-        {companies.length === 0 && (
-          <div className="py-3 text-[12.5px] text-[var(--muted)]">
-            {t("form.no_companies_yet")}
-          </div>
-        )}
-        {companies.map((c, idx) => (
-          <div key={c.uid} className="py-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-[11px] uppercase tracking-wider text-[var(--muted)] font-semibold">
-                {t("form.company_index", { n: idx + 1 })}
-              </div>
-              <div className="flex items-center gap-2 text-[11.5px]">
-                <label className="inline-flex items-center gap-1 text-[var(--muted)]">
-                  <input
-                    type="radio"
-                    name={`kind-${c.uid}`}
-                    checked={c.kind === "new"}
-                    onChange={() => update(c.uid, { kind: "new" })}
-                  />
-                  {t("form.kind_new")}
-                </label>
-                <label className="inline-flex items-center gap-1 text-[var(--muted)]">
-                  <input
-                    type="radio"
-                    name={`kind-${c.uid}`}
-                    checked={c.kind === "existing"}
-                    onChange={() => update(c.uid, { kind: "existing" })}
-                  />
-                  {t("form.kind_existing")}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => remove(c.uid)}
-                  className="text-[var(--muted)] hover:text-red-700 ml-1"
-                  aria-label={t("form.remove")}
-                  title={t("form.remove")}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {c.kind === "existing" ? (
-              <div className="grid grid-cols-[1fr_180px] gap-2">
-                <CompanyCombobox
-                  value={c.company_id}
-                  onChange={(id) => update(c.uid, { company_id: id })}
-                  options={existingCompanies}
-                  placeholder={t("form.pick_existing_company")}
-                />
-                <RoleSelect value={c.role} onChange={(v) => update(c.uid, { role: v })} roles={roles} />
-              </div>
-            ) : (
-              <div className="grid grid-cols-[1fr_180px] gap-2">
-                <input
-                  placeholder={t("form.placeholder.company_name_required")}
-                  value={c.name}
-                  onChange={(e) => update(c.uid, { name: e.target.value })}
-                  className={cellInput}
-                />
-                <RoleSelect value={c.role} onChange={(v) => update(c.uid, { role: v })} roles={roles} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RoleSelect({ value, onChange, roles }: { value: string; onChange: (v: string) => void; roles: CompanyRoleOption[] }) {
-  const { t } = useT();
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} required className={cellInput}>
-      {roles.length === 0 && <option value="">{t("form.no_roles_configured")}</option>}
-      {roles.map((r) => <option key={r.code} value={r.code}>{r.label_en}</option>)}
-    </select>
-  );
-}
-
-function CompanyCombobox({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  options: ExistingCompanyOption[];
-  placeholder: string;
-}) {
-  const selected = options.find((o) => o.id === value);
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const display = selected ? `${selected.name} (${selected.code})` : "";
-  const q = query.trim().toLowerCase();
-  const filtered = useMemo(() => {
-    if (!q) return options.slice(0, 50);
-    return options
-      .filter((o) => o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q))
-      .slice(0, 50);
-  }, [options, q]);
-
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={open ? query : display}
-        placeholder={placeholder}
-        onFocus={() => { setQuery(display); setOpen(true); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-        className={cellInput}
-      />
-      {open && filtered.length > 0 && (
-        <div className="absolute z-10 left-0 right-0 mt-1 max-h-60 overflow-auto bg-white border border-[var(--border)] rounded-md shadow-sm">
-          {filtered.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onChange(o.id); setQuery(""); setOpen(false); }}
-              className="w-full text-left px-2 py-1.5 text-[12.5px] hover:bg-[var(--muted-bg,#f5f5f5)]"
-            >
-              {o.name} <span className="text-[var(--muted)]">({o.code})</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {open && filtered.length === 0 && (
-        <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-[var(--border)] rounded-md shadow-sm px-2 py-1.5 text-[12.5px] text-[var(--muted)]">
-          —
-        </div>
-      )}
-    </div>
   );
 }
 

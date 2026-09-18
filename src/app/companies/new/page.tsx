@@ -11,13 +11,8 @@ import { getT } from "@/lib/i18n/server";
 export default async function NewCompanyPage() {
   const supabase = createClient();
   const { t } = await getT();
-  const [{ data: rolesData }, { data: clientsData }, { data: partnersData }] = await Promise.all([
-    supabase.from("company_roles").select("code, label_en").order("sort_order"),
-    supabase.from("clients").select("id, code, full_name").is("deleted_at", null).order("full_name").limit(500),
-    supabase.from("partners").select("id, code, name").is("deleted_at", null).order("name").limit(500),
-  ]);
-  const roles = (rolesData as Array<{ code: string; label_en: string }>) ?? [];
-  const existingClients = (clientsData as Array<{ id: string; code: string; full_name: string }>) ?? [];
+  const { data: partnersData } = await supabase
+    .from("partners").select("id, code, name").is("deleted_at", null).order("name").limit(500);
   const partners = (partnersData as Array<{ id: string; code: string; name: string }>) ?? [];
 
   return (
@@ -29,8 +24,6 @@ export default async function NewCompanyPage() {
       <CompanyForm
         mode="create"
         action={createCompanyAction}
-        roles={roles}
-        existingClients={existingClients}
         partners={partners}
       />
     </div>
