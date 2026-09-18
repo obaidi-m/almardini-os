@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // Paths whose querystring (filters, sort, tabs) is remembered for the current
@@ -31,20 +31,31 @@ export function FilterMemory() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const lastPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!pathname) return;
     const key = keyFor(pathname);
-    if (!key) return;
+    const prev = lastPathRef.current;
+    lastPathRef.current = pathname;
 
+    if (!key) return;
     const current = searchParams?.toString() ?? "";
+    const arriving = prev !== pathname;
+
     try {
-      if (current) {
-        sessionStorage.setItem(key, current);
-      } else {
+      if (arriving && !current) {
+        // First visit to this page in this tab motion — restore last query
+        // if we have one saved.
         const saved = sessionStorage.getItem(key);
         if (saved) router.replace(`${pathname}?${saved}`);
+        return;
       }
+      // Already on the page: whatever the user does — set a filter or
+      // clear one — becomes the new remembered state. Storing the empty
+      // string means a subsequent visit starts clean, so "All" / "Reset"
+      // links that go to the bare path don't get overridden.
+      sessionStorage.setItem(key, current);
     } catch {
       // sessionStorage can throw in privacy modes — ignore.
     }
