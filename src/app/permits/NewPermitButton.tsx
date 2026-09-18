@@ -3,7 +3,9 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { DateInput } from "@/components/ui/DateInput";
+import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { NATIONALITIES } from "@/lib/nationalities";
+import { createClientQuickAction } from "@/app/clients/actions";
 import { createPermitWithClientAction } from "./actions";
 
 type ClientOpt = { id: string; code: string; full_name: string };
@@ -59,16 +61,47 @@ function NewPermitForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [pickedClient, setPickedClient] = useState<ClientOpt | null>(null);
-  const [nameQuery, setNameQuery] = useState("");
-  const [passport, setPassport] = useState("");
-  const [nationality, setNationality] = useState("");
+  // Local mirror of clients so the "+ New client" quick-add can splice the
+  // fresh row in and preselect it without a full-page reload — same trick
+  // CaseForm uses.
+  const [clientList, setClientList] = useState<ClientOpt[]>(clients);
+  const [pickedClientId, setPickedClientId] = useState<string>("");
+  const [addingClient, setAddingClient] = useState(false);
+
+  const pickedClient = useMemo(
+    () => clientList.find((c) => c.id === pickedClientId) ?? null,
+    [clientList, pickedClientId],
+  );
+
+  const clientOptions: ComboOption[] = useMemo(
+    () => clientList.map((c) => ({ id: c.id, label: c.full_name, hint: c.code })),
+    [clientList],
+  );
+
+  // Unified guarantor list: companies + partners in one searchable dropdown.
+  // The id keeps the "company:<uuid>" / "partner:<uuid>" prefix the server
+  // action already expects, so nothing changes on the backend side.
+  const guarantorOptions: ComboOption[] = useMemo(() => {
+    const co: ComboOption[] = companies.map((c) => ({
+      id: `company:${c.id}`,
+      label: c.name,
+      hint: c.code,
+      keywords: "company",
+    }));
+    const pj: ComboOption[] = partners.map((p) => ({
+      id: `partner:${p.id}`,
+      label: `${p.name} (PJ)`,
+      hint: p.code,
+      keywords: "partner pj legacy",
+    }));
+    return [...co, ...pj];
+  }, [companies, partners]);
 
   return (
+    <>
     <form
       action={(fd) => {
         setError(null);
-        if (pickedClient) fd.set("client_id", pickedClient.id);
         start(async () => {
           try {
             const { clientId } = await createPermitWithClientAction(fd);
@@ -81,60 +114,35 @@ function NewPermitForm({
         });
       }}
     >
-      <datalist id="np-nationalities">
-        {NATIONALITIES.map((n) => <option key={n} value={n} />)}
-      </datalist>
-
       <Section title="Person">
-        {pickedClient ? (
-          <Row label="Client">
-            <div className="flex items-center gap-2">
-              <span className="text-[13.5px] text-ink font-medium">{pickedClient.full_name}</span>
-              <span className="font-mono text-[11px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">{pickedClient.code}</span>
-              <button
-                type="button"
-                onClick={() => setPickedClient(null)}
-                className="ml-auto text-[11.5px] text-[var(--muted)] hover:text-red-700"
-              >
-                Change
-              </button>
+        <Row label="Client" required>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <Combobox
+                key={pickedClientId || "empty"}
+                name="client_id"
+                options={clientOptions}
+                defaultValue={pickedClientId}
+                placeholder="Search existing clients…"
+                required
+                onChange={setPickedClientId}
+              />
             </div>
-          </Row>
-        ) : (
-          <>
-            <Row label="Full name" required>
-              <ClientCombobox
-                value={nameQuery}
-                onQueryChange={setNameQuery}
-                onPick={(c) => { setPickedClient(c); setNameQuery(""); }}
-                options={clients}
-              />
-              {/* Hidden field so the server action sees the typed name when
-                  no existing client was picked. */}
-              <input type="hidden" name="full_name" value={nameQuery} />
-            </Row>
-            <Row label="Passport no.">
-              <input
-                name="passport_no"
-                value={passport}
-                onChange={(e) => setPassport(e.target.value)}
-                placeholder="e.g. AB1234567"
-                className={cellInput + " font-mono uppercase"}
-              />
-            </Row>
-            <Row label="Nationality">
-              <input
-                name="nationality"
-                list="np-nationalities"
-                value={nationality}
-                onChange={(e) => setNationality(e.target.value)}
-                placeholder="e.g. Yemen"
-                autoComplete="off"
-                className={cellInput}
-              />
-            </Row>
-          </>
-        )}
+            <button
+              type="button"
+              onClick={() => setAddingClient(true)}
+              className="text-[11.5px] font-medium text-brand hover:text-brand-dark whitespace-nowrap shrink-0"
+            >
+              + New client
+            </button>
+          </div>
+          {pickedClient && (
+            <div className="mt-1 text-[11.5px] text-[var(--muted)]">
+              <span className="font-mono text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded">{pickedClient.code}</span>
+              <span className="ml-2">{pickedClient.full_name}</span>
+            </div>
+          )}
+        </Row>
       </Section>
 
       <Section title="Permit">
@@ -155,23 +163,14 @@ function NewPermitForm({
           </Row>
         </div>
         <Row label="Guarantor">
-          <select name="guarantor" defaultValue="" className={cellInput + " bg-transparent"}>
-            <option value="">— (none)</option>
-            {companies.length > 0 && (
-              <optgroup label="Companies">
-                {companies.map((c) => (
-                  <option key={`c-${c.id}`} value={`company:${c.id}`}>{c.name} ({c.code})</option>
-                ))}
-              </optgroup>
-            )}
-            {partners.length > 0 && (
-              <optgroup label="PJ (legacy)">
-                {partners.map((p) => (
-                  <option key={`p-${p.id}`} value={`partner:${p.id}`}>{p.name} ({p.code})</option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+          <Combobox
+            name="guarantor"
+            options={guarantorOptions}
+            defaultValue=""
+            placeholder="Search company or partner…"
+            emptyLabel="— (none) —"
+            allowEmpty
+          />
         </Row>
         <Row label="Notes" align="start">
           <textarea name="notes" rows={2} className={cellInput + " resize-y"} />
@@ -199,64 +198,71 @@ function NewPermitForm({
         </button>
       </div>
     </form>
+
+    <Modal open={addingClient} onClose={() => setAddingClient(false)} title="New client" size="md">
+      {addingClient && (
+        <QuickClientForm
+          onSaved={(c) => {
+            setClientList((prev) => [{ id: c.id, code: c.code, full_name: c.full_name }, ...prev]);
+            setPickedClientId(c.id);
+            setAddingClient(false);
+          }}
+          onCancel={() => setAddingClient(false)}
+        />
+      )}
+    </Modal>
+    </>
   );
 }
 
-function ClientCombobox({
-  value, onQueryChange, onPick, options,
+function QuickClientForm({
+  onSaved, onCancel,
 }: {
-  value: string;
-  onQueryChange: (v: string) => void;
-  onPick: (c: ClientOpt) => void;
-  options: ClientOpt[];
+  onSaved: (c: { id: string; code: string; full_name: string }) => void;
+  onCancel: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const q = value.trim().toLowerCase();
-  const filtered = useMemo(() => {
-    if (!q) return options.slice(0, 8);
-    return options
-      .filter((c) => c.full_name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [options, q]);
-
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
   return (
-    <div className="relative">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => { onQueryChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Type a new name, or search existing…"
-        className={cellInput}
-      />
-      {open && filtered.length > 0 && (
-        <div className="absolute z-10 left-0 right-0 mt-1 max-h-56 overflow-auto bg-white border border-[var(--border)] rounded-md shadow-sm">
-          <div className="px-2 py-1.5 text-[10.5px] uppercase tracking-widest text-[var(--muted)] font-semibold">
-            Existing clients
-          </div>
-          {filtered.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onPick(c); setOpen(false); }}
-              className="w-full text-left px-2 py-1.5 text-[12.5px] hover:bg-[var(--surface-2)] flex items-center gap-2"
-            >
-              <span className="truncate">{c.full_name}</span>
-              <span className="font-mono text-[10.5px] text-brand-dark bg-brand-softer px-1.5 py-0.5 rounded ml-auto shrink-0">
-                {c.code}
-              </span>
-            </button>
-          ))}
-          {value.trim() && (
-            <div className="px-2 py-1.5 text-[11px] text-[var(--muted)] border-t border-[var(--border)]">
-              Or press Create permit to add <span className="text-ink font-medium">{value.trim()}</span> as a new client.
-            </div>
-          )}
-        </div>
+    <form
+      action={(fd) => {
+        setErr(null);
+        start(async () => {
+          try {
+            const created = await createClientQuickAction(fd);
+            if ("error" in created) { setErr(created.error); return; }
+            onSaved(created);
+          } catch (e) {
+            setErr(e instanceof Error ? e.message : "Failed");
+          }
+        });
+      }}
+      className="space-y-3"
+    >
+      <datalist id="qcp-nationalities">
+        {NATIONALITIES.map((n) => <option key={n} value={n} />)}
+      </datalist>
+      <Row label="Full name" required>
+        <input name="full_name" required autoFocus placeholder="e.g. Ahmed Al Yamani" className={cellInput} />
+      </Row>
+      <Row label="Passport no.">
+        <input name="passport_no" placeholder="e.g. BV31645" className={cellInput + " font-mono uppercase"} />
+      </Row>
+      <Row label="Nationality">
+        <input name="nationality" list="qcp-nationalities" placeholder="e.g. Yemen" autoComplete="off" className={cellInput} />
+      </Row>
+      {err && (
+        <div className="text-[12.5px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{err}</div>
       )}
-    </div>
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[var(--muted)] hover:text-ink rounded-md">
+          Cancel
+        </button>
+        <button type="submit" disabled={pending} className="px-3.5 py-1.5 text-[13px] font-medium bg-brand hover:bg-brand-dark text-white rounded-md disabled:opacity-50">
+          {pending ? "Saving…" : "Add client"}
+        </button>
+      </div>
+    </form>
   );
 }
 
