@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { DetailsAutoClose } from "@/components/app/DetailsAutoClose";
 import { ConfirmProvider } from "@/components/ui/ConfirmProvider";
 import { FeedbackWidget } from "@/components/app/FeedbackWidget";
+import { FilterMemory } from "@/components/app/FilterMemory";
 
 export const metadata: Metadata = {
   title: "Almardini · Operations",
@@ -21,6 +23,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </LocaleProvider>
         <DetailsAutoClose />
         <FeedbackWidget />
+        <Suspense fallback={null}>
+          <FilterMemory />
+        </Suspense>
       </body>
     </html>
   );

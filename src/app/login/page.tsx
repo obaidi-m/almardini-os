@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useT } from "@/lib/i18n/client";
+import { clearFilterMemory } from "@/components/app/FilterMemory";
 
 export default function LoginPage() {
   const { t } = useT();
@@ -13,6 +14,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Any prior tab's remembered filters shouldn't leak into a fresh session.
+  useEffect(() => { clearFilterMemory(); }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

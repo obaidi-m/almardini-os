@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { clearFilterMemory } from "@/components/app/FilterMemory";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -23,6 +24,7 @@ export function Sidebar({ userName, userEmail }: { userName: string; userEmail: 
   const supabase = createClient();
 
   async function signOut() {
+    clearFilterMemory();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();

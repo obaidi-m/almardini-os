@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LanguageToggle } from "@/components/app/LanguageToggle";
+import { clearFilterMemory } from "@/components/app/FilterMemory";
 import { useT } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -35,6 +36,7 @@ export function OpsSidebar({
   const { t } = useT();
 
   async function signOut() {
+    clearFilterMemory();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
