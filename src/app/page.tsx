@@ -388,7 +388,7 @@ export default async function DashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8">
+            <div className={focusRows.length > 0 ? "grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8" : "grid grid-cols-1 gap-8"}>
               {/* Left column */}
               <div className="space-y-8">
                 <Panel
@@ -410,30 +410,11 @@ export default async function DashboardPage() {
                 </Panel>
               </div>
 
-              {/* Right column */}
-              <div className="space-y-8">
-                <Panel
-                  title={t("dash.renewals_90", { n: renewals.length })}
-                >
-                  {renewals.length === 0 ? (
-                    <Empty>{t("dash.no_expiring")}</Empty>
-                  ) : (
-                    <ul className="divide-y divide-[var(--border)]">
-                      {renewals.map((r, i) => (
-                        <li key={i} className="py-2 flex items-center gap-3">
-                          <RenewalBadge kind={r.kind} t={t} />
-                          <Link href={r.href} className="flex-1 min-w-0 text-[13px] text-ink hover:text-brand truncate">
-                            {r.label}
-                          </Link>
-                          <span className="text-[12px] text-[var(--muted)] shrink-0">{fmtDate(r.expires_at)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Panel>
-
-                {focusRows.length > 0 && <FocusPanel rows={focusRows} t={t} />}
-              </div>
+              {focusRows.length > 0 && (
+                <div className="space-y-8">
+                  <FocusPanel rows={focusRows} t={t} />
+                </div>
+              )}
             </div>
           )}
         </main>
