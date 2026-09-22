@@ -127,7 +127,7 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     return "active";
   };
 
-  const all: Row[] = ((data ?? []) as Array<{
+  const allRaw = ((data ?? []) as Array<{
     id: string;
     expires_date: string | null;
     status: EntityServiceStatus;
@@ -135,13 +135,34 @@ export default async function PermitsListPage({ searchParams }: { searchParams: 
     service: { id: string; name: string; applies_to: string }[] | { id: string; name: string; applies_to: string } | null;
   }>)
     .filter((r) => r.expires_date !== null) // permits list is expiry-tracked ones only
-    .map((r) => ({
-      id: r.id,
-      kind: unwrap(r.service)?.name ?? "Permit",
-      expires_date: r.expires_date as string,
-      status: displayStatus(r.status, r.expires_date),
-      client: unwrap(r.client),
-    }));
+    .map((r) => {
+      const client = unwrap(r.client);
+      const service = unwrap(r.service);
+      return {
+        id: r.id,
+        kind: service?.name ?? "Permit",
+        expires_date: r.expires_date as string,
+        status: displayStatus(r.status, r.expires_date),
+        client,
+        // Grouping key: (client, service kind). A later expires_date for the
+        // same key means this row is a historical predecessor of a renewal —
+        // it's kept in the DB (and on the client's profile) but hidden from
+        // the global list so ops sees one live card per person+kind.
+        _groupKey: client && service ? `${client.id}::${service.id}` : null,
+      };
+    });
+
+  // Latest expires_date per (client, kind). Rows without a group key
+  // (no client or no service) always pass through.
+  const latestByGroup = new Map<string, string>();
+  for (const r of allRaw) {
+    if (!r._groupKey) continue;
+    const prev = latestByGroup.get(r._groupKey);
+    if (!prev || r.expires_date > prev) latestByGroup.set(r._groupKey, r.expires_date);
+  }
+  const all: Row[] = allRaw
+    .filter((r) => !r._groupKey || latestByGroup.get(r._groupKey) === r.expires_date)
+    .map(({ _groupKey, ...row }) => row);
 
   const counts = {
     all:         all.length,
