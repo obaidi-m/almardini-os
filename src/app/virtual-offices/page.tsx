@@ -108,7 +108,7 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
     return "active";
   };
 
-  const all: Row[] = ((data ?? []) as Array<{
+  const allRaw = ((data ?? []) as Array<{
     id: string;
     expires_date: string | null;
     started_date: string | null;
@@ -117,18 +117,40 @@ export default async function VirtualOfficesListPage({ searchParams }: { searchP
     status: EntityServiceStatus;
     company:     { id: string; code: string; name: string }[] | { id: string; code: string; name: string } | null;
     responsible: { id: string; name: string; code: string }[] | { id: string; name: string; code: string } | null;
+    service:     { id: string; name: string; applies_to: string }[] | { id: string; name: string; applies_to: string } | null;
   }>)
     .filter((r) => r.expires_date !== null)
-    .map((r) => ({
-      id: r.id,
-      tier: titleCase(r.tier ?? "silver"),
-      term_months: r.term_months,
-      start_date: r.started_date,
-      end_date: r.expires_date as string,
-      status: displayStatus(r.status, r.expires_date),
-      company: unwrap(r.company),
-      responsible: unwrap(r.responsible),
-    }));
+    .map((r) => {
+      const company = unwrap(r.company);
+      const service = unwrap(r.service);
+      return {
+        id: r.id,
+        tier: titleCase(r.tier ?? "silver"),
+        term_months: r.term_months,
+        start_date: r.started_date,
+        end_date: r.expires_date as string,
+        status: displayStatus(r.status, r.expires_date),
+        company,
+        responsible: unwrap(r.responsible),
+        // Grouping key: (company, service kind). A later expires_date for the
+        // same key means this row is a historical predecessor of a renewal —
+        // it's kept in the DB (and on the company's profile) but hidden from
+        // the global list so ops sees one live card per company+kind.
+        _groupKey: company && service ? `${company.id}::${service.id}` : null,
+      };
+    });
+
+  // Latest expires_date per (company, kind). Rows without a group key
+  // (no company or no service) always pass through.
+  const latestByGroup = new Map<string, string>();
+  for (const r of allRaw) {
+    if (!r._groupKey) continue;
+    const prev = latestByGroup.get(r._groupKey);
+    if (!prev || r.end_date > prev) latestByGroup.set(r._groupKey, r.end_date);
+  }
+  const all: Row[] = allRaw
+    .filter((r) => !r._groupKey || latestByGroup.get(r._groupKey) === r.end_date)
+    .map(({ _groupKey, ...row }) => row);
 
   const counts = {
     all:         all.length,
